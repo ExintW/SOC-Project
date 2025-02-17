@@ -73,6 +73,7 @@ D = distribute_sediment(E, DEM, DAMS)  # 计算沉积量
 
 # === 计算植被 SOC 输入 ===
 def vegetation_input(NDVI, base_input=0.01, max_input=0.1):
+    NDVI = NDVI / 10000.0  # Normalize NDVI
     return max_input * (1 - np.exp(-NDVI / base_input))
 
 V = vegetation_input(NDVI)  # 计算植被输入量
