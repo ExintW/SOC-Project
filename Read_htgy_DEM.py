@@ -1,44 +1,81 @@
-import rasterio
+import geopandas as gpd
 import pandas as pd
+import rasterio
+from shapely.geometry import Point
 import numpy as np
-from rasterio.transform import rowcol
+from scipy.spatial import cKDTree
 
-# 设置文件路径
-csv_file = r"D:\EcoSci\Dr.Shi\Data\resampled_Loess_Plateau_10km_with_dam.csv"
-tiff_file = r"D:\EcoSci\Dr.Shi\Data\htgyDEM-30m\htgyDEM.tif"
-output_csv = r"D:\EcoSci\Dr.Shi\Data\resampled_Loess_Plateau_10km_with_dam_with_DEM.csv"
+# === 1. 设置文件路径 ===
+csv_file = r"D:\EcoSci\Dr.Shi\Data\resampled_Loess_Plateau_1km.csv"  # 输入的点位CSV
+shp_path = r"D:\EcoSci\Dr.Shi\Data\Loess_Plateau_vector_border\Loess_Plateau_vector_border\Loess_Plateau_vector_border.shp"  # htgy边界
+tif_path = r"D:\EcoSci\Dr.Shi\Data\htgyDEM-30m\htgyDEM.tif"  # TIFF文件路径
+output_csv = r"D:\EcoSci\Dr.Shi\Data\resampled_Loess_Plateau_1km_with_DEM.csv"  # 输出CSV路径
 
-# 读取 CSV 文件
+# === 2. 读取数据 ===
 df = pd.read_csv(csv_file)
+boundary = gpd.read_file(shp_path)
 
-# 确保 CSV 文件包含 'LON' 和 'LAT' 列
+# 检查 CSV 是否包含所需列
 if "LON" not in df.columns or "LAT" not in df.columns:
     raise ValueError("CSV 文件中缺少 'LON' 或 'LAT' 列")
 
-# 打开 TIFF 文件
-with rasterio.open(tiff_file) as dataset:
-    transform = dataset.transform  # 获取仿射变换
-    dem_array = dataset.read(1)  # **一次性读取整个 DEM 数组，提高速度**
+# === 3. 读取 DEM 数据，检查 CRS 和空间范围 ===
+with rasterio.open(tif_path) as dem_dataset:
+    dem_crs = dem_dataset.crs
+    dem_bounds = dem_dataset.bounds
+    print(f"DEM CRS: {dem_crs}")
+    print(f"DEM Bounds: {dem_bounds}")
 
-    dem_values = []  # 存储每个点的 DEM 值
+    # 检查边界文件 CRS 并进行转换
+    if boundary.crs != dem_crs:
+        print("CRS 不匹配，正在重投影边界...")
+        boundary = boundary.to_crs(dem_crs)
 
-    for lon, lat in zip(df["LON"], df["LAT"]):
-        # 将地理坐标 (lon, lat) 转换为像素索引 (row, col)
-        row, col = rowcol(transform, lon, lat)
+# === 4. 处理点数据，确保其在 DEM 范围内 ===
+geometry = [Point(lon, lat) for lon, lat in zip(df["LON"], df["LAT"])]
+points_gdf = gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")  # 假设 CSV 是 WGS84 经纬度
+points_gdf = points_gdf.to_crs(dem_crs)  # 转换为 DEM 坐标系
 
-        # 确保点位在 DEM 数据范围内
-        if 0 <= row < dataset.height and 0 <= col < dataset.width:
-            dem_value = dem_array[row, col]  # 直接从 numpy 数组中获取数据（**更快！**）
-        else:
-            dem_value = None  # 处理超出范围的点
+# === 5. 筛选出边界范围内的点 ===
+points_within_boundary = gpd.sjoin(points_gdf, boundary, how="inner", predicate='within')
+if points_within_boundary.empty:
+    raise ValueError("没有点位位于 Loess Plateau 边界内！")
 
+# === 6. 提取 DEM 高程值（修复 sample() 调用）===
+dem_values = []
+with rasterio.open(tif_path) as dem_dataset:
+    for point in points_within_boundary.geometry:
+        try:
+            value = next(dem_dataset.sample([(point.x, point.y)]))  # 直接使用 sample() 方法
+            dem_value = value[0] if value is not None else None
+        except StopIteration:
+            dem_value = None
         dem_values.append(dem_value)
 
-# 添加新列
-df["htgy_DEM"] = dem_values
+points_within_boundary["htgy_DEM"] = dem_values
 
-# 保存结果
-df.to_csv(output_csv, index=False)
+# === 7. 处理缺失值（使用最近邻插值填充）===
+if points_within_boundary["htgy_DEM"].isnull().sum() > 0:
+    print("发现 DEM 值缺失点，正在进行最近邻插值填充...")
 
-print(f"处理完成！带有 DEM 数据的新 CSV 文件已保存至: {output_csv}")
+    # 获取有效DEM值的点
+    valid_points = points_within_boundary.dropna(subset=["htgy_DEM"])
+    valid_coords = np.array([(p.x, p.y) for p in valid_points.geometry])
+    valid_values = np.array(valid_points["htgy_DEM"])
 
+    # 构建 KD-Tree 进行最近邻搜索
+    tree = cKDTree(valid_coords)
+
+    # 查找最近邻的非空值
+    missing_points = points_within_boundary[points_within_boundary["htgy_DEM"].isnull()]
+    missing_coords = np.array([(p.x, p.y) for p in missing_points.geometry])
+    _, idx = tree.query(missing_coords, k=1)
+
+    # 用最近邻的值填充缺失值
+    points_within_boundary.loc[points_within_boundary["htgy_DEM"].isnull(), "htgy_DEM"] = valid_values[idx]
+
+# === 8. 保存结果 ===
+points_within_boundary.drop(columns="geometry", inplace=True)
+points_within_boundary.to_csv(output_csv, index=False, encoding="utf-8-sig")
+
+print(f"处理完成！新 CSV 文件已保存至: {output_csv}")
