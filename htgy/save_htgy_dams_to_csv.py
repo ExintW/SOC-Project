@@ -1,38 +1,57 @@
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # Define base path
 base_path = r"D:\EcoSci\Dr.Shi\Data"
 
-# Path to your shapefile
-shapefile_path = f"{base_path}\\骨干坝\\骨干坝.shp"
+# Paths to shapefiles
+shapefile_paths = {
+    "骨干坝": f"{base_path}\\骨干坝\\骨干坝.shp",  # "Backbone Dams"
+    "中型坝": f"{base_path}\\中型坝\\中型坝.shp"  # "Medium-sized Dams"
+}
 
-# Read the shapefile
-gdf = gpd.read_file(shapefile_path)
+# English translations for legend
+legend_labels = {
+    "骨干坝": "Backbone Dams",
+    "中型坝": "Medium-sized Dams"
+}
 
-# Save to CSV with UTF-8 encoding (fixing garbled Chinese characters)
-output_csv_path = f"{base_path}\\htgy_dams_fixed.csv"
-gdf.drop(columns="geometry").to_csv(output_csv_path, index=False, encoding="utf-8-sig")
+# List to store GeoDataFrames
+gdfs = []
 
-print(f"Shapefile data saved to {output_csv_path} with UTF-8 encoding.")
+# ---- Data Processing ----
+for name, path in shapefile_paths.items():
+    gdf = gpd.read_file(path)
+    if not gdf.empty:
+        gdf["dam_type"] = legend_labels[name]  # Add a new column with English name
+        gdfs.append(gdf.drop(columns="geometry", errors="ignore"))  # Drop geometry for CSV storage
 
-# ---- 🎨 VISUALIZATION ----
-fig, ax = plt.subplots(figsize=(10, 6))
+# Merge all data into a single DataFrame
+if gdfs:
+    merged_df = pd.concat(gdfs, ignore_index=True)
 
-# Plot the shapefile
-gdf.plot(ax=ax, color="blue", edgecolor="black", alpha=0.6)
+    # Save to CSV with UTF-8 encoding
+    output_csv_path = f"{base_path}\\htgy_dams_fixed.csv"
+    merged_df.to_csv(output_csv_path, index=False, encoding="utf-8-sig")
+    print(f"Shapefile data merged and saved to {output_csv_path} with UTF-8 encoding.")
 
-# Customize visualization
-ax.set_title("Visualization of 骨干坝 Shapefile", fontsize=14)
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
+    # ---- 🎨 VISUALIZATION ----
+    fig, ax = plt.subplots(figsize=(10, 6))
 
-plt.grid(True)
-plt.show()
-gdf = gpd.read_file(shapefile_path)
+    # Read shapefiles again for plotting
+    for name, path in shapefile_paths.items():
+        gdf = gpd.read_file(path)
+        if not gdf.empty:
+            gdf.plot(ax=ax, edgecolor="black", alpha=0.6, label=legend_labels[name])  # Use English labels
 
-# Save to CSV with UTF-8 encoding (fixing garbled Chinese characters)
-output_csv_path = f"{base_path}\\htgy_dams_fixed.csv"
-gdf.drop(columns="geometry").to_csv(output_csv_path, index=False, encoding="utf-8-sig")
+    # Customize visualization
+    ax.set_title("Visualization of Backbone Dams & Medium-sized Dams", fontsize=14)
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.legend()
 
-print(f"Shapefile data saved to {output_csv_path} with UTF-8 encoding.")
+    plt.grid(True)
+    plt.show()
+else:
+    print("Error: No valid data found in the provided shapefiles.")
