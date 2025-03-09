@@ -3,15 +3,15 @@ import pandas as pd
 import numpy as np
 from scipy.spatial import cKDTree
 import re
-from pathlib import Path
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 # File paths
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "Raw_Data"
-output_dir = working_dir / "Processed_Data"
-nc_file = data_dir / "2007.nc"
-csv_file = data_dir / "Vegetation_Input_v2.csv"
-output_csv = output_dir / "Vegetation_Input_v2_with_Lai.csv"
+nc_file = DATA_DIR / "2007.nc"
+csv_file = DATA_DIR / "Vegetation_Input_v2.csv"
+output_csv = PROCESSED_DIR / "Vegetation_Input_v2_with_Lai.csv"
 
 # Load the NetCDF file
 ds = xr.open_dataset(nc_file)

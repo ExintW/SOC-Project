@@ -5,12 +5,11 @@ ERA5 download
 
 import cdsapi
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
-from pathlib import Path
-
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "RAW_DATA/ERA5"
-os.makedirs(data_dir, exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
 
 c = cdsapi.Client()
 
@@ -66,5 +65,5 @@ for year in range(first_year, last_year + 1):
                 ],
                 'format': 'netcdf'
             },
-            data_dir / "{year}-{month:02d}.nc".format(year=year, month=month))
+            DATA_DIR / "{year}-{month:02d}.nc".format(year=year, month=month))
         

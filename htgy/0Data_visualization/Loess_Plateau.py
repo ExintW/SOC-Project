@@ -1,23 +1,21 @@
 import geopandas as gpd
 import pandas as pd
 import matplotlib.pyplot as plt
-
-from pathlib import Path
-
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "Raw_Data"
-
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 # 读取矢量边界数据
-shp_path = data_dir / "Loess_Plateau_vector_border.shp"
+shp_path = DATA_DIR / "Loess_Plateau_vector_border.shp"
 gdf = gpd.read_file(shp_path)
 
 # 读取原始点位（CSV 文件）
-csv_path = data_dir / 'Loess_Plateau_Points.csv'  # 替换为你的 CSV 文件路径
+csv_path = DATA_DIR / 'Loess_Plateau_Points.csv'  # 替换为你的 CSV 文件路径
 df_points = pd.read_csv(csv_path, encoding='ISO-8859-1')
 
 # 读取堤坝点位（XLS 文件）
-xls_path = data_dir / "Dam_data.xlsx"  # 替换为你的 XLS 文件路径
+xls_path = DATA_DIR / "Dam_data.xlsx"  # 替换为你的 XLS 文件路径
 df_dams = pd.read_excel(xls_path)
 
 # 确保列名匹配（请确认 XLS 文件中的列名）

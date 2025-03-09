@@ -4,17 +4,16 @@ import rasterio
 from shapely.geometry import Point
 import numpy as np
 from scipy.spatial import cKDTree
-from pathlib import Path
-
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "Raw_Data"
-processed_dir = working_dir / "Processed_Data"
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 # === 1. 设置文件路径 ===
-csv_file = processed_dir / "resampled_Loess_Plateau_1km.csv"  # 输入的点位CSV
-shp_path = data_dir / "Loess_Plateau_vector_border.shp"  # htgy边界
-tif_path = data_dir / "htgyDEM.tif"  # TIFF文件路径
-output_csv = processed_dir / "resampled_Loess_Plateau_1km_with_DEM.csv"  # 输出CSV路径
+csv_file = PROCESSED_DIR / "resampled_Loess_Plateau_1km.csv"  # 输入的点位CSV
+shp_path = DATA_DIR / "Loess_Plateau_vector_border.shp"  # htgy边界
+tif_path = DATA_DIR / "htgyDEM.tif"  # TIFF文件路径
+output_csv = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM.csv"  # 输出CSV路径
 
 # === 2. 读取数据 ===
 df = pd.read_csv(csv_file)

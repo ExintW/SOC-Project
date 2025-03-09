@@ -4,14 +4,13 @@ import numpy as np
 from scipy.interpolate import griddata
 from scipy.spatial import cKDTree
 import matplotlib.pyplot as plt
-from pathlib import Path
-
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "Raw_Data"
-processed_dir = working_dir / "Processed_Data"
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 # ========== 1. Read Loess Plateau Boundary Shapefile ==========
-shp_path = data_dir / "Loess_Plateau_vector_border.shp"
+shp_path = DATA_DIR / "Loess_Plateau_vector_border.shp"
 gdf_loess = gpd.read_file(shp_path)
 
 # Get boundary extent
@@ -34,7 +33,7 @@ grid_df = pd.DataFrame({
 })
 
 # ========== 3. Read the Sample CSV (Loess Plateau Points) ==========
-csv_path = data_dir / "Loess_Plateau_Points.csv"
+csv_path = DATA_DIR / "Loess_Plateau_Points.csv"
 df = pd.read_csv(csv_path, encoding='ISO-8859-1')
 
 # Ensure LON/LAT are numeric
@@ -83,7 +82,7 @@ grid_gdf = grid_gdf[grid_gdf.geometry.within(gdf_loess.union_all())]
 
 
 # ========== 8. Save the Result to CSV ==========
-output_csv = processed_dir / "resampled_Loess_Plateau_1km_test.csv"
+output_csv = PROCESSED_DIR / "resampled_Loess_Plateau_1km_test.csv"
 grid_gdf.to_csv(output_csv, index=False, encoding='utf-8-sig')
 print(f"✅ Resampled data saved to: {output_csv}")
 

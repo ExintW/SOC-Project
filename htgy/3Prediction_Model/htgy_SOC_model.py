@@ -7,16 +7,15 @@ import netCDF4 as nc
 import geopandas as gpd
 from shapely.geometry import Point
 from pathlib import Path
-
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "Raw_Data"
-output_dir = working_dir / "Output"
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 # =============================================================================
 # 0) SETUP: READ THE LOESS PLATEAU BORDER SHAPEFILE
 # =============================================================================
 # Read the Loess Plateau border shapefile and combine all features into one geometry.
-loess_border_path = data_dir / "Loess_Plateau_vector_border.shp"
+loess_border_path = DATA_DIR / "Loess_Plateau_vector_border.shp"
 loess_border = gpd.read_file(loess_border_path)
 # Use union_all() to merge all features (recommended over the deprecated unary_union).
 loess_border_geom = loess_border.union_all()
@@ -25,9 +24,9 @@ loess_border_geom = loess_border.union_all()
 # 1) CSV READING & GRID SETUP
 # =============================================================================
 # Define file paths for the region CSV, dam CSV, and SOC proportion CSV.
-region_csv_path = data_dir / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
-dam_csv_path = data_dir / "htgy_Dam_with_matched_points.csv"
-proportion_csv_path = data_dir / "Fast_Slow_SOC_Proportion.csv"
+region_csv_path = DATA_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
+dam_csv_path = DATA_DIR / "htgy_Dam_with_matched_points.csv"
+proportion_csv_path = DATA_DIR / "Fast_Slow_SOC_Proportion.csv"
 
 # Read the CSV files into DataFrames.
 df = pd.read_csv(region_csv_path, encoding='utf-8-sig')
@@ -391,7 +390,7 @@ def create_grid_from_points(lon_points, lat_points, values, grid_x, grid_y):
 # =============================================================================
 # 9) FIGURE OUTPUT SETUP & PLOTTING INITIAL CONDITION
 # =============================================================================
-os.makedirs(output_dir, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Plot and save the initial SOC distribution.
 fig, ax = plt.subplots()
@@ -403,7 +402,7 @@ ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
 ax.ticklabel_format(style='plain', axis='x')
-plt.savefig(os.path.join(output_dir, "SOC_initial.png"))
+plt.savefig(os.path.join(OUTPUT_DIR, "SOC_initial.png"))
 plt.close(fig)
 
 # =============================================================================
@@ -424,13 +423,13 @@ C_fast_current = C_fast.copy()
 C_slow_current = C_slow.copy()
 
 # Create a directory to save monthly CSV outputs.
-os.makedirs(output_dir, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # -----------------------------------------------------------------------------
 # Main simulation loop: Iterate over each year and month.
 # -----------------------------------------------------------------------------
 for year in range(start_year, end_year + 1):
-    nc_file = data_dir / f"resampled_{year}.nc"
+    nc_file = DATA_DIR / f"resampled_{year}.nc"
     if not os.path.exists(nc_file):
         print(f"NetCDF file not found for year {year}: {nc_file}")
         continue
@@ -544,7 +543,7 @@ for year in range(start_year, end_year + 1):
             ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
             ax.ticklabel_format(style='plain', axis='x')
             filename_fig = f"SOC_{year}_{month_idx + 1:02d}_timestep_{global_timestep}.png"
-            plt.savefig(os.path.join(output_dir, filename_fig))
+            plt.savefig(os.path.join(OUTPUT_DIR, filename_fig))
             plt.close(fig)
 
             # -----------------------------------------------------------------------------
@@ -603,7 +602,7 @@ for year in range(start_year, end_year + 1):
             })
 
             filename_csv = f"SOC_terms_{year}_{month_idx + 1:02d}_timestep_{global_timestep}.csv"
-            df_out.to_csv(os.path.join(output_dir, filename_csv), index=False)
+            df_out.to_csv(os.path.join(OUTPUT_DIR, filename_csv), index=False)
             print(f"Saved CSV output for Year {year}, Month {month_idx + 1} as {filename_csv}")
 
 print("Simulation complete. Final SOC distribution is in C_fast_current + C_slow_current.")

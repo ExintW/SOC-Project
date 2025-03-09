@@ -4,14 +4,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.optimize import curve_fit
 import re
-from pathlib import Path
-
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "Raw_Data"
-processed_dir = working_dir / "Processed_Data"
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 # Load the CSV file
-csv_file =data_dir / "Vegetation_Input_v2_with_Lai.csv"
+csv_file =DATA_DIR / "Vegetation_Input_v2_with_Lai.csv"
 df = pd.read_csv(csv_file)
 
 # Standardize column names (remove spaces)

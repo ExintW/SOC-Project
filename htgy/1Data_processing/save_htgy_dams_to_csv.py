@@ -1,16 +1,15 @@
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import pandas as pd
-from pathlib import Path
-
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "Raw_Data"
-processed_dir = working_dir / "Processed_Data"
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 # Paths to shapefiles
 shapefile_paths = {
-    "骨干坝": f"{data_dir}\\骨干坝\\骨干坝.shp",  # "Backbone Dams"
-    "中型坝": f"{data_dir}\\中型坝\\中型坝.shp"  # "Medium-sized Dams"
+    "骨干坝": f"{DATA_DIR}\\骨干坝\\骨干坝.shp",  # "Backbone Dams"
+    "中型坝": f"{DATA_DIR}\\中型坝\\中型坝.shp"  # "Medium-sized Dams"
 }
 
 # English translations for legend
@@ -34,7 +33,7 @@ if gdfs:
     merged_df = pd.concat(gdfs, ignore_index=True)
 
     # Save to CSV with UTF-8 encoding
-    output_csv_path = f"{data_dir}\\htgy_dams_fixed.csv"
+    output_csv_path = f"{PROCESSED_DIR}\\htgy_dams_fixed.csv"
     merged_df.to_csv(output_csv_path, index=False, encoding="utf-8-sig")
     print(f"Shapefile data merged and saved to {output_csv_path} with UTF-8 encoding.")
 

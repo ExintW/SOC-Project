@@ -3,15 +3,16 @@ import pandas as pd
 import numpy as np
 from scipy.interpolate import griddata
 from pathlib import Path
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 # File Paths
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "Raw_Data"
-output_dir = working_dir / "Processed_Data"
-tiff_k1_path = data_dir / "k1_halfDegree.tif"
-tiff_k2_path = data_dir / "k2_halfDegree.tif"
-csv_file_path = data_dir / "resampled_Loess_Plateau_1km_with_DEM_region_labeled.csv"
-output_csv_path = output_dir / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
+tiff_k1_path = DATA_DIR / "k1_halfDegree.tif"
+tiff_k2_path = DATA_DIR / "k2_halfDegree.tif"
+csv_file_path = DATA_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_labeled.csv"
+output_csv_path = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
 
 # Function to extract raster values at given coordinates
 def extract_raster_values(tiff_path, lon, lat):

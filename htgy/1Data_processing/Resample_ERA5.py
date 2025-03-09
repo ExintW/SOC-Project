@@ -2,15 +2,14 @@ import os
 import xarray as xr
 import pandas as pd
 import numpy as np
-from pathlib import Path
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 # Define paths
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "Raw_Data"
-processed_dir = working_dir / "Processed_Data"
-ERA5_data_dir = data_dir / "ERA5"  # Directory containing .nc files
-csv_file = processed_dir / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"  # CSV file path
-output_dir = processed_dir / "ERA5_Data_Monthly_Resampled"  # Output directory
+ERA5_DATA_DIR = DATA_DIR / "ERA5"  # Directory containing .nc files
+csv_file = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"  # CSV file path
+output_dir = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled"  # Output directory
 
 # Create output directory if it doesn't exist
 os.makedirs(output_dir, exist_ok=True)
@@ -26,7 +25,7 @@ end_year = 2025
 
 # Loop through each year and resample data
 for year in range(start_year, end_year + 1):
-    nc_file = os.path.join(ERA5_data_dir, f"{year}.nc")  # Construct file path
+    nc_file = os.path.join(ERA5_DATA_DIR, f"{year}.nc")  # Construct file path
 
     # Check if the NetCDF file exists
     if not os.path.exists(nc_file):

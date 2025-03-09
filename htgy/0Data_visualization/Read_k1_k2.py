@@ -1,14 +1,13 @@
 import rasterio
 import numpy as np
 import matplotlib.pyplot as plt
-from pathlib import Path
-
-working_dir = Path(__file__).parent.parent.parent
-data_dir = working_dir / "Raw_Data"
-processed_dir = working_dir / "Processed_Data"
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 # Define your TIFF file path
-tiff_file = data_dir / "k1_halfDegree.tif"  # Use 'r' before path to avoid escape characters
+tiff_file = DATA_DIR / "k1_halfDegree.tif"  # Use 'r' before path to avoid escape characters
 
 # Open the TIFF file
 with rasterio.open(tiff_file) as dataset:
