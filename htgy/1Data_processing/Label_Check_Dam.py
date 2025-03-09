@@ -14,7 +14,7 @@ gdf = gpd.read_file(shp_path)
 resampled_csv_path = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM.csv"
 grid_df = pd.read_csv(resampled_csv_path)
 
-dam_csv_path = DATA_DIR / "htgy_dams_fixed.csv"
+dam_csv_path = PROCESSED_DIR / "htgy_dams_fixed.csv"
 df_dams = pd.read_csv(dam_csv_path)
 
 # === 2. 清理列名、确保数据格式 ===
