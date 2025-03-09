@@ -1,0 +1,6 @@
+/Output/*
+/Processed_Data/*
+/Raw_Data/*
+
+!/Raw_Data/ERA5/
+!.gitignore
