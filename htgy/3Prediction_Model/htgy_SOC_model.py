@@ -596,7 +596,7 @@ for year in range(start_year, end_year + 1):
             ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
             ax.ticklabel_format(style='plain', axis='x')
             filename_fig = f"SOC_{year}_{month_idx + 1:02d}_timestep_{global_timestep}.png"
-            plt.savefig(os.path.join(OUTPUT_DIR, filename_fig))
+            plt.savefig(os.path.join(OUTPUT_DIR / "Figure", filename_fig))
             plt.close(fig)
 
             # -------------------------------------------------------------------------
@@ -659,7 +659,7 @@ for year in range(start_year, end_year + 1):
             })
 
             filename_csv = f"SOC_terms_{year}_{month_idx + 1:02d}_timestep_{global_timestep}.csv"
-            df_out.to_csv(os.path.join(OUTPUT_DIR, filename_csv), index=False)
+            df_out.to_csv(os.path.join(OUTPUT_DIR / "Data", filename_csv), index=False)
             print(f"Saved CSV output for Year {year}, Month {month_idx + 1} as {filename_csv}")
 
 print("Simulation complete. Final SOC distribution is in C_fast_current + C_slow_current.")
