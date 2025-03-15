@@ -56,6 +56,7 @@ slope_col = "SLOPE"  # Slope values
 k1_col = "SOC_k1_fast_pool (1/month)"  # Fast pool decay rate
 k2_col = "SOC_k2_slow_pool (1/month)"  # Slow pool decay rate
 
+
 # -----------------------------------------------------------------------------
 # Function: create_grid
 # Creates a 2D grid using a pivot operation:
@@ -65,6 +66,7 @@ k2_col = "SOC_k2_slow_pool (1/month)"  # Slow pool decay rate
 def create_grid(data, col_name):
     return data.pivot(index=lat_col, columns=lon_col, values=col_name) \
         .sort_index(ascending=False).values
+
 
 # -----------------------------------------------------------------------------
 # Extract unique grid coordinates from the region CSV.
@@ -92,6 +94,7 @@ DEM = np.nan_to_num(DEM, nan=np.nanmean(DEM))
 SLOPE = np.nan_to_num(SLOPE, nan=np.nanmean(SLOPE))
 K_fast = np.nan_to_num(K_fast, nan=np.nanmean(K_fast))
 K_slow = np.nan_to_num(K_slow, nan=np.nanmean(K_slow))
+
 
 # =============================================================================
 # 2) PARTITION SOC INTO FAST & SLOW POOLS
@@ -121,6 +124,7 @@ def allocate_fast_slow_soc(C, LANDUSE, proportion_df):
             p_fast_grid[i, j] = props['fast']
     return C_fast, C_slow, p_fast_grid
 
+
 C_fast, C_slow, p_fast_grid = allocate_fast_slow_soc(C, LANDUSE, df_prop)
 
 # =============================================================================
@@ -130,9 +134,11 @@ C_fast, C_slow, p_fast_grid = allocate_fast_slow_soc(C, LANDUSE, df_prop)
 # We assume a bulk density of 1300 t/m³.
 BULK_DENSITY = 1300  # Tons per cubic meter
 
+
 def find_nearest_index(array, value):
     """Return the index of the element in 'array' closest to 'value'."""
     return (np.abs(array - value)).argmin()
+
 
 # NOTE: We will build the dam_positions list for each simulation year inside the main loop,
 # so we do not construct a global dam_positions list here.
@@ -153,6 +159,7 @@ def calculate_r_factor_monthly(rain_month_mm):
     """
     return 6.94 * rain_month_mm
 
+
 def calculate_ls_factor(slope, slope_length=1000):
     """
     Compute the LS factor (slope length and steepness factor) from slope.
@@ -162,6 +169,7 @@ def calculate_ls_factor(slope, slope_length=1000):
     slope_rad = np.deg2rad(slope)
     return ((slope_length / 22.13) ** 0.4) * ((np.sin(slope_rad) / 0.0896) ** 1.3)
 
+
 def calculate_c_factor(lai):
     """
     Compute the C factor from LAI using an exponential decay.
@@ -169,11 +177,10 @@ def calculate_c_factor(lai):
     For the Loess Plateau, using a lower exponent (1.7 instead of 2.5) yields higher
     soil loss values that better match observed data.
 
-        C = exp(-1.7 * LAI)
-
-    Sources: Zhou (2008); Wei & Liu (2016).
+        C = exp(-1.7 * lai)
     """
     return np.exp(-1.7 * lai)
+
 
 def calculate_p_factor(landuse):
     """
@@ -188,17 +195,17 @@ def calculate_p_factor(landuse):
       - "dam field": 0.05       (extremely low due to dam sediment trapping)
 
     The input is converted to a string and lowercased.
-    Sources: Gao et al. (2016); Liu et al. (2001).
     """
     p_values = {
         "sloping cropland": 0.4,
         "forestland": 0.5,
         "grassland": 0.5,
-        "not used": 0.5,
+        "not used": 1.0,
         "terrace": 0.1,
         "dam field": 0.05
     }
     return p_values.get(str(landuse).lower(), 1.0)
+
 
 K_factor = np.full_like(C, 0.03)
 LS_factor = calculate_ls_factor(SLOPE)
@@ -206,6 +213,7 @@ P_factor = np.array([
     [calculate_p_factor(LANDUSE[i, j]) for j in range(LANDUSE.shape[1])]
     for i in range(LANDUSE.shape[0])
 ])
+
 
 # =============================================================================
 # 5) CONVERT SOIL LOSS TO SOC LOSS (g/kg/month)
@@ -219,6 +227,7 @@ def convert_soil_loss_to_soc_loss_monthly(E_t_ha_month, ORGA_g_per_kg, bulk_dens
     soc_loss_g_m2_month = E_g_m2_month * (ORGA_g_per_kg / 1000.0) * bulk_density
     soc_loss_g_kg_month = soc_loss_g_m2_month / bulk_density
     return soc_loss_g_kg_month
+
 
 # =============================================================================
 # 6) ROUTE SOIL AND SOC FROM HIGHER CELLS
@@ -279,7 +288,6 @@ def distribute_soil_and_soc_with_dams(E_tcell, S, DEM, dam_positions, grid_x, gr
             else:
                 D_soil[i, j] = cap
                 deposited_soc = (cap / deposition_soil) * deposition_soc if deposition_soil > 0 else 0
-                # Clamp deposited_soc to non-negative.
                 deposited_soc = max(0, deposited_soc)
                 D_soc[i, j] = deposited_soc
                 dam_capacity_map[(i, j)] = 0  # Dam is now full.
@@ -317,8 +325,9 @@ def distribute_soil_and_soc_with_dams(E_tcell, S, DEM, dam_positions, grid_x, gr
                 inflow_soc[ni, nj] += source_soc * fraction
     return D_soil, D_soc, inflow_soil, inflow_soc
 
+
 # =============================================================================
-# 7) VEGETATION INPUT & UPDATED SOC DYNAMIC MODEL
+# 7) VEGETATION INPUT & UPDATED SOC DYNAMIC MODEL (REVERSED)
 # =============================================================================
 def vegetation_input(LAI):
     """
@@ -326,46 +335,55 @@ def vegetation_input(LAI):
     """
     return 0.00008128 * (LAI ** 7.33382537)
 
-def soc_dynamic_model(C_fast, C_slow,
-                      soc_loss_g_kg_month, D_soil, D_soc, V,
-                      K_fast, K_slow, p_fast_grid, dt, M_soil):
-    """
-    Update the SOC pools (g/kg) for one month.
 
-    Deposited SOC (D_soc, in kg) is converted to a concentration increment (g/kg)
-    using: deposition_concentration = (D_soc * 1000) / M_soil.
-
-    Parameters:
-      C_fast, C_slow : Current SOC concentrations (g/kg).
-      soc_loss_g_kg_month : SOC loss from erosion (g/kg/month).
-      D_soil : Deposited soil from upstream (t/cell/month).
-      D_soc : Deposited SOC from upstream (kg/cell/month).
-      V : Vegetation input (g/kg/month).
-      K_fast, K_slow : Decay rates (1/month) for fast and slow pools.
-      p_fast_grid : Fraction of SOC in the fast pool.
-      dt : Timestep (months).
-      M_soil : Total soil mass per cell (kg).
+def soc_dynamic_model_reverse(C_fast, C_slow,
+                              soc_loss_g_kg_month, D_soil, D_soc, V,
+                              K_fast, K_slow, p_fast_grid, dt, M_soil):
     """
-    # Compute erosion losses.
+    Reverse the SOC dynamics to predict past SOC.
+
+    In the forward model:
+        C_new = C + (erosion + deposition + vegetation + reaction)*dt
+    where:
+        erosion   = -soc_loss_g_kg_month * p_fast_grid      (a loss)
+        deposition= deposition_concentration * p_fast_grid    (a gain)
+        vegetation= V * p_fast_grid                           (a gain)
+        reaction  = -K_fast * C_fast                          (a loss)
+
+    To reverse time, we want:
+        C_past = C - (erosion + deposition + vegetation + reaction)*dt
+               = C + (-erosion - deposition - vegetation - reaction)*dt
+
+    This means:
+      - The negative erosion becomes a positive gain.
+      - The positive deposition and vegetation become losses.
+      - The negative reaction becomes a positive gain.
+    """
+    # Compute erosion losses (forward definition; negative values).
     erosion_fast = -soc_loss_g_kg_month * p_fast_grid
     erosion_slow = -soc_loss_g_kg_month * (1 - p_fast_grid)
+
     # Convert deposited SOC (kg) to a concentration increment (g/kg).
     deposition_concentration = (D_soc * 1000.0) / M_soil
     deposition_fast = deposition_concentration * p_fast_grid
     deposition_slow = deposition_concentration * (1 - p_fast_grid)
-    # Vegetation input adds SOC.
+
+    # Vegetation input (positive in forward model).
     vegetation_fast = V * p_fast_grid
     vegetation_slow = V * (1 - p_fast_grid)
-    # Reaction (decay) losses.
+
+    # Reaction (forward model; negative).
     reaction_fast = -K_fast * C_fast
     reaction_slow = -K_slow * C_slow
-    # Update SOC pools.
-    C_fast_new = np.maximum(C_fast + (erosion_fast + deposition_fast + vegetation_fast + reaction_fast) * dt, 0)
-    C_slow_new = np.maximum(C_slow + (erosion_slow + deposition_slow + vegetation_slow + reaction_slow) * dt, 0)
-    return C_fast_new, C_slow_new
+
+    # Reverse update: subtract the forward fluxes.
+    C_fast_previous = np.maximum(C_fast + (-erosion_fast - deposition_fast - vegetation_fast - reaction_fast) * dt, 0)
+    C_slow_previous = np.maximum(C_slow + (-erosion_slow - deposition_slow - vegetation_slow - reaction_slow) * dt, 0)
+    return C_fast_previous, C_slow_previous
+
 
 # =============================================================================
-# 8) HELPER: REGRID ERA5 POINT DATA TO 2D GRID
+# 8) HELPER: REGRID ERA5 POINT DATA TO A 2D GRID
 # =============================================================================
 def create_grid_from_points(lon_points, lat_points, values, grid_x, grid_y):
     """
@@ -379,36 +397,37 @@ def create_grid_from_points(lon_points, lat_points, values, grid_x, grid_y):
         grid[i, j] = values[k]
     return grid
 
+
 # =============================================================================
 # 9) FIGURE OUTPUT SETUP & PLOTTING INITIAL CONDITION
 # =============================================================================
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Plot and save the initial SOC distribution.
+# Plot and save the initial SOC distribution (assumed for 2007, our "present" baseline).
 fig, ax = plt.subplots()
 cax = ax.imshow(C_fast + C_slow, cmap="viridis",
                 extent=[grid_x.min(), grid_x.max(), grid_y.min(), grid_y.max()])
 cbar = fig.colorbar(cax, label="SOC (g/kg)")
-ax.set_title("Initial SOC Distribution (t = 0)")
+ax.set_title("Initial SOC Distribution at 2007 (t = 0)")
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
 ax.ticklabel_format(style='plain', axis='x')
-plt.savefig(os.path.join(OUTPUT_DIR, "SOC_initial.png"))
+plt.savefig(os.path.join(OUTPUT_DIR, "SOC_initial_2007.png"))
 plt.close(fig)
 
 # =============================================================================
-# 10) MAIN SIMULATION LOOP (MONTHLY, 2007-2025)
+# 10) MAIN SIMULATION LOOP (MONTHLY, 2006-1950, REVERSED)
 # =============================================================================
 CELL_AREA_HA = 100.0  # 1 km² = 100 ha
-start_year = 2007
-end_year = 2025
+start_year = 2006  # Start from 2006, not 2007
+end_year = 1950
 global_timestep = 0
 
+# =============================================================================
 # M_soil: Total soil mass per cell (kg).
 # =============================================================================
 # Calculate the effective soil mass per cell (M_soil)
-# =============================================================================
 # Soil loss is often reported in terms of mass loss per area.
 # For example, a typical soil loss rate on the Loess Plateau is around 1000 t/ha/year.
 #
@@ -430,25 +449,20 @@ global_timestep = 0
 # We update M_soil to 1.0e8 (instead of 3.9e8, which assumes a 30 cm depth).
 M_soil = 1.0e8  # Total soil mass per cell (kg)
 
-# (The remainder of your code uses M_soil to convert deposited SOC mass (kg/cell/month)
-# into a concentration increment (g/kg/month) via the formula:
-#    deposition_concentration (g/kg) = (D_soc * 1000) / M_soil
-# )
-
-# Initialize current SOC pools with the initial values.
+# Initialize current SOC pools with the initial values from 2007.
 C_fast_current = C_fast.copy()
 C_slow_current = C_slow.copy()
 
-# Create a directory to save monthly CSV outputs.
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# Create directories to save monthly CSV outputs and figures.
 os.makedirs(OUTPUT_DIR / "Figure", exist_ok=True)
 os.makedirs(OUTPUT_DIR / "Data", exist_ok=True)
 
 # -----------------------------------------------------------------------------
-# Main simulation loop: Iterate over each year and month.
+# Main reverse simulation loop: Iterate from 2006 down to 1950,
+# and for each year, process months in reverse order (12 to 1)
 # -----------------------------------------------------------------------------
-for year in range(start_year, end_year + 1):
-    # --- NEW: Filter only those dams that have been built on or before the current year.
+for year in range(start_year, end_year - 1, -1):
+    # Filter only those dams that have been built on or before the current year.
     df_dam_active = df_dam[df_dam["year"] <= year].copy()
 
     # Build a fresh list of dam_positions for the current year.
@@ -457,7 +471,6 @@ for year in range(start_year, end_year + 1):
         i_idx = find_nearest_index(grid_y, row["y"])
         j_idx = find_nearest_index(grid_x, row["x"])
         capacity_10000_m3 = row["capacity_remained"]  # In units of 10,000 m³.
-        # Convert to tons: multiply by 10,000 (to get m³) then by BULK_DENSITY.
         capacity_tons = capacity_10000_m3 * 10000 * BULK_DENSITY
         dam_positions_active.append({
             'i': i_idx,
@@ -465,25 +478,24 @@ for year in range(start_year, end_year + 1):
             'capacity_remained_tons': capacity_tons
         })
 
-    # Now open the NetCDF for this year
+    # Open the NetCDF file for the current year (historical ERA5 data assumed available).
     nc_file = DATA_DIR / "ERA5" / f"resampled_{year}.nc"
     if not os.path.exists(nc_file):
         print(f"NetCDF file not found for year {year}: {nc_file}")
         continue
 
     with nc.Dataset(nc_file) as ds:
-        valid_time = ds.variables['valid_time'][:]  # Expecting 12 months.
+        valid_time = ds.variables['valid_time'][:]  # e.g., 12 months
         n_time = len(valid_time)
-
-        # Get ERA5 coordinate arrays.
         lon_nc = ds.variables['longitude'][:]
         lat_nc = ds.variables['latitude'][:]
+        lai_data = ds.variables['lai_lv'][:]  # shape: (12, n_points)
+        tp_data = ds.variables['tp'][:]  # shape: (12, n_points), in meters
 
-        # Read LAI (lai_lv) and precipitation (tp) data.
-        lai_data = ds.variables['lai_lv'][:]  # Shape: (12, n_points)
-        tp_data = ds.variables['tp'][:]  # Shape: (12, n_points), in meters
+        # Process months in reverse order (from 12 down to 1)
+        for month_idx in reversed(range(n_time)):
+            month = month_idx + 1  # So month labels will be 12, 11, ... , 1
 
-        for month_idx in range(n_time):
             # -------------------------------------------------------------------------
             # Regrid LAI data to the model grid.
             # -------------------------------------------------------------------------
@@ -504,16 +516,11 @@ for year in range(start_year, end_year + 1):
             # -------------------------------------------------------------------------
             R_month = calculate_r_factor_monthly(RAIN_2D)
             C_factor_2D = calculate_c_factor(LAI_2D)
-
-            # -------------------------------------------------------------------------
-            # Calculate soil loss (E) in t/ha/month, then convert to t/cell/month.
-            # -------------------------------------------------------------------------
             E_t_ha_month = R_month * K_factor * LS_factor * C_factor_2D * P_factor
             E_tcell_month = E_t_ha_month * CELL_AREA_HA
 
             # -------------------------------------------------------------------------
             # Compute SOC mass eroded from each cell (kg/cell/month).
-            # S = E_tcell_month * (C_fast_current + C_slow_current)
             # -------------------------------------------------------------------------
             S = E_tcell_month * (C_fast_current + C_slow_current)
 
@@ -538,8 +545,55 @@ for year in range(start_year, end_year + 1):
             V = vegetation_input(LAI_2D)
 
             # -------------------------------------------------------------------------
-            # Compute individual terms of the SOC balance equation.
+            # Update SOC pools using the reversed dynamic model.
             # -------------------------------------------------------------------------
+            C_fast_current, C_slow_current = soc_dynamic_model_reverse(
+                C_fast_current, C_slow_current,
+                SOC_loss_g_kg_month, D_soil, D_soc, V,
+                K_fast, K_slow, p_fast_grid,
+                dt=1,  # 1-month timestep.
+                M_soil=M_soil
+            )
+
+            global_timestep += 1
+            print(f"Completed reverse simulation for Year {year}, Month {month}")
+
+            # -------------------------------------------------------------------------
+            # (A) SAVE FIGURE OUTPUT.
+            # -------------------------------------------------------------------------
+            fig, ax = plt.subplots()
+            cax = ax.imshow(C_fast_current + C_slow_current, cmap="viridis",
+                            extent=[grid_x.min(), grid_x.max(), grid_y.min(), grid_y.max()])
+            cbar = fig.colorbar(cax, label="SOC (g/kg)")
+            ax.set_title(f"Past SOC at Timestep {global_timestep} (Year {year}, Month {month})")
+            ax.set_xlabel("Longitude")
+            ax.set_ylabel("Latitude")
+            ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
+            ax.ticklabel_format(style='plain', axis='x')
+            filename_fig = f"Past_SOC_{year}_{month:02d}_timestep_{global_timestep}.png"
+            plt.savefig(os.path.join(OUTPUT_DIR / "Figure", filename_fig))
+            plt.close(fig)
+
+            # -------------------------------------------------------------------------
+            # (B) SAVE DATA OUTPUT AS CSV.
+            # -------------------------------------------------------------------------
+            rows_grid, cols_grid = C_fast_current.shape
+            lat_list = []
+            lon_list = []
+            landuse_list = []
+            C_fast_list = []
+            C_slow_list = []
+            erosion_fast_list = []
+            erosion_slow_list = []
+            deposition_fast_list = []
+            deposition_slow_list = []
+            vegetation_fast_list = []
+            vegetation_slow_list = []
+            reaction_fast_list = []
+            reaction_slow_list = []
+            E_t_ha_list = []
+
+            # For clarity, define these again for CSV output.
             erosion_fast = -SOC_loss_g_kg_month * p_fast_grid
             erosion_slow = -SOC_loss_g_kg_month * (1 - p_fast_grid)
 
@@ -553,65 +607,12 @@ for year in range(start_year, end_year + 1):
             reaction_fast = -K_fast * C_fast_current
             reaction_slow = -K_slow * C_slow_current
 
-            # -------------------------------------------------------------------------
-            # Update SOC pools using the dynamic model.
-            # -------------------------------------------------------------------------
-            C_fast_current, C_slow_current = soc_dynamic_model(
-                C_fast_current, C_slow_current,
-                SOC_loss_g_kg_month, D_soil, D_soc, V,
-                K_fast, K_slow, p_fast_grid,
-                dt=1,  # 1-month timestep.
-                M_soil=M_soil
-            )
-
-            global_timestep += 1
-            print(f"Completed simulation for Year {year}, Month {month_idx + 1}")
-
-            # -------------------------------------------------------------------------
-            # (A) SAVE FIGURE OUTPUT.
-            # -------------------------------------------------------------------------
-            fig, ax = plt.subplots()
-            cax = ax.imshow(C_fast_current + C_slow_current, cmap="viridis",
-                            extent=[grid_x.min(), grid_x.max(), grid_y.min(), grid_y.max()])
-            cbar = fig.colorbar(cax, label="SOC (g/kg)")
-            ax.set_title(f"SOC at Timestep {global_timestep} (Year {year}, Month {month_idx + 1})")
-            ax.set_xlabel("Longitude")
-            ax.set_ylabel("Latitude")
-            ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
-            ax.ticklabel_format(style='plain', axis='x')
-            filename_fig = f"SOC_{year}_{month_idx + 1:02d}_timestep_{global_timestep}.png"
-            plt.savefig(os.path.join(OUTPUT_DIR / "Figure", filename_fig))
-            plt.close(fig)
-
-            # -------------------------------------------------------------------------
-            # (B) SAVE DATA OUTPUT AS CSV.
-            # Save each term in the SOC balance equation along with E_t_ha_month and landuse.
-            # In this version, we include all grid cells (no spatial clipping).
-            # -------------------------------------------------------------------------
-            rows_grid, cols_grid = C_fast_current.shape
-            lat_list = []
-            lon_list = []
-            landuse_list = []  # New list for landuse type
-            C_fast_list = []
-            C_slow_list = []
-            erosion_fast_list = []
-            erosion_slow_list = []
-            deposition_fast_list = []
-            deposition_slow_list = []
-            vegetation_fast_list = []
-            vegetation_slow_list = []
-            reaction_fast_list = []
-            reaction_slow_list = []
-            E_t_ha_list = []
-
             for i in range(rows_grid):
                 for j in range(cols_grid):
                     cell_lon = grid_x[j]
                     cell_lat = grid_y[i]
-                    # Include all cells (no border clipping).
                     lat_list.append(cell_lat)
                     lon_list.append(cell_lon)
-                    # Include the landuse type.
                     landuse_list.append(str(LANDUSE[i, j]))
                     C_fast_list.append(C_fast_current[i, j])
                     C_slow_list.append(C_slow_current[i, j])
@@ -642,8 +643,8 @@ for year in range(start_year, end_year + 1):
                 'E_t_ha_month': E_t_ha_list
             })
 
-            filename_csv = f"SOC_terms_{year}_{month_idx + 1:02d}_timestep_{global_timestep}.csv"
+            filename_csv = f"Past_SOC_terms_{year}_{month:02d}_timestep_{global_timestep}.csv"
             df_out.to_csv(os.path.join(OUTPUT_DIR / "Data", filename_csv), index=False)
-            print(f"Saved CSV output for Year {year}, Month {month_idx + 1} as {filename_csv}")
+            print(f"Saved CSV output for reverse simulation Year {year}, Month {month} as {filename_csv}")
 
-print("Simulation complete. Final SOC distribution is in C_fast_current + C_slow_current.")
+print("Reverse simulation complete. Past SOC distribution (from 2006 to 1950) is in C_fast_current + C_slow_current.")
