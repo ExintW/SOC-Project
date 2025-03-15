@@ -25,8 +25,8 @@ loess_border_geom = loess_border.union_all()
 # 1) CSV READING & GRID SETUP
 # =============================================================================
 # Define file paths for the region CSV, dam CSV, and SOC proportion CSV.
-region_csv_path = DATA_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
-dam_csv_path = DATA_DIR / "htgy_Dam_with_matched_points.csv"
+region_csv_path = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
+dam_csv_path = PROCESSED_DIR / "htgy_Dam_with_matched_points.csv"
 proportion_csv_path = DATA_DIR / "Fast_Slow_SOC_Proportion.csv"
 
 # Read the CSV files into DataFrames.
@@ -466,7 +466,7 @@ for year in range(start_year, end_year + 1):
         })
 
     # Now open the NetCDF for this year
-    nc_file = PROCESSED_DIR / "ERA5" / f"resampled_{year}.nc"
+    nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
     if not os.path.exists(nc_file):
         print(f"NetCDF file not found for year {year}: {nc_file}")
         continue
