@@ -479,7 +479,7 @@ for year in range(start_year, end_year - 1, -1):
         })
 
     # Open the NetCDF file for the current year (historical ERA5 data assumed available).
-    nc_file = DATA_DIR / "ERA5" / f"resampled_{year}.nc"
+    nc_file = PROCESSED_DIR / "ERA5" / f"resampled_{year}.nc"
     if not os.path.exists(nc_file):
         print(f"NetCDF file not found for year {year}: {nc_file}")
         continue
