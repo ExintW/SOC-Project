@@ -6,8 +6,9 @@ from scipy.optimize import curve_fit
 import re
 import os
 import sys
+from htgy.globals import *
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from globals import *
+
 
 
 # -----------------------------------------------------------
