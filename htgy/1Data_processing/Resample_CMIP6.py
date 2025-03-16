@@ -9,8 +9,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *  # Assumes DATA_DIR and PROCESSED_DIR are defined here
 
 # Define explicit file paths for LAI and PR
-lai_file = DATA_DIR / "CMIP6" / "lai_Lmon_ACCESS-ESM1-5_ssp126_r1i1p1f1_gn_201501-210012.nc"
-pr_file = DATA_DIR / "CMIP6" / "pr_Amon_ACCESS-ESM1-5_ssp126_r1i1p1f1_gn_201501-210012.hdf"
+lai_file = DATA_DIR / "CMIP6" / "lai_Lmon_ACCESS-ESM1-5_ssp585_r1i1p1f1_gn_201501-210012.nc"
+pr_file = DATA_DIR / "CMIP6" / "pr_Amon_ACCESS-ESM1-5_ssp585_r1i1p1f1_gn_201501-210012.hdf"
 
 # Define output directory for resampled data
 output_dir = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled"
@@ -45,7 +45,7 @@ def resample_dataset(ds, var_label, output_path):
 # Process LAI dataset (NetCDF)
 try:
     ds_lai = xr.open_dataset(lai_file)
-    output_file_lai = output_dir / "resampled_lai_2015-2100.nc"
+    output_file_lai = output_dir / "resampled_lai_2015-2100_585.nc"
     resample_dataset(ds_lai, "LAI", output_file_lai)
 except Exception as e:
     print(f"❌ Error processing LAI: {e}")
@@ -53,7 +53,7 @@ except Exception as e:
 # Process PR dataset (HDF -> NetCDF)
 try:
     ds_pr = xr.open_dataset(pr_file)
-    output_file_pr = output_dir / "resampled_pr_2015-2100.nc"
+    output_file_pr = output_dir / "resampled_pr_2015-2100_585.nc"
     resample_dataset(ds_pr, "Precipitation", output_file_pr)
 except Exception as e:
     print(f"❌ Error processing PR: {e}")
