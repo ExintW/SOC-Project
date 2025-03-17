@@ -9,23 +9,22 @@ import sys
 from htgy.globals import *
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-
-
 # -----------------------------------------------------------
-# 1. Read the new Excel file containing all 5 sheets
+# 1. Read the Excel file containing the 3 sheets of interest
 # -----------------------------------------------------------
-excel_file = PROCESSED_DIR / "River_Basin_Points_Updated.xlsx"
+excel_file = PROCESSED_DIR / "River_Basin_Points_Updated_copy.xlsx"
 
-# Read all sheets and merge into a single DataFrame
-xls = pd.ExcelFile(excel_file)
-all_sheets = xls.sheet_names
+# Specify exactly which sheets to read
+sheets_to_read = ["LiCha-2024", "CaiJiaChuan-2022", "WangMaoGou-2017"]
 
 df_list = []
-for sheet in all_sheets:
+xls = pd.ExcelFile(excel_file)
+for sheet in sheets_to_read:
     df_sheet = pd.read_excel(xls, sheet_name=sheet)
     df_sheet["SheetName"] = sheet  # Optional: record which sheet the row came from
     df_list.append(df_sheet)
 
+# Concatenate the DataFrames from the 3 sheets
 df = pd.concat(df_list, ignore_index=True)
 
 # Standardize column names by stripping any extra spaces
@@ -34,14 +33,11 @@ df.columns = df.columns.str.strip()
 # -----------------------------------------------------------
 # 2. Define relevant columns and clean numeric values if needed
 # -----------------------------------------------------------
-# We use "2007 LAI" as the independent variable (X) and
-# "SOC Monthly Increase (g/kg/month)" as the dependent variable (Y).
 lai_col = "2007 LAI"
 soc_col = "SOC Monthly Increase (g/kg/month)"
 
 print("Preview of selected columns:")
 print(df[[lai_col, soc_col]].head())
-
 
 def clean_numeric(value):
     if isinstance(value, str):
@@ -52,7 +48,6 @@ def clean_numeric(value):
         except ValueError:
             return np.nan
     return value
-
 
 df[soc_col] = df[soc_col].apply(clean_numeric)
 df[lai_col] = df[lai_col].apply(clean_numeric)
@@ -73,25 +68,20 @@ print(f"Zero or negative SOC Increase points: {len(negative_points)}")
 X = df_cleaned[lai_col].values
 Y = df_cleaned[soc_col].values
 
-
 # -----------------------------------------------------------
 # 4. Define empirical models
 # -----------------------------------------------------------
 def linear_model(x, a, b):
     return a * x + b
 
-
 def exponential_model(x, a, b):
     return a * np.exp(b * x)
-
 
 def power_model(x, a, b):
     return a * np.power(x, b)
 
-
 def logarithmic_model(x, a, b):
     return a * np.log(x) + b
-
 
 models = {
     "Linear": linear_model,
@@ -158,7 +148,7 @@ for name, model in models.items():
 
 plt.xlabel("2007 LAI")
 plt.ylabel("SOC Monthly Increase (g/kg/month)")
-plt.title("Empirical Fit of 2007 LAI vs. SOC Monthly Increase (Combined Data)")
+plt.title("Empirical Fit of 2007 LAI vs. SOC Monthly Increase (3 Sheets Only)")
 plt.legend()
 plt.grid(True)
 plt.show()

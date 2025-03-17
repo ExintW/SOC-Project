@@ -14,6 +14,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
 
 # =============================================================================
+# SET DESIRED CRS FOR THE MODEL
+# =============================================================================
+# Your main grid is in degrees, so we want everything in EPSG:4326.
+desired_crs = "EPSG:4326"
+
+# =============================================================================
 # 0) SETUP: READ THE LOESS PLATEAU BORDER SHAPEFILE
 # =============================================================================
 # Read the Loess Plateau border shapefile and combine all features into one geometry.
@@ -46,14 +52,13 @@ df_dam["capacity_remained"] = df_dam["total_stor"] - df_dam["deposition"]
 # These include spatial coordinates, SOC concentration, DEM, land use, and decay rates.
 # -----------------------------------------------------------------------------
 lon_col, lat_col = "LON", "LAT"
-soc_col = "ORGA"  # Initial SOC concentration (g/kg)
-dem_col = "htgy_DEM"  # Digital Elevation Model (elevation)
-landuse_col = "LANDUSE"  # Land use
-region_col = "Region"  # (Available but not used later)
-slope_col = "SLOPE"  # Slope values
+soc_col = "ORGA"           # Initial SOC concentration (g/kg)
+dem_col = "htgy_DEM"       # Digital Elevation Model (elevation)
+landuse_col = "LANDUSE"    # Land use
+region_col = "Region"      # (Available but not used later)
+slope_col = "SLOPE"        # Slope values
 k1_col = "SOC_k1_fast_pool (1/month)"  # Fast pool decay rate
 k2_col = "SOC_k2_slow_pool (1/month)"  # Slow pool decay rate
-
 
 # -----------------------------------------------------------------------------
 # Function: create_grid
@@ -62,9 +67,8 @@ k2_col = "SOC_k2_slow_pool (1/month)"  # Slow pool decay rate
 #   - Columns are unique longitudes (sorted in ascending order)
 # -----------------------------------------------------------------------------
 def create_grid(data, col_name):
-    return data.pivot(index=lat_col, columns=lon_col, values=col_name) \
-        .sort_index(ascending=False).values
-
+    return data.pivot(index=lat_col, columns=lon_col, values=col_name)\
+               .sort_index(ascending=False).values
 
 # -----------------------------------------------------------------------------
 # Extract unique grid coordinates from the region CSV.
@@ -91,7 +95,6 @@ DEM = np.nan_to_num(DEM, nan=np.nanmean(DEM))
 SLOPE = np.nan_to_num(SLOPE, nan=np.nanmean(SLOPE))
 K_fast = np.nan_to_num(K_fast, nan=np.nanmean(K_fast))
 K_slow = np.nan_to_num(K_slow, nan=np.nanmean(K_slow))
-
 
 # =============================================================================
 # 2) PARTITION SOC INTO FAST & SLOW POOLS
@@ -121,7 +124,6 @@ def allocate_fast_slow_soc(C, LANDUSE, proportion_df):
             p_fast_grid[i, j] = props['fast']
     return C_fast, C_slow, p_fast_grid
 
-
 C_fast, C_slow, p_fast_grid = allocate_fast_slow_soc(C, LANDUSE, df_prop)
 
 # =============================================================================
@@ -131,11 +133,9 @@ C_fast, C_slow, p_fast_grid = allocate_fast_slow_soc(C, LANDUSE, df_prop)
 # We assume a bulk density of 1300 t/m³.
 BULK_DENSITY = 1300  # Tons per cubic meter
 
-
 def find_nearest_index(array, value):
     """Return the index of the element in 'array' closest to 'value'."""
     return (np.abs(array - value)).argmin()
-
 
 # =============================================================================
 # 4) RUSLE COMPONENTS (MONTHLY)
@@ -150,7 +150,6 @@ def calculate_r_factor_monthly(rain_month_mm):
     """
     return 6.94 * rain_month_mm
 
-
 def calculate_ls_factor(slope, slope_length=1000):
     """
     Compute the LS factor (slope length and steepness factor) from slope.
@@ -159,7 +158,6 @@ def calculate_ls_factor(slope, slope_length=1000):
     """
     slope_rad = np.deg2rad(slope)
     return ((slope_length / 22.13) ** 0.4) * ((np.sin(slope_rad) / 0.0896) ** 1.3)
-
 
 def calculate_c_factor(lai):
     """
@@ -171,7 +169,6 @@ def calculate_c_factor(lai):
     Sources: Zhou (2008); Wei & Liu (2016).
     """
     return np.exp(-1.7 * lai)
-
 
 def calculate_p_factor(landuse):
     """
@@ -196,14 +193,10 @@ def calculate_p_factor(landuse):
     }
     return p_values.get(str(landuse).lower(), 1.0)
 
-
 K_factor = np.full_like(C, 0.03)
 LS_factor = calculate_ls_factor(SLOPE)
-P_factor = np.array([
-    [calculate_p_factor(LANDUSE[i, j]) for j in range(LANDUSE.shape[1])]
-    for i in range(LANDUSE.shape[0])
-])
-
+P_factor = np.array([[calculate_p_factor(LANDUSE[i, j]) for j in range(LANDUSE.shape[1])]
+                      for i in range(LANDUSE.shape[0])])
 
 # =============================================================================
 # 5) CONVERT SOIL LOSS TO SOC LOSS (g/kg/month)
@@ -218,7 +211,6 @@ def convert_soil_loss_to_soc_loss_monthly(E_t_ha_month, ORGA_g_per_kg, bulk_dens
     soc_loss_g_kg_month = soc_loss_g_m2_month / bulk_density
     return soc_loss_g_kg_month
 
-
 # =============================================================================
 # NEW: RASTERIZE RIVER BASIN BOUNDARIES AND MAIN RIVER
 # =============================================================================
@@ -226,11 +218,14 @@ def convert_soil_loss_to_soc_loss_monthly(E_t_ha_month, ORGA_g_per_kg, bulk_dens
 # - The small basin boundary (black) is read from "htgy_River_Basin.shp".
 # - The larger basin boundary (green) is read from "94_area.shp".
 # - The main river (red) is read from "ChinaRiver_main.shp".
-# We buffer these line features by half the cell resolution to create narrow polygons.
+# Because buffering in a geographic CRS can lead to errors, we first reproject
+# the shapefiles to a projected CRS (EPSG:3857), perform buffering, then reproject back
+# to our desired CRS (EPSG:4326).
+
 dx = np.mean(np.diff(grid_x))
 dy = np.mean(np.diff(grid_y))
 resolution = np.mean([dx, dy])
-buffer_distance = resolution / 2  # Buffer half the cell size
+buffer_distance = resolution  # Increase buffer to 1× resolution for better coverage
 
 # Create a meshgrid of cell centers.
 X, Y = np.meshgrid(grid_x, grid_y)
@@ -240,21 +235,26 @@ small_boundary_shp = gpd.read_file(DATA_DIR / "River_Basin" / "htgy_River_Basin.
 large_boundary_shp = gpd.read_file(DATA_DIR / "River_Basin" / "94_area.shp")
 river_shp = gpd.read_file(DATA_DIR / "China_River" / "ChinaRiver_main.shp")
 
-# Buffer the line features.
-small_boundary_buffered = small_boundary_shp.buffer(buffer_distance)
-large_boundary_buffered = large_boundary_shp.buffer(buffer_distance)
-river_buffered = river_shp.buffer(buffer_distance)
+# Reproject shapefiles to a projected CRS for buffering (EPSG:3857 is used here).
+proj_crs = "EPSG:3857"
+small_boundary_proj = small_boundary_shp.to_crs(proj_crs)
+large_boundary_proj = large_boundary_shp.to_crs(proj_crs)
+river_proj = river_shp.to_crs(proj_crs)
 
-# Combine buffered geometries using union_all() (avoiding deprecated unary_union).
-small_boundary_union = small_boundary_buffered.union_all()
-large_boundary_union = large_boundary_buffered.union_all()
-river_union = river_buffered.union_all()
+# Buffer the line features in the projected CRS.
+small_boundary_buffered_proj = small_boundary_proj.buffer(buffer_distance)
+large_boundary_buffered_proj = large_boundary_proj.buffer(buffer_distance)
+river_buffered_proj = river_proj.buffer(buffer_distance)
+
+# Union the buffered geometries.
+small_boundary_union = gpd.GeoSeries(small_boundary_buffered_proj.union_all(), crs=proj_crs).to_crs(desired_crs).iloc[0]
+large_boundary_union = gpd.GeoSeries(large_boundary_buffered_proj.union_all(), crs=proj_crs).to_crs(desired_crs).iloc[0]
+river_union = gpd.GeoSeries(river_buffered_proj.union_all(), crs=proj_crs).to_crs(desired_crs).iloc[0]
 
 # Create boolean mask arrays using np.vectorize.
 small_boundary_mask = np.vectorize(lambda x, y: small_boundary_union.intersects(Point(x, y)))(X, Y)
 large_boundary_mask = np.vectorize(lambda x, y: large_boundary_union.intersects(Point(x, y)))(X, Y)
 river_mask = np.vectorize(lambda x, y: river_union.intersects(Point(x, y)))(X, Y)
-
 
 # -----------------------------------------------------------------------------
 # Helper: Compute outlet mask for a boundary.
@@ -270,10 +270,8 @@ def compute_outlet_mask(boundary_mask, DEM):
         outlet_mask[outlet_i, outlet_j] = True
     return outlet_mask
 
-
 small_outlet_mask = compute_outlet_mask(small_boundary_mask, DEM)
 large_outlet_mask = compute_outlet_mask(large_boundary_mask, DEM)
-
 
 # =============================================================================
 # 6) ROUTE SOIL AND SOC FROM HIGHER CELLS (Modified with basin & river effects)
@@ -370,7 +368,7 @@ def distribute_soil_and_soc_with_dams(E_tcell, S, DEM, dam_positions, grid_x, gr
                             continue
                     # Allow flow only if neighbor DEM is lower.
                     if DEM[ni, nj] < DEM[i, j]:
-                        slope_diff = (DEM[i, j] - DEM[ni, nj]) / np.hypot(di, dj)
+                        slope_diff = (DEM[i, j] - DEM[ni, nj]) / (np.hypot(di, dj) + 1e-9)
                         neighbors.append(((ni, nj), slope_diff))
         total_slope = sum(s for _, s in neighbors)
         if total_slope > 0:
@@ -380,7 +378,6 @@ def distribute_soil_and_soc_with_dams(E_tcell, S, DEM, dam_positions, grid_x, gr
                 inflow_soc[ni, nj] += source_soc * fraction
     return D_soil, D_soc, inflow_soil, inflow_soc, lost_soc
 
-
 # =============================================================================
 # 7) VEGETATION INPUT & UPDATED SOC DYNAMIC MODEL
 # =============================================================================
@@ -388,8 +385,7 @@ def vegetation_input(LAI):
     """
     Compute vegetation input based on LAI using an empirical formula.
     """
-    return 0.0473 -0.0913*LAI + 0.0384*LAI**2
-
+    return 0.0473 - 0.0913 * LAI + 0.0384 * LAI**2
 
 def soc_dynamic_model(C_fast, C_slow,
                       soc_loss_g_kg_month, D_soil, D_soc, V,
@@ -436,7 +432,6 @@ def soc_dynamic_model(C_fast, C_slow,
 
     return C_fast_new, C_slow_new
 
-
 # =============================================================================
 # 8) HELPER: REGRID CMIP6 POINT DATA TO 2D GRID
 # =============================================================================
@@ -451,7 +446,6 @@ def create_grid_from_points(lon_points, lat_points, values, grid_x, grid_y):
         i = (np.abs(grid_y - lat_points[k])).argmin()
         grid[i, j] = values[k]
     return grid
-
 
 # =============================================================================
 # 9) FIGURE OUTPUT SETUP & PLOTTING INITIAL CONDITION
@@ -510,14 +504,10 @@ M_soil = 1.0e8  # Total soil mass per cell (kg)
 C_fast_current = C_fast.copy()
 C_slow_current = C_slow.copy()
 
-# Create directories for outputs.
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR / "Figure", exist_ok=True)
 os.makedirs(OUTPUT_DIR / "Data", exist_ok=True)
 
-# ---------------------------------------------------------------------------
-# Main simulation loop: Iterate over each year and month.
-# ---------------------------------------------------------------------------
 for year in range(start_year, end_year + 1):
     # --- NEW: Filter only dams built on or before the current year.
     df_dam_active = df_dam[df_dam["year"] <= year].copy()
@@ -544,12 +534,8 @@ for year in range(start_year, end_year + 1):
     with nc.Dataset(nc_file) as ds:
         valid_time = ds.variables['valid_time'][:]  # Expecting 12 months.
         n_time = len(valid_time)
-
-        # Get ERA5 coordinate arrays.
         lon_nc = ds.variables['longitude'][:]
         lat_nc = ds.variables['latitude'][:]
-
-        # Read LAI (lai_lv) and precipitation (tp) data.
         lai_data = ds.variables['lai_lv'][:]  # Shape: (12, n_points)
         tp_data = ds.variables['tp'][:]  # Shape: (12, n_points), in meters
 
@@ -659,6 +645,8 @@ for year in range(start_year, end_year + 1):
 
             # -------------------------------------------------------------------------
             # (B) SAVE DATA OUTPUT AS CSV.
+            # Save each term in the SOC balance equation along with E_t_ha_month and landuse.
+            # Now include a column for SOC lost to rivers.
             # -------------------------------------------------------------------------
             rows_grid, cols_grid = C_fast_current.shape
             lat_list = []
@@ -675,6 +663,7 @@ for year in range(start_year, end_year + 1):
             reaction_fast_list = []
             reaction_slow_list = []
             E_t_ha_list = []
+            lost_soc_list = []  # New list for SOC lost to river
 
             for i in range(rows_grid):
                 for j in range(cols_grid):
@@ -694,6 +683,7 @@ for year in range(start_year, end_year + 1):
                     reaction_fast_list.append(reaction_fast[i, j])
                     reaction_slow_list.append(reaction_slow[i, j])
                     E_t_ha_list.append(E_t_ha_month[i, j])
+                    lost_soc_list.append(lost_soc[i, j])  # Save lost SOC for this cell
 
             df_out = pd.DataFrame({
                 'LAT': lat_list,
@@ -709,7 +699,8 @@ for year in range(start_year, end_year + 1):
                 'Vegetation_slow': vegetation_slow_list,
                 'Reaction_fast': reaction_fast_list,
                 'Reaction_slow': reaction_slow_list,
-                'E_t_ha_month': E_t_ha_list
+                'E_t_ha_month': E_t_ha_list,
+                'Lost_SOC_River': lost_soc_list  # New column for SOC lost to rivers
             })
 
             filename_csv = f"SOC_terms_{year}_{month_idx + 1:02d}_timestep_{global_timestep}_River.csv"
@@ -717,4 +708,3 @@ for year in range(start_year, end_year + 1):
             print(f"Saved CSV output for Year {year}, Month {month_idx + 1} as {filename_csv}")
 
 print("Simulation complete. Final SOC distribution is in C_fast_current + C_slow_current.")
-
