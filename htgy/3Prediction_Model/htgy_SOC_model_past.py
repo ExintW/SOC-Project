@@ -333,7 +333,7 @@ def vegetation_input(LAI):
     """
     Compute vegetation input based on LAI using an empirical formula.
     """
-    return 0.00008128 * (LAI ** 7.33382537)
+    return 0.07688887 * LAI + 0.06444423
 
 
 def soc_dynamic_model_reverse(C_fast, C_slow,
