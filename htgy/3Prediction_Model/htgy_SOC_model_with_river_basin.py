@@ -7,6 +7,7 @@ import netCDF4 as nc
 import geopandas as gpd
 from shapely.geometry import Point
 from shapely import vectorized  # Not used now; we'll use np.vectorize instead.
+from shapely.prepared import prep
 from pathlib import Path
 import sys
 
@@ -26,6 +27,9 @@ desired_crs = "EPSG:4326"
 loess_border_path = DATA_DIR / "Loess_Plateau_vector_border.shp"
 loess_border = gpd.read_file(loess_border_path)
 # Use union_all() to merge all features (recommended over the deprecated unary_union).
+loess_border_geom = loess_border.union_all()
+# Reproject the Loess Plateau border to the desired CRS.
+loess_border = loess_border.to_crs(desired_crs)
 loess_border_geom = loess_border.union_all()
 
 # =============================================================================
@@ -218,14 +222,13 @@ def convert_soil_loss_to_soc_loss_monthly(E_t_ha_month, ORGA_g_per_kg, bulk_dens
 # - The small basin boundary (black) is read from "htgy_River_Basin.shp".
 # - The larger basin boundary (green) is read from "94_area.shp".
 # - The main river (red) is read from "ChinaRiver_main.shp".
-# Because buffering in a geographic CRS can lead to errors, we first reproject
-# the shapefiles to a projected CRS (EPSG:3857), perform buffering, then reproject back
-# to our desired CRS (EPSG:4326).
+# Because buffering in a geographic CRS is inaccurate, we first reproject the shapefiles
+# to a projected CRS (EPSG:3857), perform buffering, then reproject back to our desired CRS (EPSG:4326).
 
 dx = np.mean(np.diff(grid_x))
 dy = np.mean(np.diff(grid_y))
 resolution = np.mean([dx, dy])
-buffer_distance = resolution  # Increase buffer to 1× resolution for better coverage
+buffer_distance = resolution  # Use 1× resolution for buffering
 
 # Create a meshgrid of cell centers.
 X, Y = np.meshgrid(grid_x, grid_y)
@@ -235,7 +238,12 @@ small_boundary_shp = gpd.read_file(DATA_DIR / "River_Basin" / "htgy_River_Basin.
 large_boundary_shp = gpd.read_file(DATA_DIR / "River_Basin" / "94_area.shp")
 river_shp = gpd.read_file(DATA_DIR / "China_River" / "ChinaRiver_main.shp")
 
-# Reproject shapefiles to a projected CRS for buffering (EPSG:3857 is used here).
+# --- Filter river shapefile using the Loess Plateau border ---
+# Reproject river shapefile to desired CRS and filter by intersection.
+river_shp = river_shp.to_crs(desired_crs)
+river_shp = river_shp[river_shp.intersects(loess_border_geom)]
+
+# Reproject shapefiles to a projected CRS for buffering.
 proj_crs = "EPSG:3857"
 small_boundary_proj = small_boundary_shp.to_crs(proj_crs)
 large_boundary_proj = large_boundary_shp.to_crs(proj_crs)
@@ -246,14 +254,18 @@ small_boundary_buffered_proj = small_boundary_proj.buffer(buffer_distance)
 large_boundary_buffered_proj = large_boundary_proj.buffer(buffer_distance)
 river_buffered_proj = river_proj.buffer(buffer_distance)
 
-# Union the buffered geometries.
-small_boundary_union = gpd.GeoSeries(small_boundary_buffered_proj.union_all(), crs=proj_crs).to_crs(desired_crs).iloc[0]
-large_boundary_union = gpd.GeoSeries(large_boundary_buffered_proj.union_all(), crs=proj_crs).to_crs(desired_crs).iloc[0]
-river_union = gpd.GeoSeries(river_buffered_proj.union_all(), crs=proj_crs).to_crs(desired_crs).iloc[0]
+# Union the buffered geometries and reproject back to the desired CRS.
+small_boundary_union = gpd.GeoSeries(small_boundary_buffered_proj.union_all(), crs=proj_crs)\
+                         .to_crs(desired_crs).iloc[0]
+large_boundary_union = gpd.GeoSeries(large_boundary_buffered_proj.union_all(), crs=proj_crs)\
+                         .to_crs(desired_crs).iloc[0]
+river_union = gpd.GeoSeries(river_buffered_proj.union_all(), crs=proj_crs)\
+              .to_crs(desired_crs).iloc[0]
 
 # Create boolean mask arrays using np.vectorize.
 small_boundary_mask = np.vectorize(lambda x, y: small_boundary_union.intersects(Point(x, y)))(X, Y)
 large_boundary_mask = np.vectorize(lambda x, y: large_boundary_union.intersects(Point(x, y)))(X, Y)
+# We will replace the river_mask test in the loop with prepared geometry.
 river_mask = np.vectorize(lambda x, y: river_union.intersects(Point(x, y)))(X, Y)
 
 # -----------------------------------------------------------------------------
@@ -272,6 +284,12 @@ def compute_outlet_mask(boundary_mask, DEM):
 
 small_outlet_mask = compute_outlet_mask(small_boundary_mask, DEM)
 large_outlet_mask = compute_outlet_mask(large_boundary_mask, DEM)
+
+# --- Prepare the unioned river geometry for fast intersection testing ---
+prepared_river = prep(river_union)
+# (Optionally, you can also prepare the boundaries if needed)
+prepared_small_boundary = prep(small_boundary_union)
+prepared_large_boundary = prep(large_boundary_union)
 
 # =============================================================================
 # 6) ROUTE SOIL AND SOC FROM HIGHER CELLS (Modified with basin & river effects)
@@ -318,7 +336,6 @@ def distribute_soil_and_soc_with_dams(E_tcell, S, DEM, dam_positions, grid_x, gr
     for (i, j) in all_cells:
         deposition_soil = max(inflow_soil[i, j], 0)
         deposition_soc = max(inflow_soc[i, j], 0)
-
         if (i, j) in dam_capacity_map:
             cap = dam_capacity_map[(i, j)]
             if deposition_soil <= cap:
@@ -353,8 +370,8 @@ def distribute_soil_and_soc_with_dams(E_tcell, S, DEM, dam_positions, grid_x, gr
                     continue
                 ni, nj = i + di, j + dj
                 if 0 <= ni < rows and 0 <= nj < cols:
-                    # If the neighbor is a river cell, then the SOC flowing there is lost.
-                    if river_mask[ni, nj]:
+                    # Use the prepared river geometry for the neighbor.
+                    if prepared_river.intersects(Point(grid_x[nj], grid_y[ni])):
                         lost_soc[i, j] += source_soc * ((DEM[i, j] - DEM[ni, nj]) / (np.hypot(di, dj) + 1e-9))
                         continue
                     # Check small basin boundary: if current and neighbor differ,
