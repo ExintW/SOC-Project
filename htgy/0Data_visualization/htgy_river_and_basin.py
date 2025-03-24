@@ -40,6 +40,13 @@ if gdf_river_main.crs != gdf_boundary.crs:
 # Clip the main river data to the Loess Plateau boundary
 gdf_river_main_clipped = gpd.overlay(gdf_river_main, gdf_boundary, how="intersection")
 
+# Reproject all geodataframes to latitude and longitude (EPSG:4326)
+target_crs = "EPSG:4326"
+gdf_boundary = gdf_boundary.to_crs(target_crs)
+gdf_additional_boundary = gdf_additional_boundary.to_crs(target_crs)
+gdf_river_clipped = gdf_river_clipped.to_crs(target_crs)
+gdf_river_main_clipped = gdf_river_main_clipped.to_crs(target_crs)
+
 # Create a figure and axis for plotting
 fig, ax = plt.subplots(figsize=(10, 8))
 
@@ -66,7 +73,7 @@ gdf_additional_boundary.plot(
 gdf_river_clipped.plot(
     ax=ax,
     color="blue",
-    linewidth=0.5,
+    linewidth=0,
     label="River"
 )
 
