@@ -77,7 +77,8 @@ grid_y = np.sort(df[lat_col].unique())[::-1]  # Descending order for latitude
 # -----------------------------------------------------------------------------
 C = create_grid(df, soc_col)  # Initial SOC (g/kg)
 # Clip initial SOC values: set any value above 13.8 to 13.8.
-C = np.clip(C, None, 13.8)
+# C = np.clip(C, None, 13.8)
+C = np.clip(C, None, 12)
 DEM = create_grid(df, dem_col)  # Elevation
 SAND = create_grid(df, "SAND")
 SILT = create_grid(df, "SILT")
@@ -152,7 +153,8 @@ def calculate_r_factor_monthly(rain_month_mm):
     This adjustment yields soil loss values closer to observed rates (~1000 t/km²/year).
     """
     
-    return 6.94 * rain_month_mm
+    # return 6.94 * rain_month_mm
+    return 0.739 * (rain_month_mm ** 1.56)
 
 def calculate_r_factor_annually(rain_year_mm):
     """
@@ -239,7 +241,7 @@ def calculate_p_factor(landuse):
 def calculate_k_factor(silt, sand, clay, soc, landuse):
     """
     Using Wischmeier & Smith (1978) equation
-        K = 2.1e-4 * M^1.14(12 - OM) + 3.25(s - 2) + 2.5(p - 3) / 759
+        100K = 2.1e-4 * M^1.14(12 - OM) + 3.25(s - 2) + 2.5(p - 3)
     """
     s_values = {    # Structure Code = 1~4
         "sloping cropland": 3,
@@ -259,13 +261,17 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
     }  
  
     M = (silt + sand) * (100 - clay)
-    K = 2.1e-4 * (M**1.14) * (12 - soc) + 3.25*(s_values.get(str(landuse).lower(), 1) - 2) + 2.5*(p_values.get(str(landuse).lower(), 1) - 3) / 759
-    return K
+    K = 2.1e-4 * (M**1.14) * (12 - soc) + 3.25*(s_values.get(str(landuse).lower(), 2) - 2) + 2.5*(p_values.get(str(landuse).lower(), 3) - 3)
+    if np.any(K < 0):
+        print(f"Warning: negative values found for K factor!")
+        print(f"Negative K values = {K[K < 0]}")
+    return K / 100
 
-K_factor = calculate_k_factor(SILT, SAND, CLAY, C, LANDUSE)
+K_factor = calculate_k_factor(SILT, SAND, CLAY, C, LANDUSE)     # constant K factor (not used)
 K_factor = np.nan_to_num(K_factor, nan=np.nanmean(K_factor))
 # K_factor = np.full_like(C, 0.03)
 LS_factor = calculate_ls_factor(SLOPE)
+print(f"Total elements in LS: {LS_factor.size}, with {np.sum(LS_factor > 50)} elements > 50, and mean = {np.mean(LS_factor)}")
 P_factor = np.array([
     [calculate_p_factor(LANDUSE[i, j]) for j in range(LANDUSE.shape[1])]
     for i in range(LANDUSE.shape[0])
@@ -549,6 +555,8 @@ for year in range(start_year, end_year + 1):
         tp_data_mm = tp_data * 1000.0
         R_annual = calculate_r_factor_annually(tp_data_mm)
         
+        E_month_avg_list = []   # for calculating annual mean for validation
+        
         for month_idx in range(n_time):
             # -------------------------------------------------------------------------
             # Regrid LAI data to the model grid.
@@ -573,14 +581,25 @@ for year in range(start_year, end_year + 1):
             R_month = get_montly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
             R_month = create_grid_from_points(lon_nc, lat_nc, R_month, grid_x, grid_y)
             R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
+            print(f"Total elements in R: {R_month.size}, with {np.sum(R_month > 250)} elements > 250, and mean = {np.mean(R_month)}")
             C_factor_2D = calculate_c_factor(LAI_2D)
+            print(f"Total elements in C: {C_factor_2D.size}, with {np.sum(C_factor_2D > 1)} elements > 1, and mean = {np.mean(C_factor_2D)}")
+            
+            # -------------------------------------------------------------------------
+            # Calculate monthly K factor.
+            # -------------------------------------------------------------------------
 
+            K_month = calculate_k_factor(SILT, SAND, CLAY, (C_fast_current + C_slow_current), LANDUSE)
+            K_month = np.nan_to_num(K_month, nan=np.nanmean(K_month))
+            K_month = np.clip(K_month, 0, 0.7)
+            print(f"Total elements in K: {K_month.size}, with {np.sum(K_month == 0.7)} elements = 0.7, and mean = {np.mean(K_month)}")
             # -------------------------------------------------------------------------
             # Calculate soil loss (E) in t/ha/month, then convert to t/cell/month.
             # -------------------------------------------------------------------------
-            E_t_ha_month = R_month * K_factor * LS_factor * C_factor_2D * P_factor
+            E_t_ha_month = R_month * K_month * LS_factor * C_factor_2D * P_factor
+            print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.max(E_t_ha_month)}, and mean = {np.mean(E_t_ha_month)}")
             E_tcell_month = E_t_ha_month * CELL_AREA_HA
-
+            E_month_avg_list.append(np.mean(E_t_ha_month))
             # -------------------------------------------------------------------------
             # Compute SOC mass eroded from each cell (kg/cell/month).
             # S = E_tcell_month * (C_fast_current + C_slow_current)
@@ -715,5 +734,6 @@ for year in range(start_year, end_year + 1):
             filename_csv = f"SOC_terms_{year}_{month_idx + 1:02d}_timestep_{global_timestep}.csv"
             df_out.to_csv(os.path.join(OUTPUT_DIR / "Data", filename_csv), index=False)
             print(f"Saved CSV output for Year {year}, Month {month_idx + 1} as {filename_csv}")
-
+        print(f"Annual mean of E = {np.mean(E_month_avg_list)}")
+        
 print("Simulation complete. Final SOC distribution is in C_fast_current + C_slow_current.")
