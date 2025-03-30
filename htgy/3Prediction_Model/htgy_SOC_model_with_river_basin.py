@@ -81,8 +81,11 @@ precompute_river_basin()
 # =============================================================================
 # COMPUTE CONSTANT RUSLE FACTORS
 # =============================================================================
-K_factor = np.full_like(INIT_VALUES.SOC, 0.03)
+K_factor = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, INIT_VALUES.SOC, INIT_VALUES.LANDUSE)     # constant K factor (not used)
+K_factor = np.nan_to_num(K_factor, nan=np.nanmean(K_factor))
+# K_factor = np.full_like(C, 0.03)
 LS_factor = calculate_ls_factor(INIT_VALUES.SLOPE)
+print(f"Total elements in LS: {LS_factor.size}, with {np.sum(LS_factor > 50)} elements > 50, and mean = {np.mean(LS_factor)}")
 P_factor = np.array([
     [calculate_p_factor(INIT_VALUES.LANDUSE[i, j]) for j in range(INIT_VALUES.LANDUSE.shape[1])]
     for i in range(INIT_VALUES.LANDUSE.shape[0])
@@ -225,7 +228,11 @@ for year in range(start_year, end_year + 1):
         lat_nc = ds.variables['latitude'][:]
         lai_data = ds.variables['lai_lv'][:]  # shape: (12, n_points)
         tp_data = ds.variables['tp'][:]       # shape: (12, n_points), in meters
-
+        tp_data_mm = tp_data * 1000.0
+        R_annual = calculate_r_factor_annually(tp_data_mm)
+        
+        E_month_avg_list = []   # for calculating annual mean for validation
+        
         for month_idx in range(n_time):
             # Regrid LAI data
             lai_1d = lai_data[month_idx, :]
@@ -235,16 +242,28 @@ for year in range(start_year, end_year + 1):
             # Regrid precipitation and convert to mm
             tp_1d = tp_data[month_idx, :]
             tp_1d_mm = tp_1d * 1000.0
-            RAIN_2D = create_grid_from_points(lon_nc, lat_nc, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
-            RAIN_2D = np.nan_to_num(RAIN_2D, nan=np.nanmean(RAIN_2D))
+            # RAIN_2D = create_grid_from_points(lon_nc, lat_nc, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            # RAIN_2D = np.nan_to_num(RAIN_2D, nan=np.nanmean(RAIN_2D))
 
             # Compute RUSLE factors
-            R_month = calculate_r_factor_monthly(RAIN_2D)
+            R_month = get_montly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
+            R_month = create_grid_from_points(lon_nc, lat_nc, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
+            print(f"Total elements in R: {R_month.size}, with {np.sum(R_month > 250)} elements > 250, and mean = {np.mean(R_month)}")
             C_factor_2D = calculate_c_factor(LAI_2D)
+            print(f"Total elements in C: {C_factor_2D.size}, with {np.sum(C_factor_2D > 1)} elements > 1, and mean = {np.mean(C_factor_2D)}")
+            
+            # Calculate monthly K factor
+            K_month = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, (C_fast_current + C_slow_current), INIT_VALUES.LANDUSE)
+            K_month = np.nan_to_num(K_month, nan=np.nanmean(K_month))
+            K_month = np.clip(K_month, 0, 0.7)
+            print(f"Total elements in K: {K_month.size}, with {np.sum(K_month == 0.7)} elements = 0.7, and mean = {np.mean(K_month)}")
 
             # Calculate soil loss (t/ha/month) & then per cell
-            E_t_ha_month = R_month * K_factor * LS_factor * C_factor_2D * P_factor
+            E_t_ha_month = R_month * K_month * LS_factor * C_factor_2D * P_factor
+            print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.max(E_t_ha_month)}, and mean = {np.mean(E_t_ha_month)}")
             E_tcell_month = E_t_ha_month * CELL_AREA_HA
+            E_month_avg_list.append(np.mean(E_t_ha_month))
 
             # Compute SOC mass eroded (kg/cell/month)
             S = E_tcell_month * (C_fast_current + C_slow_current)
