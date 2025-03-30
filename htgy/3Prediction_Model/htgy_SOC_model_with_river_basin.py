@@ -113,7 +113,7 @@ def vegetation_input(LAI):
     Compute vegetation input based on LAI using an empirical formula.
     E.g., V = a * LAI + b
     """
-    return 0.03006183 * LAI + 0.05812277
+    return 0.05764345 * LAI - 0.00429286
 
 def soc_dynamic_model(C_fast, C_slow,
                       soc_loss_g_kg_month, D_soil, D_soc, V,

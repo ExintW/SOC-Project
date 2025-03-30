@@ -54,7 +54,9 @@ print("Cleaned SOC values:\n", df[soc_col].head(10))
 df_cleaned = df.dropna(subset=[lai_col, soc_col])
 
 # Remove outliers: rows where the SOC Monthly Increase > 1.5
-df_cleaned = df_cleaned[df_cleaned[soc_col] <= 1.5]
+# Remove outliers: rows where the SOC Monthly Increase (or decrease) is outside the range -0.5 to 0.5
+df_cleaned = df_cleaned[(df_cleaned[soc_col] >= -0.05) & (df_cleaned[soc_col] <= 1)]
+
 
 # Count the number of positive and negative SOC data points
 negative_points = df_cleaned[df_cleaned[soc_col] < 0]
