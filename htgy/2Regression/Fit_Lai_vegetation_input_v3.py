@@ -18,7 +18,7 @@ from htgy.globals import *
 # --------------------------------------------------
 
 # Use the processed file from the previous code as the input file
-csv_file = PROCESSED_DIR / "Vege_Input_Data_Updated.csv"
+csv_file = PROCESSED_DIR / "Vege_Input_Data_Updated_outlier_removed.csv"
 df = pd.read_csv(csv_file, encoding='ISO-8859-1')
 
 # Standardize column names by stripping whitespace
