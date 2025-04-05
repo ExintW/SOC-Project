@@ -61,7 +61,7 @@ from rasterio.features import rasterize
 from RUSLE_Calculations import *
 from globalss import *
 from Init import init
-from River_Basin import *
+from River_Basin import * 
 from utils import *
 
 # Append parent directory to path to access 'globals' if needed
@@ -228,6 +228,7 @@ for year in range(start_year, end_year + 1):
         lat_nc = ds.variables['latitude'][:]
         lai_data = ds.variables['lai_lv'][:]  # shape: (12, n_points)
         tp_data = ds.variables['tp'][:]       # shape: (12, n_points), in meters
+        tp_data = tp_data * 30
         tp_data_mm = tp_data * 1000.0
         R_annual = calculate_r_factor_annually(tp_data_mm)
         
@@ -242,10 +243,11 @@ for year in range(start_year, end_year + 1):
             # Regrid precipitation and convert to mm
             tp_1d = tp_data[month_idx, :]
             tp_1d_mm = tp_1d * 1000.0
-            # RAIN_2D = create_grid_from_points(lon_nc, lat_nc, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
-            # RAIN_2D = np.nan_to_num(RAIN_2D, nan=np.nanmean(RAIN_2D))
+            RAIN_2D = create_grid_from_points(lon_nc, lat_nc, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            RAIN_2D = np.nan_to_num(RAIN_2D, nan=np.nanmean(RAIN_2D))
 
             # Compute RUSLE factors
+            # R_month = calculate_r_factor_monthly(RAIN_2D)
             R_month = get_montly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
             R_month = create_grid_from_points(lon_nc, lat_nc, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
             R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
@@ -280,7 +282,7 @@ for year in range(start_year, end_year + 1):
             )
 
             # Debug: Print lost SOC summary
-            mean_lost = np.mean(lost_soc)
+            mean_lost = np.mean(np.nan_to_num(lost_soc, nan=0))
             max_lost = np.max(lost_soc)
             min_lost = np.min(lost_soc)
             print(f"Year {year} Month {month_idx+1}: Lost_SOC - mean: {mean_lost:.2f}, "
@@ -388,6 +390,7 @@ for year in range(start_year, end_year + 1):
             filename_csv = f"SOC_terms_{year}_{month_idx+1:02d}_timestep_{global_timestep}_River.csv"
             df_out.to_csv(os.path.join(OUTPUT_DIR, "Data", filename_csv), index=False)
             print(f"Saved CSV output for Year {year}, Month {month_idx+1} as {filename_csv}")
+        print(f"\nAnnual mean of E = {np.mean(E_month_avg_list)}\n")
 
 print(f"Simulation complete. Total simulation time: {time.perf_counter() - t_sim_start:.2f} seconds.")
 print("Final SOC distribution is in C_fast_current + C_slow_current.")

@@ -102,7 +102,7 @@ def init():
     # Create 2D arrays from CSV
     # ---------------------------------------------------------------------
     INIT_VALUES.SOC = create_grid(df, soc_col)  # SOC concentration (g/kg)
-    INIT_VALUES.SOC = np.clip(INIT_VALUES.SOC, None, 13.8)    # Clip values above 13.8
+    INIT_VALUES.SOC = np.clip(INIT_VALUES.SOC, None, 12)    # Clip values above 12
     INIT_VALUES.DEM = create_grid(df, dem_col)
     INIT_VALUES.SAND = create_grid(df, "SAND")
     INIT_VALUES.SILT = create_grid(df, "SILT")

@@ -16,8 +16,8 @@ c = cdsapi.Client()
 """
 Time range
 """
-first_year = 1980
-last_year = 1980
+first_year = 2007
+last_year = 2009
 for year in range(first_year, last_year + 1):
     for month in range(1, 13):
         print("=========================================================")
@@ -25,19 +25,7 @@ for year in range(first_year, last_year + 1):
         c.retrieve(
             'reanalysis-era5-land',
             {
-                # 'variable': ['friction_velocity'],
-                'variable': [
-                    "2m_dewpoint_temperature",
-                    "2m_temperature",
-                    "skin_temperature",
-                    "soil_temperature_level_1",
-                    "soil_temperature_level_2",
-                    "soil_temperature_level_3",
-                    "soil_temperature_level_4",
-                    "total_precipitation",
-                    "leaf_area_index_high_vegetation",
-                    "leaf_area_index_low_vegetation"
-                ],
+                'variable': "total_precipitation",
                 'year': str(year),
                 'month': "{month:02d}".format(month=month),
                 'day': [
@@ -63,7 +51,8 @@ for year in range(first_year, last_year + 1):
                     "18:00", "19:00", "20:00",
                     "21:00", "22:00", "23:00"
                 ],
-                'format': 'netcdf'
+                'area': [41, 100, 33, 114],
+                'data_format': 'netcdf',
+                "download_format": "unarchived"
             },
             DATA_DIR / "ERA5" / "{year}-{month:02d}.nc".format(year=year, month=month))
-        

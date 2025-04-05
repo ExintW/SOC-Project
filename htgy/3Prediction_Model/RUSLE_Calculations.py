@@ -30,9 +30,10 @@ def calculate_r_factor_annually(rain_year_mm):
         R = 1.735 * 10^{1.5 * log_10(MFI)}
     """
     annual_tp = np.sum(rain_year_mm, axis=0)
-    MFI = np.sum(rain_year_mm**2, axis=0) / annual_tp
-    R = 1.735 * (10 ** (1.5 * np.log10(MFI)))
+    # MFI = np.sum(rain_year**2, axis=0) / annual_tp
+    # R = 1.735 * (10 ** (1.5 * np.log10(MFI)))
     
+    R = 0.0534 * (annual_tp ** 1.6548)
     """
     Using regression formula:
     
@@ -85,24 +86,30 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
         100K = 2.1e-4 * M^1.14(12 - OM) + 3.25(s - 2) + 2.5(p - 3)
     """
     s_values = {    # Structure Code = 1~4
-        "sloping cropland": 3,
+        "sloping cropland": 4,
         "forestland": 1,
         "grassland": 2,
         "not used": 3,
         "terrace": 2,
-        "dam field": 3
+        "dam field": 4
     }   
     p_values = {    # Permeability Code = 1~6
-        "sloping cropland": 3,
+        "sloping cropland": 6,
         "forestland": 1,
-        "grassland": 2,
-        "not used": 4,
-        "terrace": 2,
-        "dam field": 3
+        "grassland": 3,
+        "not used": 5,
+        "terrace": 3,
+        "dam field": 4
     }  
  
     M = (silt + sand) * (100 - clay)
     K = 2.1e-4 * (M**1.14) * (12 - soc) + 3.25*(s_values.get(str(landuse).lower(), 2) - 2) + 2.5*(p_values.get(str(landuse).lower(), 3) - 3)
+    # print(f'# of sloping cropland: {np.sum(landuse == 'sloping cropland')}')
+    # print(f'# of forestland = {np.sum(landuse == 'forestland')}')
+    # print(f'# of grassland = {np.sum(landuse == 'grassland')}')
+    # print(f'# of not used = {np.sum(landuse == 'not used')}')
+    # print(f'# of terrace = {np.sum(landuse == 'terrace')}')
+    # print(f'# of dam field = {np.sum(landuse == 'dam field')}')
     if np.any(K < 0):
         print(f"Warning: negative values found for K factor!")
         # print(f"Negative K values = {K[K < 0]}")
