@@ -33,6 +33,7 @@ output_csv = PROCESSED_DIR / "Vege_Input_Data_Updated.csv"
 # -------------------------------------------------------------------------
 # 2A) Read the vegetation CSV
 df = pd.read_csv(input_csv, encoding='ISO-8859-1')
+print("Columns in CSV:", df.columns.tolist())
 
 # Check that the expected columns exist.
 # For this updated file, we assume the columns are:
@@ -69,11 +70,11 @@ df["Investigation_Year"] = df["Investigation time"].astype(int)
 # 2E) Convert SOC from kg C/m² to g/kg soil using:
 #     SOC (g/kg soil) = (SOC (kg C/m²) / (bulk_density * depth)) * 1000
 # Example: For SOC = 2.5 kg C/m², bulk density = 1300 kg/m³, depth = 0.3 m:
-#          mass of soil = 1300 * 0.3 = 390 kg/m²,
-#          SOC (g/kg) = (2.5 / 390) * 1000 ≈ 6.41 g/kg
+#          mass of soil = 1300 * 0.2 = 260 kg/m²,
+#          SOC (g/kg) = (2.5 / 260) * 1000 ≈ 9.62 g/kg
 bulk_density = 1300  # kg/m³
-depth = 0.3          # m
-mass_of_soil = bulk_density * depth  # e.g., 390 kg/m²
+depth = 0.2          # m
+mass_of_soil = bulk_density * depth  # e.g., 260 kg/m²
 df["SOC (g/kg)"] = df["SOC (kg C m^-2)"] * (1000 / mass_of_soil)
 
 # -------------------------------------------------------------------------

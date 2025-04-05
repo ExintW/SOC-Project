@@ -14,12 +14,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from htgy.globals import *
 
 # 读取数据
-data_path = DATA_DIR / "Vegetation_Input_v2_with_Lai.csv"
+data_path = PROCESSED_DIR / "Vege_Input_Data_Updated_copy.csv"
 df = pd.read_csv(data_path)
 
 # 选择关键列
-lai_col = "Lai"
-soc_col = "Monthly Increase in Soil Organic Carbon (g/kg)"
+lai_col = "2007 LAI"
+soc_col = "SOC Monthly Increase (g/kg/month)"
 
 # 数据清理函数
 def clean_numeric(value):
@@ -34,6 +34,7 @@ for col in [lai_col, soc_col]:
 
 # 删除缺失值
 df_cleaned = df[[lai_col, soc_col]].dropna()
+df_cleaned = df_cleaned[(df_cleaned[soc_col] >= -0.1) & (df_cleaned[soc_col] <= 0.4)]
 
 # 定义特征X和目标Y
 X = df_cleaned[[lai_col]].values

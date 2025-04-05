@@ -18,7 +18,7 @@ from htgy.globals import *
 # --------------------------------------------------
 
 # Use the processed file from the previous code as the input file
-csv_file = PROCESSED_DIR / "Vege_Input_Data_Updated.csv"
+csv_file = PROCESSED_DIR / "Vege_Input_Data_Updated_outlier_removed.csv"
 df = pd.read_csv(csv_file, encoding='ISO-8859-1')
 
 # Standardize column names by stripping whitespace
@@ -31,7 +31,6 @@ soc_col = "SOC Monthly Increase (g/kg/month)"
 # Print the original SOC column values (first 10 rows) for inspection
 print("Original SOC values before cleaning:\n", df[soc_col].head(10))
 
-
 # Cleaning function: remove special characters and keep only digits, dot, and minus sign
 def clean_numeric(value):
     if isinstance(value, str):
@@ -41,7 +40,6 @@ def clean_numeric(value):
         except ValueError:
             return np.nan
     return value
-
 
 # Apply the cleaning function to both the SOC and LAI columns
 df[soc_col] = df[soc_col].apply(clean_numeric)
@@ -53,8 +51,8 @@ print("Cleaned SOC values:\n", df[soc_col].head(10))
 # Drop rows with NaN values in the SOC or LAI columns
 df_cleaned = df.dropna(subset=[lai_col, soc_col])
 
-# Remove outliers: rows where the SOC Monthly Increase > 1.5
-df_cleaned = df_cleaned[df_cleaned[soc_col] <= 1.5]
+# Remove outliers: rows where the SOC Monthly Increase (or decrease) is outside the range -0.05 to 0.3
+df_cleaned = df_cleaned[(df_cleaned[soc_col] >= -0.05) & (df_cleaned[soc_col] <= 0.3)]
 
 # Count the number of positive and negative SOC data points
 negative_points = df_cleaned[df_cleaned[soc_col] < 0]
@@ -67,7 +65,6 @@ print(f"Zero or negative SOC points: {len(negative_points)}")
 X = df_cleaned[lai_col].values
 Y = df_cleaned[soc_col].values
 
-
 # --------------------------------------------------
 #              Define Regression Models
 # --------------------------------------------------
@@ -76,25 +73,26 @@ Y = df_cleaned[soc_col].values
 def linear_model(x, a, b):
     return a * x + b
 
-
-# 2. Exponential model: y = a * exp(b * x)
-def exponential_model(x, a, b):
-    return a * np.exp(b * x)
-
-
-# 3. Power-law model: y = a * x^b
-def power_model(x, a, b):
-    return a * np.power(x, b)
-
-
-# 4. Logarithmic model: y = a * log(x) + b
+# 2. Logarithmic model: y = a * log(x) + b
 def logarithmic_model(x, a, b):
     return a * np.log(x) + b
 
-
-# 5. Quadratic polynomial model: y = a + b*x + c*x^2
+# 3. Quadratic polynomial model: y = a + b*x + c*x^2
 def polynomial2_model(x, a, b, c):
-    return a + b * x + c * (x ** 2)
+    return a + b * x + c * np.power(x, 2)
+
+# 4. Cubic polynomial model: y = a + b*x + c*x^2 + d*x^3
+def polynomial3_model(x, a, b, c, d):
+    return a + b * x + c * np.power(x, 2) + d * np.power(x, 3)
+
+# 5. 4th order polynomial model: y = a + b*x + c*x^2 + d*x^3 + e*x^4
+def polynomial4_model(x, a, b, c, d, e):
+    return a + b * x + c * np.power(x, 2) + d * np.power(x, 3) + e * np.power(x, 4)
+
+# 6. 5th order polynomial model: y = a + b*x + c*x^2 + d*x^3 + e*x^4 + f*x^5
+def polynomial5_model(x, a, b, c, d, e, f):
+    return a + b * x + c * np.power(x, 2) + d * x**3 + e * x**4 + f * x**5
+
 
 
 # --------------------------------------------------
@@ -117,16 +115,16 @@ def compute_errors(x, y, model_func, params):
     r2 = 1 - sse / tss if tss != 0 else 0
     return mse, rmse, r2
 
-
 # --------------------------------------------------
 #             Fit Models and Print Equation / Error Results
 # --------------------------------------------------
 models = {
     "Linear": linear_model,
-    "Exponential": exponential_model,
-    "Power-Law": power_model,
     "Logarithmic": logarithmic_model,
-    "Polynomial_2": polynomial2_model
+    "Polynomial_2": polynomial2_model,
+    "Polynomial_3": polynomial3_model,
+    "Polynomial_4": polynomial4_model,
+    "Polynomial_5": polynomial5_model,
 }
 
 fit_results = {}  # Dictionary to store fitted parameters for each model
@@ -143,14 +141,16 @@ for name, model_func in models.items():
         # Create an equation string based on the model type
         if name == "Linear":
             eq_str = f"y = {params[0]:.8f} * x + {params[1]:.8f}"
-        elif name == "Exponential":
-            eq_str = f"y = {params[0]:.8f} * exp({params[1]:.8f} * x)"
-        elif name == "Power-Law":
-            eq_str = f"y = {params[0]:.8f} * x^{params[1]:.8f}"
         elif name == "Logarithmic":
             eq_str = f"y = {params[0]:.8f} * ln(x) + {params[1]:.8f}"
         elif name == "Polynomial_2":
             eq_str = f"y = {params[0]:.8f} + {params[1]:.8f} * x + {params[2]:.8f} * x^2"
+        elif name == "Polynomial_3":
+            eq_str = f"y = {params[0]:.8f} + {params[1]:.8f} * x + {params[2]:.8f} * x^2 + {params[3]:.8f} * x^3"
+        elif name == "Polynomial_4":
+            eq_str = f"y = {params[0]:.8f} + {params[1]:.8f} * x + {params[2]:.8f} * x^2 + {params[3]:.8f} * x^3 + {params[4]:.8f} * x^4"
+        elif name == "Polynomial_5":
+            eq_str = f"y = {params[0]:.8f} + {params[1]:.8f} * x + {params[2]:.8f} * x^2 + {params[3]:.8f} * x^3 + {params[4]:.8f} * x^4 + {params[5]:.8f} * x^5"
         else:
             eq_str = "Equation not defined"
 
@@ -186,14 +186,16 @@ for name, model_func in models.items():
         plt.plot(x_vals, y_fit, label=f"{name} Fit")
         if name == "Linear":
             eq_text = f"y={params[0]:.4f}x+{params[1]:.4f}"
-        elif name == "Exponential":
-            eq_text = f"y={params[0]:.4f}e^({params[1]:.4f}x)"
-        elif name == "Power-Law":
-            eq_text = f"y={params[0]:.4f}x^{params[1]:.4f}"
         elif name == "Logarithmic":
             eq_text = f"y={params[0]:.4f}ln(x)+{params[1]:.4f}"
         elif name == "Polynomial_2":
             eq_text = f"y={params[0]:.4f}+{params[1]:.4f}x+{params[2]:.4f}x^2"
+        elif name == "Polynomial_3":
+            eq_text = f"y={params[0]:.4f}+{params[1]:.4f}x+{params[2]:.4f}x^2+{params[3]:.4f}x^3"
+        elif name == "Polynomial_4":
+            eq_text = f"y={params[0]:.4f}+{params[1]:.4f}x+{params[2]:.4f}x^2+{params[3]:.4f}x^3+{params[4]:.4f}x^4"
+        elif name == "Polynomial_5":
+            eq_text = f"y={params[0]:.4f}+{params[1]:.4f}x+{params[2]:.4f}x^2+{params[3]:.4f}x^3+{params[4]:.4f}x^4+{params[5]:.4f}x^5"
         else:
             eq_text = "Unknown"
         x_pos = np.percentile(x_vals, 80)
