@@ -114,4 +114,4 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
         print(f"Warning: negative values found for K factor!")
         # print(f"Negative K values = {K[K < 0]}")
     #return K / 1000  # /100
-    return 0.03
+    return 0.03834  # Source: 10.12041/geodata.201703065582271.ver1.db
