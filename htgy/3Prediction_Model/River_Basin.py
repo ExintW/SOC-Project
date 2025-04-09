@@ -71,73 +71,98 @@ def precompute_river_basin_2():
     plt.grid(True)
     plt.show()
 
-def precompute_river_basin_1():
-    # 加载数据
+def precompute_river_basin_1(): # Working version with only plotting river as contours
+    # === 创建 transform 和分辨率 ===
+    dx = np.mean(np.diff(MAP_STATS.grid_x))
+    dy = np.abs(np.mean(np.diff(MAP_STATS.grid_y)))  # 保证为正数
+    transform = Affine.translation(MAP_STATS.grid_x[0], MAP_STATS.grid_y[0]) * Affine.scale(dx, -dy)
+    out_shape = (len(MAP_STATS.grid_y), len(MAP_STATS.grid_x))
+    loess_border = MAP_STATS.loess_border_geom
+    desired_crs = "EPSG:4326"
+
+    print("Raster extent:")
+    print("  minx:", MAP_STATS.grid_x[0], "maxx:", MAP_STATS.grid_x[-1])
+    print("  miny:", MAP_STATS.grid_y[-1], "maxy:", MAP_STATS.grid_y[0])
+    print("Output shape:", out_shape)
+    
+    print("=== 加载矢量数据 ===")
     small_boundary_shp = gpd.read_file(DATA_DIR / "River_Basin" / "htgy_River_Basin.shp")
     large_boundary_shp = gpd.read_file(DATA_DIR / "River_Basin" / "94_area.shp")
     river_shp = gpd.read_file(DATA_DIR / "China_River" / "ChinaRiver_main.shp")
-    loess_border = MAP_STATS.loess_border_geom
 
-    # 统一坐标系
-    desired_crs = "EPSG:4326"
     small_boundary_shp = small_boundary_shp.to_crs(desired_crs)
     large_boundary_shp = large_boundary_shp.to_crs(desired_crs)
     river_shp = river_shp.to_crs(desired_crs)
 
-    # 黄土高原范围裁剪
+    # Clip
     loess_border_gdf = gpd.GeoDataFrame(geometry=[loess_border], crs=desired_crs)
-    small_boundary_clip = gpd.clip(small_boundary_shp, loess_border_gdf)
+    small_boundary_clip = gpd.clip(small_boundary_shp, loess_border_gdf)   
     large_boundary_clip = gpd.clip(large_boundary_shp, loess_border_gdf)
     river_clip = gpd.clip(river_shp, loess_border_gdf)
+    
+    small_boundary_clip = gpd.GeoDataFrame(geometry=small_boundary_clip.intersection(loess_border), crs=desired_crs)
+    large_boundary_clip = gpd.GeoDataFrame(geometry=large_boundary_clip.intersection(loess_border), crs=desired_crs)
+    river_clip = gpd.GeoDataFrame(geometry=river_clip.intersection(loess_border), crs=desired_crs)
 
-    # 定义栅格化参数
-    xmin, ymin, xmax, ymax = loess_border_gdf.total_bounds
-    resolution = 0.01
-    width = int((xmax - xmin) / resolution)
-    height = int((ymax - ymin) / resolution)
-    transform = Affine.translation(xmin, ymax) * Affine.scale(resolution, -resolution)
-    out_shape = (height, width)
+    print("Loess border total_bounds:", loess_border_gdf.total_bounds)
+    print("Grid X range:", MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max())
+    print("Grid Y range:", MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max())
+    print("Small boundary bounds:", small_boundary_clip.total_bounds)
+    print("Large boundary bounds:", large_boundary_clip.total_bounds)
+    print("River bounds:", river_clip.total_bounds)
 
-    # 栅格化
-    small_boundary_raster = rasterize(
+    # === 栅格化为掩膜 ===
+    MAP_STATS.small_boundary_mask = rasterize(
         [(geom, 1) for geom in small_boundary_clip.geometry],
-        out_shape=out_shape, transform=transform, fill=0, dtype=np.uint8, all_touched=True)
+        out_shape=out_shape, transform=transform,
+        fill=0, dtype=np.uint8, all_touched=True
+    ).astype(bool)
 
-    large_boundary_raster = rasterize(
+    MAP_STATS.large_boundary_mask = rasterize(
         [(geom, 1) for geom in large_boundary_clip.geometry],
-        out_shape=out_shape, transform=transform, fill=0, dtype=np.uint8, all_touched=True)
+        out_shape=out_shape, transform=transform,
+        fill=0, dtype=np.uint8, all_touched=True
+    ).astype(bool)
 
-    river_raster = rasterize(
+    MAP_STATS.river_mask = rasterize(
         [(geom, 1) for geom in river_clip.geometry],
-        out_shape=out_shape, transform=transform, fill=0, dtype=np.uint8, all_touched=True)
+        out_shape=out_shape, transform=transform,
+        fill=0, dtype=np.uint8, all_touched=True
+    ).astype(bool)
 
-    # 准备网格
-    X = np.linspace(xmin, xmax, width)
-    Y = np.linspace(ymin, ymax, height)
-    X, Y = np.meshgrid(X, Y)
+    print("Masks computed:")
+    print("  small_boundary_mask:", np.count_nonzero(MAP_STATS.small_boundary_mask), "pixels")
+    print("  large_boundary_mask:", np.count_nonzero(MAP_STATS.large_boundary_mask), "pixels")
+    print("  river_mask:", np.count_nonzero(MAP_STATS.river_mask), "pixels")
 
-    # 绘图
+    MAP_STATS.small_outlet_mask = compute_outlet_mask(MAP_STATS.small_boundary_mask, INIT_VALUES.DEM)
+    MAP_STATS.large_outlet_mask = compute_outlet_mask(MAP_STATS.large_boundary_mask, INIT_VALUES.DEM)
+    
+    # === Debug 绘图 ===
     fig, ax = plt.subplots(figsize=(10, 8))
+    extent = [MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(),
+              MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()]
 
-    # 用 contour 绘制
-    ax.contour(X, Y, small_boundary_raster, levels=[0.5], colors='orange', linestyles='--', linewidths=1.5)
-    ax.contour(X, Y, large_boundary_raster, levels=[0.5], colors='green', linewidths=1.5)
-    ax.contour(X, Y, river_raster, levels=[0.5], colors='red', linewidths=1)
+    ax.imshow(INIT_VALUES.DEM, extent=extent, cmap='terrain', origin='upper', alpha=0.7)
+    X, Y = np.meshgrid(MAP_STATS.grid_x, MAP_STATS.grid_y)
+    
+    loess_border_gdf.boundary.plot(ax=ax, color='black', linewidth=1.5, label='Loess Plateau Border')
+    small_boundary_clip.boundary.plot(ax=ax, color='grey', linewidth=0.5, linestyle='--', label='Small Boundary')
+    large_boundary_clip.boundary.plot(ax=ax, color='green', linewidth=1.5, label='Large Boundary')
 
-    ax.set_title('Boundaries and Rivers within Loess Plateau (using contour)')
-    ax.set_xlabel('Longitude')
-    ax.set_ylabel('Latitude')
-
-    # 图例
-    handles = [
-        plt.Line2D([0], [0], color='orange', linestyle='--', label='Small Boundary'),
-        plt.Line2D([0], [0], color='green', label='Large Boundary'),
-        plt.Line2D([0], [0], color='red', label='Rivers')
-    ]
-    ax.legend(handles=handles)
-
+    # 河流轮廓
+    ax.contour(X, Y, MAP_STATS.river_mask, levels=[0.5], colors='blue', linewidths=1.0)
+    ax.set_xlim(loess_border.bounds[0], loess_border.bounds[2])  # xmin, xmax
+    ax.set_ylim(loess_border.bounds[1], loess_border.bounds[3])  # ymin, ymax
+    ax.set_title("Boundary and River Masks")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    plt.legend()
     plt.grid(True)
+    plt.tight_layout()
     plt.show()
+
+
 
 """
 Important Debugging Notes:

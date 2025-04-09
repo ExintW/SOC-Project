@@ -76,7 +76,7 @@ init()
 # =============================================================================
 # RASTERIZE RIVER BASIN BOUNDARIES & MAIN RIVER USING PRECOMPUTED MASKS
 # =============================================================================
-precompute_river_basin_2()
+precompute_river_basin_1()
 
 # =============================================================================
 # COMPUTE CONSTANT RUSLE FACTORS
