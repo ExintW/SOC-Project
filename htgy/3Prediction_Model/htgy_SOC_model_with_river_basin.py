@@ -90,6 +90,7 @@ P_factor = np.array([
     [calculate_p_factor(INIT_VALUES.LANDUSE[i, j]) for j in range(INIT_VALUES.LANDUSE.shape[1])]
     for i in range(INIT_VALUES.LANDUSE.shape[0])
 ])
+print(f"Total elements in P: {P_factor.size}, with {np.sum(P_factor > 50)} elements > 50, and mean = {np.mean(P_factor)}")
 
 # =============================================================================
 # PRECOMPUTE SORTED INDICES FOR NUMBA ACCELERATION (TO AVOID IN-NUMBA SORTING)
@@ -183,8 +184,8 @@ plt.close(fig)
 # 11) MAIN SIMULATION LOOP (MONTHLY, 2007-2025)
 # =============================================================================
 CELL_AREA_HA = 100.0  # 1 km² = 100 ha
-start_year = 2007
-end_year = 2025
+start_year = 2008
+end_year = 2018
 global_timestep = 0
 M_soil = 1.0e8  # total soil mass per cell (kg)
 
@@ -251,7 +252,12 @@ for year in range(start_year, end_year + 1):
             R_month = get_montly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
             R_month = create_grid_from_points(lon_nc, lat_nc, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
             R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
-            print(f"Total elements in R: {R_month.size}, with {np.sum(R_month > 250)} elements > 250, and mean = {np.mean(R_month)}")
+            # print(f"Total elements in R: {R_month.size}, with {np.sum(R_month > 250)} elements > 250, and mean = {np.mean(R_month)}")
+            
+            R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            R_annual_temp = np.nan_to_num(R_annual_temp, nan=np.nanmean(R_annual_temp))
+            print(f"Total elements in R Year: {R_annual_temp.size}, with {np.sum(R_annual_temp > 250)} elements > 250, and mean = {np.mean(R_annual_temp)}")
+            
             C_factor_2D = calculate_c_factor(LAI_2D)
             print(f"Total elements in C: {C_factor_2D.size}, with {np.sum(C_factor_2D > 1)} elements > 1, and mean = {np.mean(C_factor_2D)}")
             
@@ -337,6 +343,11 @@ for year in range(start_year, end_year + 1):
             reaction_slow_list = []
             E_t_ha_list = []
             lost_soc_list = []
+            C_factor_list = []
+            K_factor_list = []
+            LS_factor_list = []
+            P_factor_list = []
+            R_factor_list = []
 
             # Gather data for CSV
             for i in range(rows_grid):
@@ -367,7 +378,13 @@ for year in range(start_year, end_year + 1):
                     reaction_slow_list.append(-INIT_VALUES.K_slow[i, j] * C_slow_current[i, j])
 
                     E_t_ha_list.append(E_t_ha_month[i, j])
+                    C_factor_list.append(C_factor_2D[i, j])
+                    K_factor_list.append(K_month)
+                    LS_factor_list.append(LS_factor[i, j])
+                    P_factor_list.append(P_factor[i, j])
+                    R_factor_list.append(R_month[i, j])
                     lost_soc_list.append(lost_soc[i, j])
+                    
 
             df_out = pd.DataFrame({
                 'LAT': lat_list,
@@ -384,6 +401,11 @@ for year in range(start_year, end_year + 1):
                 'Reaction_fast': reaction_fast_list,
                 'Reaction_slow': reaction_slow_list,
                 'E_t_ha_month': E_t_ha_list,
+                'C_factor_month': C_factor_list,
+                'K_factor_month': K_factor_list,
+                'LS_factor_month': LS_factor_list,
+                'P_factor_month': P_factor_list,
+                'R_factor_month': R_factor_list,
                 'Lost_SOC_River': lost_soc_list
             })
 

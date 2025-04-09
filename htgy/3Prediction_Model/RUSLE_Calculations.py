@@ -42,7 +42,7 @@ def calculate_r_factor_annually(rain_year_mm):
     # annual_tp = np.sum(rain_year_mm, axis=0)
     # R = 587.8 - 1.219 * annual_tp + 0.004105 * annual_tp**2
     
-    return R
+    return R     
 
 def get_montly_r_factor(R_annual, rain_month_mm, rain_year_mm):
     """
@@ -87,19 +87,19 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
     """
     s_values = {    # Structure Code = 1~4
         "sloping cropland": 4,
-        "forestland": 1,
-        "grassland": 2,
-        "not used": 3,
-        "terrace": 2,
+        "forestland": 2,
+        "grassland": 3,
+        "not used": 4,
+        "terrace": 3,
         "dam field": 4
     }   
     p_values = {    # Permeability Code = 1~6
         "sloping cropland": 6,
-        "forestland": 1,
-        "grassland": 3,
-        "not used": 5,
-        "terrace": 3,
-        "dam field": 4
+        "forestland": 3,
+        "grassland": 5,
+        "not used": 6,
+        "terrace": 5,
+        "dam field": 5
     }  
  
     M = (silt + sand) * (100 - clay)
@@ -113,4 +113,5 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
     if np.any(K < 0):
         print(f"Warning: negative values found for K factor!")
         # print(f"Negative K values = {K[K < 0]}")
-    return K / 100
+    #return K / 1000  # /100
+    return 0.03

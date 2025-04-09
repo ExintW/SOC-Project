@@ -4,5 +4,6 @@
 !/CMIP6/
 !/ERA5/
 !/River_Basin/
+!/RUSLE1992-2019/
 !.gitignore
 !.gitkeep
