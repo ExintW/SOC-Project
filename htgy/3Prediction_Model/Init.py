@@ -48,7 +48,7 @@ def allocate_fast_slow_soc():
             p_fast_grid[i, j] = props['fast']
     return C_fast, C_slow, p_fast_grid
 
-def init():
+def init_global_data_structs():
     # Read the Loess Plateau border shapefile and combine all features into one geometry.
     loess_border_path = DATA_DIR / "Loess_Plateau_vector_border.shp"
     loess_border = gpd.read_file(loess_border_path)

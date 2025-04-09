@@ -60,9 +60,11 @@ from rasterio.features import rasterize
 
 from RUSLE_Calculations import *
 from globalss import *
-from Init import init
+from Init import init_global_data_structs
 from River_Basin import * 
 from utils import *
+from Dams import distribute_soil_and_soc_with_dams_numba
+from SOC_dynamics import vegetation_input, soc_dynamic_model
 
 # Append parent directory to path to access 'globals' if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -71,7 +73,7 @@ from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
 # =============================================================================
 # CSV READING & GRID SETUP & SOC PARTITION
 # =============================================================================
-init()
+init_global_data_structs()
 
 # =============================================================================
 # RASTERIZE RIVER BASIN BOUNDARIES & MAIN RIVER USING PRECOMPUTED MASKS
@@ -110,60 +112,7 @@ except AttributeError:
     print("Warning: numba.atomic.add not available; using non-atomic addition (serial mode).")
 
 # =============================================================================
-# 8) VEGETATION INPUT & UPDATED SOC DYNAMIC MODEL
-# =============================================================================
-def vegetation_input(LAI):
-    """
-    Compute vegetation input based on LAI using an empirical formula.
-    E.g., V = a * LAI + b
-    """
-    return 0.08760361 * LAI - 0.00058271
-
-def soc_dynamic_model(C_fast, C_slow,
-                      soc_loss_g_kg_month, D_soil, D_soc, V,
-                      K_fast, K_slow, p_fast_grid, dt, M_soil, lost_soc):
-    """
-    Update SOC pools (g/kg) for one month.
-    - Erosion removes SOC (soc_loss_g_kg_month).
-    - Deposition adds SOC (converted from D_soc to g/kg).
-    - Vegetation adds new SOC input.
-    - Reaction (decay) reduces each pool at rates K_fast, K_slow.
-    - Lost SOC (e.g., to rivers) is subtracted.
-    """
-    # Erosion partitioned into fast & slow
-    erosion_fast = -soc_loss_g_kg_month * p_fast_grid
-    erosion_slow = -soc_loss_g_kg_month * (1 - p_fast_grid)
-
-    # Deposition: (D_soc * 1000) / M_soil -> convert t -> g, then per kg soil
-    deposition_concentration = (D_soc * 1000.0) / M_soil
-    deposition_fast = deposition_concentration * p_fast_grid
-    deposition_slow = deposition_concentration * (1 - p_fast_grid)
-
-    # Vegetation input
-    vegetation_fast = V * p_fast_grid
-    vegetation_slow = V * (1 - p_fast_grid)
-
-    # Reaction/decay
-    reaction_fast = -K_fast * C_fast
-    reaction_slow = -K_slow * C_slow
-
-    # Lost SOC partition
-    lost_fast = lost_soc * p_fast_grid
-    lost_slow = lost_soc * (1 - p_fast_grid)
-
-    # Update each pool
-    C_fast_new = np.maximum(
-        C_fast + (erosion_fast + deposition_fast + vegetation_fast + reaction_fast - lost_fast) * dt,
-        0
-    )
-    C_slow_new = np.maximum(
-        C_slow + (erosion_slow + deposition_slow + vegetation_slow + reaction_slow - lost_slow) * dt,
-        0
-    )
-    return C_fast_new, C_slow_new
-
-# =============================================================================
-# 10) FIGURE OUTPUT SETUP & INITIAL PLOT
+# FIGURE OUTPUT SETUP & INITIAL PLOT
 # =============================================================================
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -181,7 +130,7 @@ plt.savefig(os.path.join(OUTPUT_DIR, "SOC_initial.png"))
 plt.close(fig)
 
 # =============================================================================
-# 11) MAIN SIMULATION LOOP (MONTHLY, 2007-2025)
+# MAIN SIMULATION LOOP (MONTHLY)
 # =============================================================================
 CELL_AREA_HA = 100.0  # 1 km² = 100 ha
 start_year = 2008
@@ -197,13 +146,6 @@ os.makedirs(OUTPUT_DIR / "Figure", exist_ok=True)
 os.makedirs(OUTPUT_DIR / "Data", exist_ok=True)
 
 t_sim_start = time.perf_counter()
-
-# Precompute sorted indices for Numba function (descending DEM)
-rows, cols = INIT_VALUES.DEM.shape
-flat_dem = INIT_VALUES.DEM.flatten()
-sorted_flat_indices = np.argsort(flat_dem)[::-1]
-sorted_indices = np.empty((sorted_flat_indices.shape[0], 2), dtype=np.int64)
-sorted_indices[:, 0], sorted_indices[:, 1] = np.unravel_index(sorted_flat_indices, (rows, cols))
 
 for year in range(start_year, end_year + 1):
     # Filter dams built on or before current year
