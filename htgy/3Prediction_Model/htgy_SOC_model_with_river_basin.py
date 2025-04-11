@@ -53,6 +53,7 @@ from pathlib import Path
 import sys
 from numba import njit, prange
 import numba
+import glob
 
 from affine import Affine
 import rasterio
@@ -86,7 +87,8 @@ precompute_river_basin_1()
 K_factor = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, INIT_VALUES.SOC, INIT_VALUES.LANDUSE)     # constant K factor (not used)
 K_factor = np.nan_to_num(K_factor, nan=np.nanmean(K_factor))
 # K_factor = np.full_like(C, 0.03)
-LS_factor = calculate_ls_factor(INIT_VALUES.SLOPE)
+LS_factor = calculate_ls_factor(INIT_VALUES.SLOPE, INIT_VALUES.DEM)
+LS_factor = resample_LS_to_1km_grid(LS_factor)
 print(f"Total elements in LS: {LS_factor.size}, with {np.sum(LS_factor > 50)} elements > 50, and mean = {np.mean(LS_factor)}")
 P_factor = np.array([
     [calculate_p_factor(INIT_VALUES.LANDUSE[i, j]) for j in range(INIT_VALUES.LANDUSE.shape[1])]
@@ -136,6 +138,7 @@ CELL_AREA_HA = 100.0  # 1 km² = 100 ha
 start_year = 2008
 end_year = 2018
 global_timestep = 0
+step_size = 2
 M_soil = 1.0e8  # total soil mass per cell (kg)
 
 # Initialize current SOC pools
@@ -145,9 +148,18 @@ C_slow_current = INIT_VALUES.C_slow.copy()
 os.makedirs(OUTPUT_DIR / "Figure", exist_ok=True)
 os.makedirs(OUTPUT_DIR / "Data", exist_ok=True)
 
+# Delete previous results
+data_dir = OUTPUT_DIR / "Data"
+for file in glob.glob(str(data_dir / "*.csv")):
+    os.remove(file)
+    
+figure_dir = OUTPUT_DIR / "Figure"
+for file in glob.glob(str(figure_dir / "*.png")):
+    os.remove(file)
+
 t_sim_start = time.perf_counter()
 
-for year in range(start_year, end_year + 1):
+for year in range(start_year, end_year + 1, step_size):
     # Filter dams built on or before current year
     df_dam_active = MAP_STATS.df_dam[MAP_STATS.df_dam["year"] <= year].copy()
     dam_capacity_arr = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
@@ -175,6 +187,10 @@ for year in range(start_year, end_year + 1):
         tp_data_mm = tp_data * 1000.0
         R_annual = calculate_r_factor_annually(tp_data_mm)
         
+        R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
+        R_annual_temp = np.nan_to_num(R_annual_temp, nan=np.nanmean(R_annual_temp))
+        print(f"Total elements in R Year: {R_annual_temp.size}, with mean = {np.mean(R_annual_temp)}")
+    
         E_month_avg_list = []   # for calculating annual mean for validation
         
         for month_idx in range(n_time):
@@ -184,8 +200,7 @@ for year in range(start_year, end_year + 1):
             LAI_2D = np.nan_to_num(LAI_2D, nan=np.nanmean(LAI_2D))
 
             # Regrid precipitation and convert to mm
-            tp_1d = tp_data[month_idx, :]
-            tp_1d_mm = tp_1d * 1000.0
+            tp_1d_mm = tp_data_mm[month_idx, :]
             RAIN_2D = create_grid_from_points(lon_nc, lat_nc, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
             RAIN_2D = np.nan_to_num(RAIN_2D, nan=np.nanmean(RAIN_2D))
 
@@ -194,11 +209,8 @@ for year in range(start_year, end_year + 1):
             R_month = get_montly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
             R_month = create_grid_from_points(lon_nc, lat_nc, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
             R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
-            # print(f"Total elements in R: {R_month.size}, with {np.sum(R_month > 250)} elements > 250, and mean = {np.mean(R_month)}")
-            
-            R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
-            R_annual_temp = np.nan_to_num(R_annual_temp, nan=np.nanmean(R_annual_temp))
-            print(f"Total elements in R Year: {R_annual_temp.size}, with {np.sum(R_annual_temp > 250)} elements > 250, and mean = {np.mean(R_annual_temp)}")
+
+            print(f"Total elements in R month: {R_month.size}, with {np.sum(R_month > 250)} elements > 250, and mean = {np.mean(R_month)}")
             
             C_factor_2D = calculate_c_factor(LAI_2D)
             print(f"Total elements in C: {C_factor_2D.size}, with {np.sum(C_factor_2D > 1)} elements > 1, and mean = {np.mean(C_factor_2D)}")

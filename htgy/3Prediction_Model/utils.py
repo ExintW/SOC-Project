@@ -1,11 +1,12 @@
 import numpy as np
+from globalss import *
 
 def find_nearest_index(array, value):
     """Return index of element in array closest to value."""
     return (np.abs(array - value)).argmin()
 
 # =============================================================================
-# 5) CONVERT SOIL LOSS TO SOC LOSS (g/kg/month)
+# CONVERT SOIL LOSS TO SOC LOSS (g/kg/month)
 # =============================================================================
 def convert_soil_loss_to_soc_loss_monthly(E_t_ha_month, ORGA_g_per_kg, bulk_density=1300):
     """
@@ -17,7 +18,7 @@ def convert_soil_loss_to_soc_loss_monthly(E_t_ha_month, ORGA_g_per_kg, bulk_dens
     return soc_loss_g_m2_month / bulk_density
 
 # =============================================================================
-# 9) HELPER: REGRID CMIP/ERA5 POINT DATA TO 2D GRID
+# HELPER: REGRID CMIP/ERA5 POINT DATA TO 2D GRID
 # =============================================================================
 def create_grid_from_points(lon_points, lat_points, values, grid_x, grid_y):
     """
@@ -29,3 +30,22 @@ def create_grid_from_points(lon_points, lat_points, values, grid_x, grid_y):
         i = (np.abs(grid_y - lat_points[k])).argmin()
         grid[i, j] = values[k]
     return grid
+
+def resample_LS_to_1km_grid(ls_30m, factor=33):
+    """
+    Resample 30m resolution LS factor to 1km grid
+    """
+    h, w = ls_30m.shape
+    h_crop = h - h % factor
+    w_crop = w - w % factor
+    ls_30m = ls_30m[:h_crop, :w_crop]
+    
+    ls_1km = ls_30m.reshape(h_crop // factor, factor, w_crop // factor, factor).mean(axis=(1, 3))
+    
+    h, w = ls_1km.shape
+    th, tw = len(MAP_STATS.grid_y), len(MAP_STATS.grid_x)
+
+    start_h = (h - th) // 2
+    start_w = (w - tw) // 2
+
+    return ls_1km[start_h:start_h + th, start_w:start_w + tw]

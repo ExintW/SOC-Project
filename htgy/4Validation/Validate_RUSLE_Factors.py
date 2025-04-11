@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *  # 假设这里面定义了 OUTPUT_DIR, DATA_DIR 等
 
+# Validation Data Source: https://doi.org/10.57760/sciencedb.07135
 
 def compute_mean_value(raster_path, shp_path):
     """
@@ -46,6 +47,20 @@ def compute_mean_value(raster_path, shp_path):
     # 这里示例假设nodata_val为nodata或背景值
     valid_mask = (masked_array != nodata_val) & (~np.isnan(masked_array))
     mean_r = masked_array[valid_mask].mean()
+    
+    # # 验证
+    # # 显示掩膜后的数据
+    # plt.imshow(masked_array, cmap='viridis')
+    # plt.colorbar()
+    # plt.title("Masked Raster Data")
+    # plt.show()
+
+    # # 绘制直方图，检查值分布
+    # plt.hist(masked_array[valid_mask].flatten(), bins=30)
+    # plt.title("Histogram of Valid R Values")
+    # plt.xlabel("R Value")
+    # plt.ylabel("Frequency")
+    # plt.show()
     
     return mean_r
 
