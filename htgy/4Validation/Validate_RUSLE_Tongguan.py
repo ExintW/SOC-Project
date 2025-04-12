@@ -45,9 +45,9 @@ def get_tongguan_valid_data(data_path, year):
     return valid_A
 
 if __name__ == "__main__":
-    start_year = 2008
+    start_year = 2007
     end_year = 2018
-    time_step = 2
+    time_step = 1
 
     years_list = []
     A_valid_list = []
@@ -83,14 +83,15 @@ if __name__ == "__main__":
     # === Plot 1: 模拟值 vs 实测值 ===
     plt.figure(figsize=(8, 5))
     plt.plot(years_list, A_model_list, marker='o', label='Modelled A')
-    plt.plot(years_list, A_valid_list, marker='s', label='Observed A')
+    plt.plot(years_list, A_valid_list, marker='s', label='Tongguan A')
     plt.xlabel('Year')
     plt.ylabel('Soil Erosion Modulus (t/ha)')
-    plt.title('Modelled vs Observed A (RUSLE)')
+    plt.title('Modelled vs Tongguan A (RUSLE)')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(OUTPUT_DIR / "Tongguan_A_model_vs_valid.png")
+    plt.show()
     plt.close()
 
     # === Plot 2: 各种误差指标 ===
@@ -105,4 +106,5 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(OUTPUT_DIR / "Tongguan_A_error_metrics.png")
+    plt.show()
     plt.close()

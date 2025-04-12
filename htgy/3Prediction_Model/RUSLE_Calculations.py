@@ -164,34 +164,36 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
     Using Wischmeier & Smith (1978) equation
         100K = 2.1e-4 * M^1.14(12 - OM) + 3.25(s - 2) + 2.5(p - 3)
     """
-    s_values = {    # Structure Code = 1~4
-        "sloping cropland": 4,
-        "forestland": 2,
-        "grassland": 3,
-        "not used": 4,
-        "terrace": 3,
-        "dam field": 4
-    }   
-    p_values = {    # Permeability Code = 1~6
-        "sloping cropland": 6,
-        "forestland": 3,
-        "grassland": 5,
-        "not used": 6,
-        "terrace": 5,
-        "dam field": 5
-    }  
+    # s_values = {    # Structure Code = 1~4
+    #     "sloping cropland": 4,
+    #     "forestland": 2,
+    #     "grassland": 3,
+    #     "not used": 4,
+    #     "terrace": 3,
+    #     "dam field": 4
+    # }   
+    # p_values = {    # Permeability Code = 1~6
+    #     "sloping cropland": 6,
+    #     "forestland": 3,
+    #     "grassland": 5,
+    #     "not used": 6,
+    #     "terrace": 5,
+    #     "dam field": 5
+    # }  
  
-    M = (silt + sand) * (100 - clay)
-    K = 2.1e-4 * (M**1.14) * (12 - soc) + 3.25*(s_values.get(str(landuse).lower(), 2) - 2) + 2.5*(p_values.get(str(landuse).lower(), 3) - 3)
-    if np.any(K < 0):
-        print(f"Warning: negative values found for K factor!")
-        # print(f"Negative K values = {K[K < 0]}")
-    #return K / 1000  # /100
+    # M = (silt + sand) * (100 - clay)
+    # K = 2.1e-4 * (M**1.14) * (12 - soc) + 3.25*(s_values.get(str(landuse).lower(), 2) - 2) + 2.5*(p_values.get(str(landuse).lower(), 3) - 3)
+    # if np.any(K < 0):
+    #     print(f"Warning: negative values found for K factor!")
+    #     # print(f"Negative K values = {K[K < 0]}")
+    # #return K / 1000  # /100
+    
     return 0.03834  # Source: 10.12041/geodata.201703065582271.ver1.db
     
-    # """
-    # EPIC Formula (Williams, 1995)
-    # """
+    """
+    EPIC Model (Williams, 1995)
+    Williams and Renard (1983) as cited in Chen et al. (2011)
+    """
     # # Avoid division by zero
     # total = silt + clay
     # total[total == 0] = 1e-6

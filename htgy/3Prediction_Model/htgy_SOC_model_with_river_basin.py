@@ -64,7 +64,7 @@ from globalss import *
 from Init import init_global_data_structs
 from River_Basin import * 
 from utils import *
-from Dams import distribute_soil_and_soc_with_dams_numba
+from soil_and_soc_flow import distribute_soil_and_soc_with_dams_numba
 from SOC_dynamics import vegetation_input, soc_dynamic_model
 
 # Append parent directory to path to access 'globals' if needed
@@ -135,10 +135,10 @@ plt.close(fig)
 # MAIN SIMULATION LOOP (MONTHLY)
 # =============================================================================
 CELL_AREA_HA = 100.0  # 1 km² = 100 ha
-start_year = 2008
+start_year = 2007
 end_year = 2018
 global_timestep = 0
-step_size = 2
+step_size = 1   # for quick RUSLE vaidation
 M_soil = 1.0e8  # total soil mass per cell (kg)
 
 # Initialize current SOC pools
