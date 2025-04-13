@@ -236,8 +236,8 @@ for year in range(start_year, end_year + 1, step_size):
             # Call the Numba-accelerated routing function
             D_soil, D_soc, inflow_soil, inflow_soc, lost_soc = distribute_soil_and_soc_with_dams_numba(
                 E_tcell_month, S, INIT_VALUES.DEM, dam_capacity_arr, MAP_STATS.grid_x, MAP_STATS.grid_y,
-                MAP_STATS.small_boundary_mask, compute_outlet_mask(MAP_STATS.small_boundary_mask, INIT_VALUES.DEM),
-                MAP_STATS.large_boundary_mask, compute_outlet_mask(MAP_STATS.large_boundary_mask, INIT_VALUES.DEM),
+                MAP_STATS.small_boundary_mask, MAP_STATS.small_outlet_mask,
+                MAP_STATS.large_boundary_mask, MAP_STATS.large_outlet_mask,
                 MAP_STATS.river_mask, sorted_indices
             )
 
