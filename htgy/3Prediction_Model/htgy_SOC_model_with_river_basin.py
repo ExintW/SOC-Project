@@ -79,7 +79,7 @@ init_global_data_structs()
 # =============================================================================
 # RASTERIZE RIVER BASIN BOUNDARIES & MAIN RIVER USING PRECOMPUTED MASKS
 # =============================================================================
-precompute_river_basin_1()
+precompute_river_basin_2()
 
 # =============================================================================
 # COMPUTE CONSTANT RUSLE FACTORS

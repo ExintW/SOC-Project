@@ -6,9 +6,6 @@ import rasterio
 from globalss import *
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import * 
-from rasterio.windows import Window
-from concurrent.futures import ProcessPoolExecutor
-from tqdm import tqdm
 
 # =============================================================================
 # RUSLE COMPONENTS (MONTHLY)

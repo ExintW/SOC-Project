@@ -12,63 +12,146 @@ from globalss import *
 from globals import *  
 
 def precompute_river_basin_2():
-    # 加载数据
+    # === 创建 transform 和分辨率 ===
+    dx = np.mean(np.diff(MAP_STATS.grid_x))
+    dy = np.abs(np.mean(np.diff(MAP_STATS.grid_y)))  # 保证为正数
+    resolution = np.mean([dx, dy])  # In degrees if MAP_STATS.grid_x, MAP_STATS.grid_y are lat/lon
+    buffer_distance = 1
+    
+    transform = Affine.translation(MAP_STATS.grid_x[0], MAP_STATS.grid_y[0]) * Affine.scale(dx, -dy)
+    out_shape = (len(MAP_STATS.grid_y), len(MAP_STATS.grid_x))
+    loess_border = MAP_STATS.loess_border_geom
+    desired_crs = "EPSG:4326"
+    
+
+    print("Raster extent:")
+    print("  minx:", MAP_STATS.grid_x[0], "maxx:", MAP_STATS.grid_x[-1])
+    print("  miny:", MAP_STATS.grid_y[-1], "maxy:", MAP_STATS.grid_y[0])
+    print("Output shape:", out_shape)
+    
+    print("=== 加载矢量数据 ===")
     small_boundary_shp = gpd.read_file(DATA_DIR / "River_Basin" / "htgy_River_Basin.shp")
     large_boundary_shp = gpd.read_file(DATA_DIR / "River_Basin" / "94_area.shp")
     river_shp = gpd.read_file(DATA_DIR / "China_River" / "ChinaRiver_main.shp")
-    loess_border = MAP_STATS.loess_border_geom
 
-    # 坐标系统一为EPSG:4326
-    desired_crs = "EPSG:4326"
     small_boundary_shp = small_boundary_shp.to_crs(desired_crs)
     large_boundary_shp = large_boundary_shp.to_crs(desired_crs)
     river_shp = river_shp.to_crs(desired_crs)
 
-    # 裁剪矢量
+    # Clip
     loess_border_gdf = gpd.GeoDataFrame(geometry=[loess_border], crs=desired_crs)
-    small_boundary_clip = gpd.clip(small_boundary_shp, loess_border_gdf)
+    small_boundary_clip = gpd.clip(small_boundary_shp, loess_border_gdf)   
     large_boundary_clip = gpd.clip(large_boundary_shp, loess_border_gdf)
     river_clip = gpd.clip(river_shp, loess_border_gdf)
+    
+    # Buffer
+    proj_crs = "EPSG:3857"
+    
+    loess_border_gdf = gpd.GeoDataFrame(geometry=[loess_border], crs=desired_crs).to_crs(proj_crs)
+    small_boundary_proj = small_boundary_shp.to_crs(proj_crs)
+    large_boundary_proj = large_boundary_shp.to_crs(proj_crs)
+    
+    small_boundary_buffered_proj = small_boundary_proj.buffer(buffer_distance)
+    large_boundary_buffered_proj = large_boundary_proj.buffer(buffer_distance)
 
-    # 创建掩膜
-    dem = INIT_VALUES.DEM.copy()
-    grid_x, grid_y = np.meshgrid(MAP_STATS.grid_x, MAP_STATS.grid_y)
+    small_intersect = small_boundary_buffered_proj.intersection(loess_border_gdf.unary_union)
+    large_intersect = large_boundary_buffered_proj.intersection(loess_border_gdf.unary_union)
+    small_valid = gpd.GeoDataFrame(geometry=small_intersect, crs=proj_crs)
+    large_valid = gpd.GeoDataFrame(geometry=large_intersect, crs=proj_crs)
+    small_valid = small_valid[~small_valid.geometry.is_empty & small_valid.geometry.is_valid]
+    large_valid = large_valid[~large_valid.geometry.is_empty & large_valid.geometry.is_valid]
 
-    # 将边界转为Path
-    border_poly = loess_border_gdf.geometry.iloc[0]
-    border_coords = np.array(border_poly.exterior.coords)
-    poly_path = MplPath(border_coords)
+    small_boundary_clip = small_valid.to_crs(desired_crs)
+    large_boundary_clip = large_valid.to_crs(desired_crs)
+    
+    # small_boundary_clip = gpd.GeoDataFrame(geometry=small_boundary_buffered_proj.intersection(loess_border_gdf), crs=proj_crs).to_crs(desired_crs)
+    # large_boundary_clip = gpd.GeoDataFrame(geometry=large_boundary_buffered_proj.intersection(loess_border_gdf), crs=proj_crs).to_crs(desired_crs)
+    river_clip = gpd.GeoDataFrame(geometry=river_clip.intersection(loess_border), crs=desired_crs)
 
-    # 判断每个点是否在多边形内
-    points = np.vstack((grid_x.flatten(), grid_y.flatten())).T
-    mask = poly_path.contains_points(points).reshape(dem.shape)
+    print("Loess border total_bounds:", loess_border_gdf.total_bounds)
+    print("Grid X range:", MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max())
+    print("Grid Y range:", MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max())
+    print("Small boundary bounds:", small_boundary_clip.total_bounds)
+    print("Large boundary bounds:", large_boundary_clip.total_bounds)
+    print("River bounds:", river_clip.total_bounds)
 
-    # 将掩膜外区域设置为NaN
-    dem_masked = np.where(mask, dem, np.nan)
+    # === 栅格化为掩膜 ===
+    MAP_STATS.small_boundary_mask = rasterize(
+        [(geom, 1) for geom in small_boundary_clip.geometry],
+        out_shape=out_shape, transform=transform,
+        fill=0, dtype=np.uint8, all_touched=True
+    ).astype(bool)
 
-    # 绘图
+    MAP_STATS.large_boundary_mask = rasterize(
+        [(geom, 1) for geom in large_boundary_clip.geometry],
+        out_shape=out_shape, transform=transform,
+        fill=0, dtype=np.uint8, all_touched=True
+    ).astype(bool)
+
+    MAP_STATS.river_mask = rasterize(
+        [(geom, 1) for geom in river_clip.geometry],
+        out_shape=out_shape, transform=transform,
+        fill=0, dtype=np.uint8, all_touched=True
+    ).astype(bool)
+
+    print("Masks computed:")
+    print("  small_boundary_mask:", np.count_nonzero(MAP_STATS.small_boundary_mask), "pixels")
+    print("  large_boundary_mask:", np.count_nonzero(MAP_STATS.large_boundary_mask), "pixels")
+    print("  river_mask:", np.count_nonzero(MAP_STATS.river_mask), "pixels")
+    
+    MAP_STATS.small_outlet_mask = compute_outlet_mask(MAP_STATS.small_boundary_mask, INIT_VALUES.DEM)
+    MAP_STATS.large_outlet_mask = compute_outlet_mask(MAP_STATS.large_boundary_mask, INIT_VALUES.DEM)
+    
+    # === Debug 绘图 ===
     fig, ax = plt.subplots(figsize=(10, 8))
 
-    # 绘制裁剪后的DEM底图
-    ax.imshow(dem_masked, cmap='terrain', alpha=0.7,
-              extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(),
-                      MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
-              origin='upper')
+    # DEM底图
+    dem = INIT_VALUES.DEM.copy()
+    extent = [
+        MAP_STATS.grid_x[0],
+        MAP_STATS.grid_x[0] + dx * dem.shape[1],
+        MAP_STATS.grid_y[0] - dy * dem.shape[0],
+        MAP_STATS.grid_y[0]
+    ]
+    grid_x, grid_y = np.meshgrid(MAP_STATS.grid_x, MAP_STATS.grid_y)
+    loess_border_4326 = gpd.GeoDataFrame(geometry=[loess_border], crs=desired_crs)
+    border_poly = loess_border_4326.geometry.iloc[0]
+    border_coords = np.array(border_poly.exterior.coords)
+    poly_path = MplPath(border_coords)
+    points = np.vstack((grid_x.flatten(), grid_y.flatten())).T
+    mask = poly_path.contains_points(points).reshape(dem.shape)
+    dem_masked = np.where(mask, dem, np.nan)
+    print("Mask valid pixels:", np.count_nonzero(mask))
+    print("DEM shape:", dem.shape)
+    print("grid_x shape:", grid_x.shape)
+    print("grid_y shape:", grid_y.shape)
+        
+    print("small intersection_clip bounds:", small_boundary_clip.total_bounds)
+    print("large intersection_clip bounds:", large_boundary_clip.total_bounds)
+    print("Grid extent:", MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max())
 
-    # 黄土高原边界
+
+    ax.imshow(dem_masked, cmap='terrain', alpha=0.7,
+              extent=extent,
+              origin='upper')
+    
+    X, Y = np.meshgrid(MAP_STATS.grid_x, MAP_STATS.grid_y)
+    
+    ax.contour(X, Y, MAP_STATS.small_boundary_mask, levels=[0.5], colors='grey', linewidths=0.5)
+    ax.contour(X, Y, MAP_STATS.large_boundary_mask, levels=[0.5], colors='green', linewidths=1.5)
     loess_border_gdf.boundary.plot(ax=ax, color='black', linewidth=1.5, label='Loess Plateau Border')
 
-    # 绘制裁剪后的小、大边界和河流
-    small_boundary_clip.boundary.plot(ax=ax, edgecolor='grey', linestyle='--', linewidth=0.5, label='Small Boundary')
-    large_boundary_clip.boundary.plot(ax=ax, edgecolor='green', linewidth=1.5, label='Large Boundary')
-    river_clip.plot(ax=ax, color='blue', linewidth=1, label='Rivers')
-
-    ax.set_title('Boundaries and Rivers within Loess Plateau (Masked DEM)')
-    ax.set_xlabel('Longitude')
-    ax.set_ylabel('Latitude')
-
+    # 河流轮廓
+    ax.contour(X, Y, MAP_STATS.river_mask, levels=[0.5], colors='blue', linewidths=1.0)
+    
+    ax.set_xlim(MAP_STATS.grid_x[0], MAP_STATS.grid_x[-1])  # xmin, xmax
+    ax.set_ylim(MAP_STATS.grid_y[-1], MAP_STATS.grid_y[0])  # ymin, ymax
+    ax.set_title("Boundary and River Masks")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
     plt.legend()
     plt.grid(True)
+    plt.tight_layout()
     plt.show()
 
 def precompute_river_basin_1(): # Working version with only plotting river as contours
