@@ -154,7 +154,8 @@ def precompute_river_basin_2():
     plt.tight_layout()
     plt.show()
 
-def precompute_river_basin_1(): # Working version with only plotting river as contours
+
+def precompute_river_basin_1():
     # === 创建 transform 和分辨率 ===
     dx = np.mean(np.diff(MAP_STATS.grid_x))
     dy = np.abs(np.mean(np.diff(MAP_STATS.grid_y)))  # 保证为正数
@@ -167,7 +168,7 @@ def precompute_river_basin_1(): # Working version with only plotting river as co
     print("  minx:", MAP_STATS.grid_x[0], "maxx:", MAP_STATS.grid_x[-1])
     print("  miny:", MAP_STATS.grid_y[-1], "maxy:", MAP_STATS.grid_y[0])
     print("Output shape:", out_shape)
-    
+
     print("=== 加载矢量数据 ===")
     small_boundary_shp = gpd.read_file(DATA_DIR / "River_Basin" / "htgy_River_Basin.shp")
     large_boundary_shp = gpd.read_file(DATA_DIR / "River_Basin" / "94_area.shp")
@@ -177,12 +178,13 @@ def precompute_river_basin_1(): # Working version with only plotting river as co
     large_boundary_shp = large_boundary_shp.to_crs(desired_crs)
     river_shp = river_shp.to_crs(desired_crs)
 
-    # Clip
+    # Clip the data to the loess border
     loess_border_gdf = gpd.GeoDataFrame(geometry=[loess_border], crs=desired_crs)
-    small_boundary_clip = gpd.clip(small_boundary_shp, loess_border_gdf)   
+    small_boundary_clip = gpd.clip(small_boundary_shp, loess_border_gdf)
     large_boundary_clip = gpd.clip(large_boundary_shp, loess_border_gdf)
     river_clip = gpd.clip(river_shp, loess_border_gdf)
-    
+
+    # Compute the intersection so that geometries strictly conform to the loess border
     small_boundary_clip = gpd.GeoDataFrame(geometry=small_boundary_clip.intersection(loess_border), crs=desired_crs)
     large_boundary_clip = gpd.GeoDataFrame(geometry=large_boundary_clip.intersection(loess_border), crs=desired_crs)
     river_clip = gpd.GeoDataFrame(geometry=river_clip.intersection(loess_border), crs=desired_crs)
@@ -193,6 +195,12 @@ def precompute_river_basin_1(): # Working version with only plotting river as co
     print("Small boundary bounds:", small_boundary_clip.total_bounds)
     print("Large boundary bounds:", large_boundary_clip.total_bounds)
     print("River bounds:", river_clip.total_bounds)
+
+    # --- 分离 multipolygon（爆炸） ---
+    # Explode multipolygon geometries so each sub-basin is processed individually.
+    small_boundary_clip = small_boundary_clip.explode(index_parts=True).reset_index(drop=True)
+    large_boundary_clip = large_boundary_clip.explode(index_parts=True).reset_index(drop=True)
+    river_clip = river_clip.explode(index_parts=True).reset_index(drop=True)
 
     # === 栅格化为掩膜 ===
     MAP_STATS.small_boundary_mask = rasterize(
@@ -214,35 +222,57 @@ def precompute_river_basin_1(): # Working version with only plotting river as co
     ).astype(bool)
 
     print("Masks computed:")
-    print("  small_boundary_mask:", np.count_nonzero(MAP_STATS.small_boundary_mask), "pixels")
-    print("  large_boundary_mask:", np.count_nonzero(MAP_STATS.large_boundary_mask), "pixels")
-    print("  river_mask:", np.count_nonzero(MAP_STATS.river_mask), "pixels")
+    small_true = np.count_nonzero(MAP_STATS.small_boundary_mask)
+    large_true = np.count_nonzero(MAP_STATS.large_boundary_mask)
+    river_true = np.count_nonzero(MAP_STATS.river_mask)
+    print("  small_boundary_mask: {} pixels (True)".format(small_true))
+    print("  large_boundary_mask: {} pixels (True)".format(large_true))
+    print("  river_mask: {} pixels (True)".format(river_true))
 
-    MAP_STATS.small_outlet_mask = compute_outlet_mask(MAP_STATS.small_boundary_mask, INIT_VALUES.DEM)
-    MAP_STATS.large_outlet_mask = compute_outlet_mask(MAP_STATS.large_boundary_mask, INIT_VALUES.DEM)
-    
+    # --- Compute Multi-Outlet Masks ---
+    # Instead of a single outlet for the combined mask, we compute one outlet per sub-basin.
+    MAP_STATS.small_outlet_mask = compute_multi_outlet_mask(
+        geometries=small_boundary_clip.geometry,
+        DEM=INIT_VALUES.DEM,
+        out_shape=out_shape,
+        transform=transform
+    )
+    MAP_STATS.large_outlet_mask = compute_multi_outlet_mask(
+        geometries=large_boundary_clip.geometry,
+        DEM=INIT_VALUES.DEM,
+        out_shape=out_shape,
+        transform=transform
+    )
+
+    small_outlet_true = np.count_nonzero(MAP_STATS.small_outlet_mask)
+    large_outlet_true = np.count_nonzero(MAP_STATS.large_outlet_mask)
+    print("Outlet masks computed:")
+    print("  small_outlet_mask: {} pixels (True)".format(small_outlet_true))
+    print("  large_outlet_mask: {} pixels (True)".format(large_outlet_true))
+
     # === Debug 绘图 ===
     fig, ax = plt.subplots(figsize=(10, 8))
     extent = [MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(),
               MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()]
 
-    # DEM底图
+    # DEM 底图
     dem = INIT_VALUES.DEM.copy()
     grid_x, grid_y = np.meshgrid(MAP_STATS.grid_x, MAP_STATS.grid_y)
     border_poly = loess_border_gdf.geometry.iloc[0]
     border_coords = np.array(border_poly.exterior.coords)
     poly_path = MplPath(border_coords)
     points = np.vstack((grid_x.flatten(), grid_y.flatten())).T
-    mask = poly_path.contains_points(points).reshape(dem.shape)
-    dem_masked = np.where(mask, dem, np.nan)
+    mask_array = poly_path.contains_points(points).reshape(dem.shape)
+    dem_masked = np.where(mask_array, dem, np.nan)
 
     ax.imshow(dem_masked, cmap='terrain', alpha=0.7,
               extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(),
                       MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
               origin='upper')
-    
+
     X, Y = np.meshgrid(MAP_STATS.grid_x, MAP_STATS.grid_y)
-    
+
+    # 边界绘图
     small_boundary_clip.boundary.plot(ax=ax, color='grey', linewidth=0.5, linestyle='--', label='Small Boundary')
     large_boundary_clip.boundary.plot(ax=ax, color='green', linewidth=1.5, label='Large Boundary')
     loess_border_gdf.boundary.plot(ax=ax, color='black', linewidth=1.5, label='Loess Plateau Border')
@@ -258,7 +288,6 @@ def precompute_river_basin_1(): # Working version with only plotting river as co
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
 
 
 """
@@ -452,17 +481,45 @@ def precompute_river_basin():
 # ---------------------------------------------------------------------
 # Helper: Compute outlet mask for a boundary.
 # ---------------------------------------------------------------------
-def compute_outlet_mask(boundary_mask, DEM):
+def compute_multi_outlet_mask(geometries, DEM, out_shape, transform):
     """
-    Identify the lowest DEM cell within a boundary (the 'outlet').
-    Returns a boolean mask with True only at the outlet cell.
-    """
-    outlet_mask = np.zeros_like(boundary_mask, dtype=bool)
-    indices = np.where(boundary_mask)
-    if len(indices[0]) > 0:
-        min_index = np.argmin(DEM[boundary_mask])
-        outlet_i = indices[0][min_index]
-        outlet_j = indices[1][min_index]
-        outlet_mask[outlet_i, outlet_j] = True
-    return outlet_mask
+    Compute an outlet for each individual polygon provided in the 'geometries' iterable.
+    For each polygon (sub-basin), rasterize it, then within that temporary mask find the DEM cell with the
+    lowest value. Mark that cell in the global outlet mask.
 
+    Parameters:
+      geometries - an iterable of shapely geometries (each representing one sub-basin)
+      DEM        - 2D NumPy array of DEM data
+      out_shape  - tuple (rows, cols) for the output raster mask
+      transform  - Affine transform mapping raster indices to coordinate space
+
+    Returns:
+      multi_outlet_mask - boolean array of shape out_shape with True at each computed outlet.
+    """
+    # Global outlet mask (all False initially)
+    multi_outlet_mask = np.zeros(out_shape, dtype=bool)
+
+    for geom in geometries:
+        if geom.is_empty:
+            continue
+
+        # Rasterize the current sub-basin polygon into a temporary mask.
+        temp_mask = rasterize(
+            [(geom, 1)],
+            out_shape=out_shape,
+            transform=transform,
+            fill=0,
+            dtype=np.uint8,
+            all_touched=True
+        ).astype(bool)
+
+        # Get indices of pixels that are inside the current sub-basin.
+        indices = np.where(temp_mask)
+        if len(indices[0]) > 0:
+            # Identify the DEM cell within this polygon that has the lowest elevation.
+            min_index = np.argmin(DEM[temp_mask])
+            outlet_i = indices[0][min_index]
+            outlet_j = indices[1][min_index]
+            # Mark that cell as the outlet
+            multi_outlet_mask[outlet_i, outlet_j] = True
+    return multi_outlet_mask
