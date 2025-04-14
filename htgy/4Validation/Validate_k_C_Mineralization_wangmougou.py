@@ -96,8 +96,9 @@ for rate in precip_rates:
         print(f"  Theoretical k: {k_theory:.4f} [1/day]")
         print(f"  Mean measured k: {mean_meas:.4f} [1/day] (n = {len(y_meas)})")
         print(f"  RMSE: {rmse:.4f}")
-        print(f"  MAE: {mae:.4f}")
-        print(f"  R²: {r2:.4f}")
+        #print(f"  MAE: {mae:.4f}")
+        #print(f"  R²: {r2:.4f}")
+        print(f"  Stdv: {std_meas:.4f}")
         print(f"  95% CI for measured mean: ({conf_int[0]:.4f}, {conf_int[1]:.4f})")
         print("------------------------------------------------------")
 

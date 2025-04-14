@@ -98,6 +98,7 @@ for rate in precip_rates:
         print(f"  RMSE: {rmse:.4f}")
         print(f"  MAE: {mae:.4f}")
         print(f"  R²: {r2:.4f}")
+        print(f"  std: {std_meas:.4f}")
         print(f"  95% CI for measured mean: ({conf_int[0]:.4f}, {conf_int[1]:.4f})")
         print("------------------------------------------------------")
 
