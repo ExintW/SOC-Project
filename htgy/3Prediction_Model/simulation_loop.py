@@ -53,6 +53,7 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
         
         for month_idx in range(n_time):
             # Regrid LAI data
+            time_month = time.time()
             lai_1d = lai_data[month_idx, :]
             LAI_2D = create_grid_from_points(lon_nc, lat_nc, lai_1d, MAP_STATS.grid_x, MAP_STATS.grid_y)
             LAI_2D = np.nan_to_num(LAI_2D, nan=np.nanmean(LAI_2D))
@@ -67,6 +68,8 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
             R_month = get_montly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
             R_month = create_grid_from_points(lon_nc, lat_nc, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
             R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
+            
+            print(f"before R_month took {time.time() - time_month} seconds")
 
             print(f"Total elements in R month: {R_month.size}, with max = {np.max(R_month)}, min = {np.min(R_month)}, and mean = {np.mean(R_month)}")
             
@@ -122,6 +125,7 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
             # global_timestep += 1
             print(f"Completed simulation for Year {year}, Month {month_idx+1}")
 
+            time1 = time.time()
             # Save figure output
             fig, ax = plt.subplots()
             cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis",
@@ -136,7 +140,11 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
             filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
             plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig))
             plt.close(fig)
-
+            
+            print(f"plot took {time.time() - time1} seconds")
+            
+            time1 = time.time()
+            
             # Save CSV output with all terms including lost SOC
             rows_grid, cols_grid = MAP_STATS.C_fast_current.shape
             lat_list = []
@@ -197,6 +205,8 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
                     R_factor_list.append(R_month[i, j])
                     lost_soc_list.append(lost_soc[i, j])
 
+            print(f"Gather data for csv took {time.time() - time1} seconds")
+            
             df_out = pd.DataFrame({
                 'LAT': lat_list,
                 'LON': lon_list,
@@ -219,8 +229,6 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
                 'R_factor_month': R_factor_list,
                 'Lost_SOC_River': lost_soc_list
             })
-            
-            time1 = time.time()
   
             if USE_PARQUET:
                 filename_parquet = f"SOC_terms_{year}_{month_idx+1:02d}_River.parquet"
@@ -230,7 +238,7 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
                 filename_csv = f"SOC_terms_{year}_{month_idx+1:02d}_River.csv"
                 df_out.to_csv(os.path.join(OUTPUT_DIR, "Data", filename_csv), index=False, float_format="%.6f")
                 print(f"Saved CSV output for Year {year}, Month {month_idx+1} as {filename_csv}")
-            print(f"Write to csv/parquet took {time.time() - time1} seconds")
             
+            print(f"This month took {time.time() - time_month} seconds")
             
         print(f"\nAnnual mean of E = {np.mean(E_month_avg_list)}\n")

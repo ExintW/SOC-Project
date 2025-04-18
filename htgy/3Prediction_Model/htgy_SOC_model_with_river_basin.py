@@ -82,9 +82,8 @@ precompute_river_basin_1()
 K_factor = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, INIT_VALUES.SOC, INIT_VALUES.LANDUSE)     # constant K factor (not used)
 K_factor = np.nan_to_num(K_factor, nan=np.nanmean(K_factor))
 # K_factor = np.full_like(C, 0.03)
-# LS_factor = calculate_ls_factor(INIT_VALUES.SLOPE, INIT_VALUES.DEM)
-# LS_factor = resample_LS_to_1km_grid(LS_factor)
-LS_factor = np.full_like(INIT_VALUES.SOC, 7.629751205444336)
+LS_factor = calculate_ls_factor(INIT_VALUES.SLOPE, INIT_VALUES.DEM)
+LS_factor = resample_LS_to_1km_grid(LS_factor)
 print(f"Total elements in LS: {LS_factor.size}, with max = {np.max(LS_factor)}, min = {np.min(LS_factor)}, and mean = {np.mean(LS_factor)}")
 P_factor = np.array([
     [calculate_p_factor(INIT_VALUES.LANDUSE[i, j], INIT_VALUES.SLOPE[i, j]) for j in range(INIT_VALUES.LANDUSE.shape[1])]

@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *  # 假设这里面定义了 OUTPUT_DIR, DATA_DIR 等
 
+USE_PARQUET = True
+
 # Validation Data Source: https://doi.org/10.57760/sciencedb.07135
 
 def compute_mean_value(raster_path, shp_path):
@@ -59,12 +61,18 @@ def compute_annual_mean_from_month(csv_folder, year, factor):
     for month in range(1, 13):
         month_str = f"{month:02d}"
         # filename = rf"SOC_terms_{year}_{month_str}_timestep_(\d+)_River\.csv"
-        filename = rf"SOC_terms_{year}_{month_str}_River\.csv"
+        if USE_PARQUET:
+            filename = rf"SOC_terms_{year}_{month_str}_River\.parquet"
+        else:
+            filename = rf"SOC_terms_{year}_{month_str}_River\.csv"
         file_list = os.listdir(csv_folder)
         for f in file_list:
             if re.match(filename, f):
                 # 读取 CSV
-                df_model = pd.read_csv(os.path.join(csv_folder, f))
+                if USE_PARQUET:
+                    df_model = pd.read_parquet(os.path.join(csv_folder, f))
+                else:
+                    df_model = pd.read_csv(os.path.join(csv_folder, f))
                 
                 # 对当月的 factor 做汇总
                 month_factor_mean = df_model[column_name].mean()
@@ -80,12 +88,18 @@ def compute_annual_sum_from_month(csv_folder, year, factor):
     for month in range(1, 13):
         month_str = f"{month:02d}"
         # filename = rf"SOC_terms_{year}_{month_str}_timestep_(\d+)_River\.csv"
-        filename = rf"SOC_terms_{year}_{month_str}_River\.csv"
+        if USE_PARQUET:
+            filename = rf"SOC_terms_{year}_{month_str}_River\.parquet"
+        else:
+            filename = rf"SOC_terms_{year}_{month_str}_River\.csv"
         file_list = os.listdir(csv_folder)
         for f in file_list:
             if re.match(filename, f):
                 # 读取 CSV
-                df_model = pd.read_csv(os.path.join(csv_folder, f))
+                if USE_PARQUET:
+                    df_model = pd.read_parquet(os.path.join(csv_folder, f))
+                else:
+                    df_model = pd.read_csv(os.path.join(csv_folder, f))
                 
                 # 对当月的 factor 做汇总
                 month_erosion_mean = df_model[column_name].mean()

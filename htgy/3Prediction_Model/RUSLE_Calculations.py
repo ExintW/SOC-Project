@@ -46,12 +46,12 @@ def calculate_r_factor_annually(rain_year_mm):
         R = 0.0483 * P^1.61, if P <= 850mm
         R = 587.8 - 1.219P + 0.004105P^2, if P > 850mm
     """
-    if np.mean(annual_tp) <= 850:
-        print(f"Annual tp = {np.mean(annual_tp)}")
-        R = 0.0483 * (annual_tp ** 1.61)
-    else:
-        print(f"Annual tp = {np.mean(annual_tp)}")
-        R = 587.8 - 1.219 * annual_tp + 0.004105 * annual_tp**2
+    # if np.mean(annual_tp) <= 850:
+    #     print(f"Annual tp = {np.mean(annual_tp)}")
+    #     R = 0.0483 * (annual_tp ** 1.61)
+    # else:
+    #     print(f"Annual tp = {np.mean(annual_tp)}")
+    #     R = 587.8 - 1.219 * annual_tp + 0.004105 * annual_tp**2
     
     """
     https://doi.org/10.11821/dlxb201509012
@@ -62,6 +62,11 @@ def calculate_r_factor_annually(rain_year_mm):
     """
     # exponent = 1.5 * np.log10((rain_year_mm ** 2) / annual_tp) - 0.8188
     # R = np.sum(1.735 * (10 ** exponent), axis=0)  # sum over 12 months
+    
+    """
+    Zhou et al.(1995) as cited in Li et al.(2014)
+    """
+    R = np.sum(-1.15527 + 1.792 * rain_year_mm, axis=0)
     
     return R     
 
@@ -98,55 +103,63 @@ def calculate_ls_factor(slope, dem, slope_length=1000):
     # LS = ((flow_acc * slope_length) / 22.13)**0.4 * (np.sin(slope_rad) / 0.0896)**1.3
     # return LS
     
+    LS_file = PROCESSED_DIR / "LS_factor.npy"
+    
     """
     Compute LS factor using whitebox and Moore & Burch (1986) method
     """
-    print("Computing LS factor using whitebox...")
-    wbt = WhiteboxTools()
-    wbt.verbose = False
-    wbt.work_dir = str(DATA_DIR) # DEM directory
+    if LS_file.exists():
+        print("Loading precomputed LS_factor...")
+        LS = np.load(LS_file)
+    else:
+        print("Computing LS factor using whitebox...")
+        wbt = WhiteboxTools()
+        wbt.verbose = False
+        wbt.work_dir = str(DATA_DIR) # DEM directory
 
-    dem_tif = "htgyDEM.tif"  # 用你的DEM文件替代
-    flow_dir = "flow_dir.tif"
-    flow_acc = "flow_acc.tif"
-    slope = "slope.tif"
+        dem_tif = "htgyDEM.tif"  # 用你的DEM文件替代
+        flow_dir = "flow_dir.tif"
+        flow_acc = "flow_acc.tif"
+        slope = "slope.tif"
 
-    # 步骤1：计算坡度（以弧度为单位）
-    wbt.run_tool("slope", [
-        f"--dem={dem_tif}",
-        f"--output={slope}",
-        "--zfactor=1.0",
-        "--units=degrees",
-        "--cores=8"
-    ])
+        # 步骤1：计算坡度（以弧度为单位）
+        wbt.run_tool("slope", [
+            f"--dem={dem_tif}",
+            f"--output={slope}",
+            "--zfactor=1.0",
+            "--units=degrees",
+            "--cores=8"
+        ])
 
-    # 步骤2：计算 D8 流向
-    wbt.run_tool("d8_pointer", [
-        f"--dem={dem_tif}",
-        f"--output={flow_dir}",
-        "--esri_pntr",
-        "--cores=8"
-    ])
+        # 步骤2：计算 D8 流向
+        wbt.run_tool("d8_pointer", [
+            f"--dem={dem_tif}",
+            f"--output={flow_dir}",
+            "--esri_pntr",
+            "--cores=8"
+        ])
 
 
-    # 步骤3：计算累积汇流
-    wbt.run_tool("d8_flow_accumulation", [
-        f"--dem={dem_tif}",
-        f"--output={flow_acc}",
-        "--out_type=cells",
-        "--cores=8"
-    ])
+        # 步骤3：计算累积汇流
+        wbt.run_tool("d8_flow_accumulation", [
+            f"--dem={dem_tif}",
+            f"--output={flow_acc}",
+            "--out_type=cells",
+            "--cores=8"
+        ])
 
-    # 步骤4：读取flow_acc和slope计算LS
-    with rasterio.open(DATA_DIR / flow_acc) as fac_src, rasterio.open(DATA_DIR / slope) as slope_src:
-        fac = fac_src.read(1).astype(np.float32)
-        slp = slope_src.read(1).astype(np.float32)
+        # 步骤4：读取flow_acc和slope计算LS
+        with rasterio.open(DATA_DIR / flow_acc) as fac_src, rasterio.open(DATA_DIR / slope) as slope_src:
+            fac = fac_src.read(1).astype(np.float32)
+            slp = slope_src.read(1).astype(np.float32)
 
-    # Moore & Burch (1986) 公式计算 LS
-    cell_size = 30  # 你的 DEM 分辨率
-    fac = np.maximum(fac, 1)  # 避免0
-    slope_rad = np.deg2rad(slp)  # slope.tif 是角度，需要转弧度
-    LS = ((fac * cell_size) / 22.13)**0.5 * (np.sin(slope_rad) / 0.0896)**1.5
+        # Moore & Burch (1986) 公式计算 LS
+        cell_size = 30  # 你的 DEM 分辨率
+        fac = np.maximum(fac, 1)  # 避免0
+        slope_rad = np.deg2rad(slp)  # slope.tif 是角度，需要转弧度
+        LS = ((fac * cell_size) / 22.13)**0.5 * (np.sin(slope_rad) / 0.0896)**1.5
+        
+        np.save(LS_file, LS)
     
     return LS
 
@@ -234,28 +247,8 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
     Williams and Renard (1983) as cited in Chen et al. (2011)
     """
     # Avoid division by zero
-    total = silt + clay
-    total[total == 0] = 1e-6
-
-    # Organic carbon factor
-    oc = soc / 10  # convert to percentage
-    oc_factor = (1 - 0.25 * oc) / (oc + np.exp(3.72 - 2.95 * oc))
-
-    # Texture-related terms
-    texture_term = (0.2 + (0.3 * np.exp(-0.0256 * sand * (1 - silt / 100)))) * \
-                   ((silt / total) ** 0.3)
-
-    # Final K factor
-    k_factor = texture_term * oc_factor
-    
-    """
-    EPIC from https://doi.org/10.11821/dlxb201509012 
-    基于土壤侵蚀控制度的黄土高原水土流失治理潜力研究
-    """
-    # Avoid division by zero
     # total = silt + clay
     # total[total == 0] = 1e-6
-    # SN_1 = 1 - (sand / 100)
 
     # # Organic carbon factor
     # oc = soc / 10  # convert to percentage
@@ -264,10 +257,30 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
     # # Texture-related terms
     # texture_term = (0.2 + (0.3 * np.exp(-0.0256 * sand * (1 - silt / 100)))) * \
     #                ((silt / total) ** 0.3)
-    
-    # SN_term = 1 - (0.7 * SN_1) / (SN_1 + np.exp(-5.51 + 22.9 * SN_1))
 
     # # Final K factor
-    # # k_factor = 0.1317 * texture_term * oc_factor * SN_term
+    # k_factor = texture_term * oc_factor
+    
+    """
+    EPIC from https://doi.org/10.11821/dlxb201509012 
+    基于土壤侵蚀控制度的黄土高原水土流失治理潜力研究
+    """
+    # Avoid division by zero
+    total = silt + clay
+    total[total == 0] = 1e-9
+    SN_1 = 1 - (sand / 100)
 
+    # Organic carbon factor
+    oc = soc / 10  # convert to percentage
+    oc_factor = 1 - ((0.25 * oc) / (oc + np.exp(3.72 - 2.95 * oc)))
+
+    # Texture-related terms
+    texture_term = 0.2 + (0.3 * np.exp(-0.0256 * sand * (1 - silt / 100))) * \
+                   ((silt / total) ** 0.3)
+    
+    SN_term = 1 - ((0.7 * SN_1) / (SN_1 + np.exp(-5.51 + 22.9 * SN_1)))
+
+    # Final K factor
+    k_factor = 0.1317 * texture_term * oc_factor * SN_term
+    # k_factor = texture_term * oc_factor * SN_term
     return k_factor
