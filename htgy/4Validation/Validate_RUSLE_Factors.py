@@ -58,7 +58,8 @@ def compute_annual_mean_from_month(csv_folder, year, factor):
     # 假设文件命名: SOC_terms_2007_{month:02d}_timestep_{month}_River.csv
     for month in range(1, 13):
         month_str = f"{month:02d}"
-        filename = rf"SOC_terms_{year}_{month_str}_timestep_(\d+)_River\.csv"
+        # filename = rf"SOC_terms_{year}_{month_str}_timestep_(\d+)_River\.csv"
+        filename = rf"SOC_terms_{year}_{month_str}_River\.csv"
         file_list = os.listdir(csv_folder)
         for f in file_list:
             if re.match(filename, f):
@@ -78,7 +79,8 @@ def compute_annual_sum_from_month(csv_folder, year, factor):
     # 假设文件命名: SOC_terms_2007_{month:02d}_timestep_{month}_River.csv
     for month in range(1, 13):
         month_str = f"{month:02d}"
-        filename = rf"SOC_terms_{year}_{month_str}_timestep_(\d+)_River\.csv"
+        # filename = rf"SOC_terms_{year}_{month_str}_timestep_(\d+)_River\.csv"
+        filename = rf"SOC_terms_{year}_{month_str}_River\.csv"
         file_list = os.listdir(csv_folder)
         for f in file_list:
             if re.match(filename, f):

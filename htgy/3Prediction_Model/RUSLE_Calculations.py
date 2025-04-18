@@ -156,14 +156,14 @@ def calculate_c_factor(lai):
 
 def calculate_p_factor(landuse, slope):
     """Return P factor based on land use category."""
-    p_values = {
-        "sloping cropland": 0.4,
-        "forestland": 0.5,
-        "grassland": 0.5,
-        "not used": 0.5,
-        "terrace": 0.1,
-        "dam field": 0.05
-    }
+    # p_values = {
+    #     "sloping cropland": 0.4,
+    #     "forestland": 0.5,
+    #     "grassland": 0.5,
+    #     "not used": 0.5,
+    #     "terrace": 0.1,
+    #     "dam field": 0.05
+    # }
     # p_values = {    # https://doi.org/10.11821/dlxb201509012
     #     "sloping cropland": 1.0,  # 无水土保持措施的坡耕地
     #     "forestland": 1.0,        # 林地，未实施特定水土保持措施
@@ -173,28 +173,28 @@ def calculate_p_factor(landuse, slope):
     #     "dam field": 0.05         # 淤地坝地，减沙效益显著
     # }
     
-    # def get_p_factor(slope):
-    #     cropland_map = {
-    #         (0, 5): 0.1,
-    #         (5, 10): 0.221,
-    #         (10, 15): 0.305,
-    #         (15, 20): 0.575,
-    #         (20, 25): 0.705,
-    #         (25, float('inf')): 0.8 
-    #     }
-    #     for slope_range, p_value in cropland_map.items():
-    #         if slope_range[0] <= slope < slope_range[1]:
-    #             return p_value
-    #     return None  # or raise ValueError if desired
+    def get_p_factor(slope):
+        cropland_map = {
+            (0, 5): 0.1,
+            (5, 10): 0.221,
+            (10, 15): 0.305,
+            (15, 20): 0.575,
+            (20, 25): 0.705,
+            (25, float('inf')): 0.8 
+        }
+        for slope_range, p_value in cropland_map.items():
+            if slope_range[0] <= slope < slope_range[1]:
+                return p_value
+        return None  # or raise ValueError if desired
     
-    # p_values = {    # 近20年黄土高原林地土壤侵蚀时空变化特征及其影响因素 
-    #     "sloping cropland": get_p_factor(slope),
-    #     "forestland": 1,
-    #     "grassland": 1,
-    #     "not used": 1,
-    #     "terrace": 0.12,    # https://doi.org/10.11821/dlxb201509012
-    #     "dam field": 0.05
-    # }
+    p_values = {    # 近20年黄土高原林地土壤侵蚀时空变化特征及其影响因素 
+        "sloping cropland": get_p_factor(slope),
+        "forestland": 1,
+        "grassland": 1,
+        "not used": 1,
+        "terrace": 0.12,    # https://doi.org/10.11821/dlxb201509012
+        "dam field": 0.05
+    }
     
     return p_values.get(str(landuse).lower(), 1.0)
 
@@ -227,25 +227,47 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
     #     # print(f"Negative K values = {K[K < 0]}")
     # return K / 100  
     
-    return 0.03834  # Source: https://doi.org/10.57760/sciencedb.07135， 10.12041/geodata.201703065582271.ver1.db
+    #return 0.03834  # Source: https://doi.org/10.57760/sciencedb.07135， 10.12041/geodata.201703065582271.ver1.db
 
     """
     EPIC Model (Williams, 1995)
     Williams and Renard (1983) as cited in Chen et al. (2011)
     """
     # Avoid division by zero
+    total = silt + clay
+    total[total == 0] = 1e-6
+
+    # Organic carbon factor
+    oc = soc / 10  # convert to percentage
+    oc_factor = (1 - 0.25 * oc) / (oc + np.exp(3.72 - 2.95 * oc))
+
+    # Texture-related terms
+    texture_term = (0.2 + (0.3 * np.exp(-0.0256 * sand * (1 - silt / 100)))) * \
+                   ((silt / total) ** 0.3)
+
+    # Final K factor
+    k_factor = texture_term * oc_factor
+    
+    """
+    EPIC from https://doi.org/10.11821/dlxb201509012 
+    基于土壤侵蚀控制度的黄土高原水土流失治理潜力研究
+    """
+    # Avoid division by zero
     # total = silt + clay
     # total[total == 0] = 1e-6
+    # SN_1 = 1 - (sand / 100)
 
     # # Organic carbon factor
-    # oc = soc * 10 / 100  # convert to proportion
-    # oc_factor = 1 - 0.25 * oc / (oc + np.exp(3.72 - 2.95 * oc))
+    # oc = soc / 10  # convert to percentage
+    # oc_factor = (1 - 0.25 * oc) / (oc + np.exp(3.72 - 2.95 * oc))
 
     # # Texture-related terms
-    # texture_term = (0.2 + 0.3 * np.exp(-0.0256 * sand * (1 - silt / 100))) * \
+    # texture_term = (0.2 + (0.3 * np.exp(-0.0256 * sand * (1 - silt / 100)))) * \
     #                ((silt / total) ** 0.3)
+    
+    # SN_term = 1 - (0.7 * SN_1) / (SN_1 + np.exp(-5.51 + 22.9 * SN_1))
 
     # # Final K factor
-    # k_factor = texture_term * oc_factor
+    # # k_factor = 0.1317 * texture_term * oc_factor * SN_term
 
-    # return k_factor
+    return k_factor
