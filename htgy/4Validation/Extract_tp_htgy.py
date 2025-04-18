@@ -5,7 +5,7 @@ from globals import *
 import xarray as xr
 import pandas as pd
 import numpy as np
-import geopandas as gpd
+# import geopandas as gpd  # Not needed since boundaries are not used
 from pathlib import Path
 from scipy.spatial import cKDTree
 
@@ -14,12 +14,12 @@ from scipy.spatial import cKDTree
 # ---------------------------------------------------------------------------------------
 csv_path = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
 ERA5_dir = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled"
-boarder_path = DATA_DIR / "wammaogou_boundary.shp"
+# boarder_path = DATA_DIR / "Loess_Plateau_vector_border.shp"  # Boundary not used
 
 # Output CSV file paths for each precipitation range
-output_csv_range1 = PROCESSED_DIR / "k1_k2_60mm_pre_wmg.csv"
-output_csv_range2 = PROCESSED_DIR / "k1_k2_90mm_pre_wmg.csv"
-output_csv_range3 = PROCESSED_DIR / "k1_k2_120mm_pre_wmg.csv"
+output_csv_range1 = PROCESSED_DIR / "k1_k2_60mm_pre_htgy.csv"
+output_csv_range2 = PROCESSED_DIR / "k1_k2_90mm_pre_htgy.csv"
+output_csv_range3 = PROCESSED_DIR / "k1_k2_120mm_pre_htgy.csv"
 
 years = range(2007, 2025)
 precip_var = "tp"
@@ -33,42 +33,16 @@ columns_to_keep = [
 ]
 
 # ---------------------------------------------------------------------------------------
-# Load and filter the base CSV data by the WangMaoGou boundary
+# Load the base CSV data without boundary filtering
 # ---------------------------------------------------------------------------------------
 df_base = pd.read_csv(csv_path)
-
-# Create a GeoDataFrame from the CSV with EPSG:4326
-gdf_base = gpd.GeoDataFrame(
-    df_base,
-    geometry=gpd.points_from_xy(df_base["LON"], df_base["LAT"]),
-    crs="EPSG:4326"
-)
-
-# Load the boundary shapefile
-gdf_boarder = gpd.read_file(boarder_path)
-# Reproject boundary if its CRS doesn't match the base points
-if gdf_boarder.crs != gdf_base.crs:
-    gdf_boarder = gdf_boarder.to_crs(gdf_base.crs)
-
-# Instead of using deprecated unary_union, use union_all() to get a combined boundary
-boundary = gdf_boarder.union_all()
-
-# Debug prints: Check bounds of the boundary and base points
-print("Boundary bounds:", boundary.bounds)
-print("Base points bounds:", gdf_base.total_bounds)
-
-# Filter points to only those within the boundary
-gdf_base_filtered = gdf_base[gdf_base.within(boundary)]
-print(f"Number of base points within the WangMaoGou boundary: {len(gdf_base_filtered)}")
-
-# If no points are within the boundary, you may need to check your CRS or the geometry.
-df_base = pd.DataFrame(gdf_base_filtered.drop(columns="geometry"))
+print(f"Total number of base points: {len(df_base)}")
 
 # ---------------------------------------------------------------------------------------
 # Prepare containers for each precipitation range
 # ---------------------------------------------------------------------------------------
-upper_range_factor = 1.05
-lower_range_factor = 0.95
+upper_range_factor = 1.0001
+lower_range_factor = 0.9999
 
 results_range1 = []  # For range: 0.0594/30 to 0.0606/30
 results_range2 = []  # For range: 0.0892/30 to 0.0908/30
@@ -156,7 +130,7 @@ else:
 if results_range2:
     final_df_range2 = pd.concat(results_range2, ignore_index=True)
     final_df_range2.to_csv(output_csv_range2, index=False)
-    print(f"90 mm pre data saved to: {output_csv_range2}")
+    print(f"90mm pre data saved to: {output_csv_range2}")
 else:
     print("No data processed for 90mm pre.")
 
