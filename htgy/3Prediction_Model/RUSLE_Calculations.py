@@ -53,6 +53,16 @@ def calculate_r_factor_annually(rain_year_mm):
         print(f"Annual tp = {np.mean(annual_tp)}")
         R = 587.8 - 1.219 * annual_tp + 0.004105 * annual_tp**2
     
+    """
+    https://doi.org/10.11821/dlxb201509012
+    Angulo-Martínez M, Beguería S.
+    Estimating rainfall erosivity from daily precipitation records: A comparison among methods using data from the Ebro Basin (NE Spain)
+
+    . Journal of Hydrology, 2009, 379(1/2): 111-121.
+    """
+    # exponent = 1.5 * np.log10((rain_year_mm ** 2) / annual_tp) - 0.8188
+    # R = np.sum(1.735 * (10 ** exponent), axis=0)  # sum over 12 months
+    
     return R     
 
 def get_montly_r_factor(R_annual, rain_month_mm, rain_year_mm):
@@ -144,7 +154,7 @@ def calculate_c_factor(lai):
     """Compute C factor from LAI: C = exp(-1.7 * LAI)."""
     return np.exp(-1.7 * lai)
 
-def calculate_p_factor(landuse):
+def calculate_p_factor(landuse, slope):
     """Return P factor based on land use category."""
     p_values = {
         "sloping cropland": 0.4,
@@ -154,6 +164,38 @@ def calculate_p_factor(landuse):
         "terrace": 0.1,
         "dam field": 0.05
     }
+    # p_values = {    # https://doi.org/10.11821/dlxb201509012
+    #     "sloping cropland": 1.0,  # 无水土保持措施的坡耕地
+    #     "forestland": 1.0,        # 林地，未实施特定水土保持措施
+    #     "grassland": 1.0,         # 草地，未实施特定水土保持措施
+    #     "not used": 1.0,          # 未利用地，未实施特定水土保持措施
+    #     "terrace": 0.12,          # 水平梯田，减沙效益可达88%
+    #     "dam field": 0.05         # 淤地坝地，减沙效益显著
+    # }
+    
+    # def get_p_factor(slope):
+    #     cropland_map = {
+    #         (0, 5): 0.1,
+    #         (5, 10): 0.221,
+    #         (10, 15): 0.305,
+    #         (15, 20): 0.575,
+    #         (20, 25): 0.705,
+    #         (25, float('inf')): 0.8 
+    #     }
+    #     for slope_range, p_value in cropland_map.items():
+    #         if slope_range[0] <= slope < slope_range[1]:
+    #             return p_value
+    #     return None  # or raise ValueError if desired
+    
+    # p_values = {    # 近20年黄土高原林地土壤侵蚀时空变化特征及其影响因素 
+    #     "sloping cropland": get_p_factor(slope),
+    #     "forestland": 1,
+    #     "grassland": 1,
+    #     "not used": 1,
+    #     "terrace": 0.12,    # https://doi.org/10.11821/dlxb201509012
+    #     "dam field": 0.05
+    # }
+    
     return p_values.get(str(landuse).lower(), 1.0)
 
 def calculate_k_factor(silt, sand, clay, soc, landuse):
@@ -183,20 +225,20 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
     # if np.any(K < 0):
     #     print(f"Warning: negative values found for K factor!")
     #     # print(f"Negative K values = {K[K < 0]}")
-    # #return K / 1000  # /100
+    # return K / 100  
     
-    return 0.03834  # Source: 10.12041/geodata.201703065582271.ver1.db
-    
+    return 0.03834  # Source: https://doi.org/10.57760/sciencedb.07135， 10.12041/geodata.201703065582271.ver1.db
+
     """
     EPIC Model (Williams, 1995)
     Williams and Renard (1983) as cited in Chen et al. (2011)
     """
-    # # Avoid division by zero
+    # Avoid division by zero
     # total = silt + clay
     # total[total == 0] = 1e-6
 
     # # Organic carbon factor
-    # oc = soc / 100  # convert to proportion
+    # oc = soc * 10 / 100  # convert to proportion
     # oc_factor = 1 - 0.25 * oc / (oc + np.exp(3.72 - 2.95 * oc))
 
     # # Texture-related terms

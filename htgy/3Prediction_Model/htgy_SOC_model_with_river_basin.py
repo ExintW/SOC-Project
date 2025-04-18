@@ -79,7 +79,7 @@ init_global_data_structs()
 # =============================================================================
 # RASTERIZE RIVER BASIN BOUNDARIES & MAIN RIVER USING PRECOMPUTED MASKS
 # =============================================================================
-precompute_river_basin_2()
+precompute_river_basin_1()
 
 # =============================================================================
 # COMPUTE CONSTANT RUSLE FACTORS
@@ -91,7 +91,7 @@ LS_factor = calculate_ls_factor(INIT_VALUES.SLOPE, INIT_VALUES.DEM)
 LS_factor = resample_LS_to_1km_grid(LS_factor)
 print(f"Total elements in LS: {LS_factor.size}, with {np.sum(LS_factor > 50)} elements > 50, and mean = {np.mean(LS_factor)}")
 P_factor = np.array([
-    [calculate_p_factor(INIT_VALUES.LANDUSE[i, j]) for j in range(INIT_VALUES.LANDUSE.shape[1])]
+    [calculate_p_factor(INIT_VALUES.LANDUSE[i, j], INIT_VALUES.SLOPE[i, j]) for j in range(INIT_VALUES.LANDUSE.shape[1])]
     for i in range(INIT_VALUES.LANDUSE.shape[0])
 ])
 print(f"Total elements in P: {P_factor.size}, with {np.sum(P_factor > 50)} elements > 50, and mean = {np.mean(P_factor)}")
@@ -189,7 +189,7 @@ for year in range(start_year, end_year + 1, step_size):
         
         R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
         R_annual_temp = np.nan_to_num(R_annual_temp, nan=np.nanmean(R_annual_temp))
-        print(f"Total elements in R Year: {R_annual_temp.size}, with mean = {np.mean(R_annual_temp)}")
+        print(f"Total elements in R Year: {R_annual_temp.size}, with max = {np.max(R_annual_temp)}, min = {np.min(R_annual_temp)}, mean = {np.mean(R_annual_temp)}")
     
         E_month_avg_list = []   # for calculating annual mean for validation
         
@@ -210,20 +210,20 @@ for year in range(start_year, end_year + 1, step_size):
             R_month = create_grid_from_points(lon_nc, lat_nc, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
             R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
 
-            print(f"Total elements in R month: {R_month.size}, with {np.sum(R_month > 250)} elements > 250, and mean = {np.mean(R_month)}")
+            print(f"Total elements in R month: {R_month.size}, with max = {np.max(R_month)}, min = {np.min(R_month)}, and mean = {np.mean(R_month)}")
             
             C_factor_2D = calculate_c_factor(LAI_2D)
-            print(f"Total elements in C: {C_factor_2D.size}, with {np.sum(C_factor_2D > 1)} elements > 1, and mean = {np.mean(C_factor_2D)}")
+            print(f"Total elements in C: {C_factor_2D.size}, with max = {np.max(C_factor_2D)}, min = {np.min(C_factor_2D)}, and mean = {np.mean(C_factor_2D)}")
             
             # Calculate monthly K factor
             K_month = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, (C_fast_current + C_slow_current), INIT_VALUES.LANDUSE)
             K_month = np.nan_to_num(K_month, nan=np.nanmean(K_month))
             K_month = np.clip(K_month, 0, 0.7)
-            print(f"Total elements in K: {K_month.size}, with {np.sum(K_month == 0.7)} elements = 0.7, and mean = {np.mean(K_month)}")
+            print(f"Total elements in K: {K_month.size}, with max = {np.max(K_month)}, min = {np.min(K_month)}, and mean = {np.mean(K_month)}")
 
             # Calculate soil loss (t/ha/month) & then per cell
             E_t_ha_month = R_month * K_month * LS_factor * C_factor_2D * P_factor
-            print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.max(E_t_ha_month)}, and mean = {np.mean(E_t_ha_month)}")
+            print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.max(E_t_ha_month)}, min = {np.min(E_t_ha_month)}, and mean = {np.mean(E_t_ha_month)}")
             E_tcell_month = E_t_ha_month * CELL_AREA_HA
             E_month_avg_list.append(np.mean(E_t_ha_month))
 
@@ -236,8 +236,8 @@ for year in range(start_year, end_year + 1, step_size):
             # Call the Numba-accelerated routing function
             D_soil, D_soc, inflow_soil, inflow_soc, lost_soc = distribute_soil_and_soc_with_dams_numba(
                 E_tcell_month, S, INIT_VALUES.DEM, dam_capacity_arr, MAP_STATS.grid_x, MAP_STATS.grid_y,
-                MAP_STATS.small_boundary_mask, compute_outlet_mask(MAP_STATS.small_boundary_mask, INIT_VALUES.DEM),
-                MAP_STATS.large_boundary_mask, compute_outlet_mask(MAP_STATS.large_boundary_mask, INIT_VALUES.DEM),
+                MAP_STATS.small_boundary_mask, MAP_STATS.small_outlet_mask,
+                MAP_STATS.large_boundary_mask, MAP_STATS.large_outlet_mask,
                 MAP_STATS.river_mask, sorted_indices
             )
 

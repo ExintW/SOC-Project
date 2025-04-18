@@ -19,27 +19,28 @@ def compute_mean_value(raster_path, shp_path):
     读取 R2008_1000.tif，并使用 Loess_Plateau_vector_border.shp 掩膜，
     返回掩膜区域（黄土高原）有效像元的 R 值平均值。
     """
-    # 1. 读取矢量边界
+    # 读取矢量边界
     loess_gdf = gpd.read_file(shp_path)
     
-    # 2. 打开栅格文件，检查 CRS，如果不一致则需重投影矢量
+    # 打开栅格文件，检查 CRS，如果不一致则需重投影矢量
     with rasterio.open(raster_path) as src:
         raster_crs = src.crs
         if loess_gdf.crs != raster_crs:
             loess_gdf = loess_gdf.to_crs(raster_crs)
         
-        # 3. 将矢量边界转为可用于 rasterio.mask.mask 的几何对象
+        # 将矢量边界转为可用于 rasterio.mask.mask 的几何对象
         geoms = [feature["geometry"] for feature in loess_gdf.__geo_interface__["features"]]
         
-        # 4. 对栅格进行掩膜
+        # 对栅格进行掩膜
         out_image, out_transform = rasterio.mask.mask(src, geoms, crop=True)
         # 这里 out_image 可能是一个三维数组，形如 (bands, height, width)
         # 如果只有一个波段，则 out_image.shape[0] == 1
         
         # 获取nodata值（若无定义，可自行设置掩膜阈值）
         nodata_val = src.nodata if src.nodata is not None else -9999
+        
 
-    # 5. 计算掩膜后区域像元 R 的平均值
+    # 计算掩膜后区域像元 R 的平均值
     # out_image[0, :, :] 为单波段，如果是单波段的栅格，index=0 取第0层
     masked_array = out_image[0]
     
@@ -47,21 +48,8 @@ def compute_mean_value(raster_path, shp_path):
     # 这里示例假设nodata_val为nodata或背景值
     valid_mask = (masked_array != nodata_val) & (~np.isnan(masked_array))
     mean_r = masked_array[valid_mask].mean()
-    
-    # # 验证
-    # # 显示掩膜后的数据
-    # plt.imshow(masked_array, cmap='viridis')
-    # plt.colorbar()
-    # plt.title("Masked Raster Data")
-    # plt.show()
 
-    # # 绘制直方图，检查值分布
-    # plt.hist(masked_array[valid_mask].flatten(), bins=30)
-    # plt.title("Histogram of Valid R Values")
-    # plt.xlabel("R Value")
-    # plt.ylabel("Frequency")
-    # plt.show()
-    
+
     return mean_r
 
 def compute_annual_mean_from_month(csv_folder, year, factor):
