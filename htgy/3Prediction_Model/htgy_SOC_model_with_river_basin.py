@@ -60,7 +60,7 @@ from globalss import *
 from Init import init_global_data_structs
 from River_Basin import * 
 from utils import *
-from simulation_loop import run_simulation_year_present
+from simulation_loop import run_simulation_year
 
 # Append parent directory to path to access 'globals' if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -123,14 +123,16 @@ ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
 ax.ticklabel_format(style='plain', axis='x')
-plt.savefig(os.path.join(OUTPUT_DIR, "SOC_initial.png"))
+plt.savefig(os.path.join(OUTPUT_DIR / "Figure", "SOC_initial.png"))
 plt.close(fig)
 
 # =============================================================================
 # MAIN SIMULATION LOOP (MONTHLY)
 # =============================================================================
-start_year = 2007
-end_year = 2018
+start_year = 2007   # year of init condition
+end_year = 2024     # last year of present
+past_year = 1950    # last year of past     (set to None to disable past year)
+future_year = None  # last year of future   (set to None to disable future year)
 
 step_size = 1   # for quick RUSLE vaidation
 
@@ -142,18 +144,33 @@ os.makedirs(OUTPUT_DIR / "Figure", exist_ok=True)
 os.makedirs(OUTPUT_DIR / "Data", exist_ok=True)
 
 # Delete previous results
-data_dir = OUTPUT_DIR / "Data"
-for file in glob.glob(str(data_dir / "*.csv")):
-    os.remove(file)
-    
-figure_dir = OUTPUT_DIR / "Figure"
-for file in glob.glob(str(figure_dir / "*.png")):
-    os.remove(file)
+if CLEAN_OUTDIR:
+    data_dir = OUTPUT_DIR / "Data"
+    for file in glob.glob(str(data_dir / "*.csv")):
+        os.remove(file)
+    for file in glob.glob(str(data_dir / "*.parquet")):
+        os.remove(file)
+        
+    figure_dir = OUTPUT_DIR / "Figure"
+    for file in glob.glob(str(figure_dir / "*.png")):
+        os.remove(file)
 
 t_sim_start = time.perf_counter()
 
 for year in range(start_year, end_year + 1, step_size):
-    run_simulation_year_present(year, LS_factor, P_factor, sorted_indices)
+    run_simulation_year(year, LS_factor, P_factor, sorted_indices)
+
+if future_year != None:
+    for year in range(end_year+1, future_year + 1):
+        run_simulation_year(year, LS_factor, P_factor, sorted_indices, future=True)
+
+init_global_data_structs()
+
+if past_year != None:
+    for year in range(start_year-1, past_year-1, -1):
+        run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=True)
+        
+
 
 print(f"Simulation complete. Total simulation time: {time.perf_counter() - t_sim_start:.2f} seconds.")
 print("Final SOC distribution is in C_fast_current + C_slow_current.")

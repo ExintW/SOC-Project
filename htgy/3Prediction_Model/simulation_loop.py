@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import time
 import pyarrow
+from contextlib import nullcontext
 
 from globalss import *
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -17,7 +18,7 @@ from soil_and_soc_flow import distribute_soil_and_soc_with_dams_numba
 from SOC_dynamics import vegetation_input, soc_dynamic_model
 
 
-def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
+def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, future=False):
     # Filter dams built on or before current year
     df_dam_active = MAP_STATS.df_dam[MAP_STATS.df_dam["year"] <= year].copy()
     dam_capacity_arr = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
@@ -29,39 +30,76 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
         dam_capacity_arr[i_idx, j_idx] = capacity_tons
 
     # Load monthly climate data (NetCDF)
-    nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
+    if future:
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_2015-2100_126.nc"
+        nc_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_2015-2100_126.nc"
+    else:
+        nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
+    
     if not os.path.exists(nc_file):
         print(f"NetCDF file not found for year {year}: {nc_file}")
         return
 
-    with nc.Dataset(nc_file) as ds:
-        valid_time = ds.variables['valid_time'][:]  # Expect 12 months
-        n_time = len(valid_time)
-        lon_nc = ds.variables['longitude'][:]
-        lat_nc = ds.variables['latitude'][:]
-        lai_data = ds.variables['lai_lv'][:]  # shape: (12, n_points)
-        tp_data = ds.variables['tp'][:]       # shape: (12, n_points), in meters
-        tp_data = tp_data * 30
-        tp_data_mm = tp_data * 1000.0
-        R_annual = calculate_r_factor_annually(tp_data_mm)
+    with nc.Dataset(nc_file) as ds, (nc.Dataset(lai_file) if future else nullcontext()) as ds_pr:
+        # valid_time = ds.variables['valid_time'][:]  # Expect 12 months
+        # n_time = len(valid_time)
+        n_time = 12
         
-        R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
+        if future:
+            # LAI file variables
+            lon_nc = ds.variables['lon'][:]  # Adjusted variable name if needed
+            lat_nc = ds.variables['lat'][:]
+            lai_data = ds.variables['lai'][:]      # shape: (time, n_points)
+
+            # Precipitation file variables
+            lon_nc_pr = ds_pr.variables['lon'][:]
+            lat_nc_pr = ds_pr.variables['lat'][:]
+            pr_data = ds_pr.variables['pr'][:]         # shape: (time, n_points), in kg m^-2 s^-1
+            tp_data_mm = pr_data * 30 * 86400     
+            R_annual = calculate_r_factor_annually(tp_data_mm)
+            R_annual_temp = create_grid_from_points(lon_nc_pr, lat_nc_pr, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
+        
+        else:
+            lon_nc = ds.variables['longitude'][:]
+            lat_nc = ds.variables['latitude'][:]
+            lai_data = ds.variables['lai_lv'][:]  # shape: (12, n_points)
+            tp_data = ds.variables['tp'][:]       # shape: (12, n_points), in meters
+            tp_data = tp_data * 30
+            tp_data_mm = tp_data * 1000.0
+            R_annual = calculate_r_factor_annually(tp_data_mm)
+            R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
+        
         R_annual_temp = np.nan_to_num(R_annual_temp, nan=np.nanmean(R_annual_temp))
         print(f"Total elements in R Year: {R_annual_temp.size}, with max = {np.max(R_annual_temp)}, min = {np.min(R_annual_temp)}, mean = {np.mean(R_annual_temp)}")
     
         E_month_avg_list = []   # for calculating annual mean for validation
         
-        for month_idx in range(n_time):
+        if past:
+            time_range = range(n_time-1, -1, -1)
+        else:
+            time_range = range(n_time)
+            
+        for month_idx in time_range:
             # Regrid LAI data
             time_month = time.time()
+            
             lai_1d = lai_data[month_idx, :]
             LAI_2D = create_grid_from_points(lon_nc, lat_nc, lai_1d, MAP_STATS.grid_x, MAP_STATS.grid_y)
             LAI_2D = np.nan_to_num(LAI_2D, nan=np.nanmean(LAI_2D))
-
+            
+            print(f"\nLAI_1d regrid took {time.time() - time_month} seconds")
+            time1 = time.time()
+            
             # Regrid precipitation and convert to mm
             tp_1d_mm = tp_data_mm[month_idx, :]
-            RAIN_2D = create_grid_from_points(lon_nc, lat_nc, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            if future:
+                RAIN_2D = create_grid_from_points(lon_nc_pr, lat_nc_pr, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            else:
+                RAIN_2D = create_grid_from_points(lon_nc, lat_nc, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
             RAIN_2D = np.nan_to_num(RAIN_2D, nan=np.nanmean(RAIN_2D))
+            
+            time2 = time.time()
+            print(f"tp_1d regrid took {time2 - time1} seconds")
 
             # Compute RUSLE factors
             # R_month = calculate_r_factor_monthly(RAIN_2D)
@@ -69,7 +107,8 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
             R_month = create_grid_from_points(lon_nc, lat_nc, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
             R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
             
-            print(f"before R_month took {time.time() - time_month} seconds")
+            print(f"R_month regrid took {time.time() - time2} seconds")
+            print(f"before R_month took {time.time() - time_month} seconds\n")
 
             print(f"Total elements in R month: {R_month.size}, with max = {np.max(R_month)}, min = {np.min(R_month)}, and mean = {np.mean(R_month)}")
             
@@ -93,31 +132,45 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
             SOC_loss_g_kg_month = convert_soil_loss_to_soc_loss_monthly(
                 E_t_ha_month, (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
             )
-
+            
+            time1 = time.time()
             # Call the Numba-accelerated routing function
             D_soil, D_soc, inflow_soil, inflow_soc, lost_soc = distribute_soil_and_soc_with_dams_numba(
                 E_tcell_month, S, INIT_VALUES.DEM, dam_capacity_arr, MAP_STATS.grid_x, MAP_STATS.grid_y,
                 MAP_STATS.small_boundary_mask, MAP_STATS.small_outlet_mask,
                 MAP_STATS.large_boundary_mask, MAP_STATS.large_outlet_mask,
-                MAP_STATS.river_mask, sorted_indices
+                MAP_STATS.river_mask, sorted_indices,
+                reverse=past
             )
+            print(f"distribute soc took {time.time() - time1} seconds")
 
             # Debug: Print lost SOC summary
             mean_lost = np.mean(np.nan_to_num(lost_soc, nan=0))
-            max_lost = np.max(lost_soc)
-            min_lost = np.min(lost_soc)
+            max_lost = np.nanmax(lost_soc)
+            min_lost = np.nanmin(lost_soc)
             print(f"Year {year} Month {month_idx+1}: Lost_SOC - mean: {mean_lost:.2f}, "
                   f"max: {max_lost:.2f}, min: {min_lost:.2f}")
 
             # Compute vegetation input
             V = vegetation_input(LAI_2D)
-
+            
+            mean_gain = np.mean(np.nan_to_num(V, nan=0))
+            max_gain = np.nanmax(V)
+            min_gain = np.nanmin(V)
+            print(f"Year {year} Month {month_idx+1}: SOC gain - mean: {mean_gain:.2f}, "
+                  f"max: {max_gain:.2f}, min: {min_gain:.2f}")
+            
+            if past:
+                dt = -1
+            else:
+                dt = 1
+                
             # Update SOC pools
             MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model(
                 MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
                 SOC_loss_g_kg_month, D_soil, D_soc, V,
                 INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
-                dt=1,
+                dt=dt,
                 M_soil=M_soil,
                 lost_soc=lost_soc
             )
@@ -181,13 +234,21 @@ def run_simulation_year_present(year, LS_factor, P_factor, sorted_indices):
                     C_slow_list.append(MAP_STATS.C_slow_current[i, j])
 
                     # Erosion
-                    erosion_fast_list.append(-SOC_loss_g_kg_month[i, j] * MAP_STATS.p_fast_grid[i, j])
-                    erosion_slow_list.append(-SOC_loss_g_kg_month[i, j] * (1 - MAP_STATS.p_fast_grid[i, j]))
+                    if past:
+                        erosion_fast_list.append(SOC_loss_g_kg_month[i, j] * MAP_STATS.p_fast_grid[i, j])
+                        erosion_slow_list.append(SOC_loss_g_kg_month[i, j] * (1 - MAP_STATS.p_fast_grid[i, j]))
+                    else:
+                        erosion_fast_list.append(-SOC_loss_g_kg_month[i, j] * MAP_STATS.p_fast_grid[i, j])
+                        erosion_slow_list.append(-SOC_loss_g_kg_month[i, j] * (1 - MAP_STATS.p_fast_grid[i, j]))
 
                     # Deposition
                     deposition_concentration = (D_soc[i, j] * 1000.0) / M_soil
-                    deposition_fast_list.append(deposition_concentration * MAP_STATS.p_fast_grid[i, j])
-                    deposition_slow_list.append(deposition_concentration * (1 - MAP_STATS.p_fast_grid[i, j]))
+                    if past:
+                        deposition_fast_list.append(-deposition_concentration * MAP_STATS.p_fast_grid[i, j])
+                        deposition_slow_list.append(-deposition_concentration * (1 - MAP_STATS.p_fast_grid[i, j]))
+                    else:
+                        deposition_fast_list.append(deposition_concentration * MAP_STATS.p_fast_grid[i, j])
+                        deposition_slow_list.append(deposition_concentration * (1 - MAP_STATS.p_fast_grid[i, j]))
 
                     # Vegetation
                     vegetation_fast_list.append(V[i, j] * MAP_STATS.p_fast_grid[i, j])

@@ -1,4 +1,5 @@
 import numpy as np
+import numba as nb
 from globalss import *
 
 def find_nearest_index(array, value):
@@ -20,16 +21,50 @@ def convert_soil_loss_to_soc_loss_monthly(E_t_ha_month, ORGA_g_per_kg, bulk_dens
 # =============================================================================
 # HELPER: REGRID CMIP/ERA5 POINT DATA TO 2D GRID
 # =============================================================================
-def create_grid_from_points(lon_points, lat_points, values, grid_x, grid_y):
+def _nearest_index_1d(vals, coords):
     """
-    Regrid 1D point data to a 2D grid by assigning each point to the nearest cell center.
+    Return indices of the nearest centres in `coords` for each value in `vals`,
+    irrespective of whether `coords` is ascending or descending.
     """
-    grid = np.full((len(grid_y), len(grid_x)), np.nan)
-    for k in range(len(values)):
-        j = (np.abs(grid_x - lon_points[k])).argmin()
-        i = (np.abs(grid_y - lat_points[k])).argmin()
-        grid[i, j] = values[k]
-    return grid
+    # Detect order ------------------------------------------------------------
+    asc = coords[0] < coords[-1]
+    coords_sorted = coords if asc else coords[::-1]
+
+    # Vectorised nearest‑neighbour search -------------------------------------
+    j = np.searchsorted(coords_sorted, vals)               # right neighbour
+    j = np.clip(j, 1, coords_sorted.size - 1)              # keep 1‥N‑1
+    left_closer = np.abs(vals - coords_sorted[j - 1]) <= np.abs(vals - coords_sorted[j])
+    j = j - left_closer                                    # choose nearer (tie → lower index)
+
+    # Map back to original order if axis was descending -----------------------
+    return j if asc else (coords_sorted.size - 1 - j)
+
+def create_grid_from_points(lon, lat, val, grid_x, grid_y):
+    lon = np.asarray(lon)
+    lat = np.asarray(lat)
+    val = np.asarray(val)
+
+    # Allocate target grid (NaN‑filled)
+    out = np.full((grid_y.size, grid_x.size), np.nan, dtype=val.dtype)
+
+    # Find nearest column / row indices
+    j = _nearest_index_1d(lon, grid_x)
+    i = _nearest_index_1d(lat, grid_y)
+
+    # Write values (later duplicates overwrite earlier ones, like the loop)
+    out[i, j] = val
+    return out
+
+# def create_grid_from_points(lon_points, lat_points, values, grid_x, grid_y):
+#     """
+#     Regrid 1D point data to a 2D grid by assigning each point to the nearest cell center.
+#     """
+#     grid = np.full((len(grid_y), len(grid_x)), np.nan)
+#     for k in range(len(values)):
+#         j = (np.abs(grid_x - lon_points[k])).argmin()
+#         i = (np.abs(grid_y - lat_points[k])).argmin()
+#         grid[i, j] = values[k]
+#     return grid
 
 def resample_LS_to_1km_grid(ls_30m, factor=33):
     """

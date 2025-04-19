@@ -110,7 +110,7 @@ def compute_annual_sum_from_month(csv_folder, year, factor):
 
 if __name__ == "__main__":
     factors = ['C', 'K', 'LS', 'P', 'R']
-    start_year = 2008
+    start_year = 1992
     end_year = 2018
     
     years_list = []
