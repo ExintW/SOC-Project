@@ -54,12 +54,12 @@ def get_tongguan_valid_data(data_path, year):
     return valid_A
 
 if __name__ == "__main__":
-    start_year = 1990
+    start_year = 1980
     end_year = 2018
     time_step = 1
 
     years_list = []
-    A_valid_list = []
+    A_valid_list = []  
     A_model_list = []
     mae_list = []
     mre_list = []

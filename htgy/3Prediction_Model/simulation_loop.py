@@ -2,6 +2,7 @@ import sys
 import os
 import netCDF4 as nc
 import pandas as pd
+import pandas.testing as pdt
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import time
@@ -197,74 +198,46 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             print(f"plot took {time.time() - time1} seconds")
             
             time1 = time.time()
-            
-            # Save CSV output with all terms including lost SOC
+
             rows_grid, cols_grid = MAP_STATS.C_fast_current.shape
-            lat_list = []
-            lon_list = []
-            landuse_list = []
-            C_fast_list = []
-            C_slow_list = []
-            # Erosion, deposition, vegetation, reaction
-            erosion_fast_list = []
-            erosion_slow_list = []
-            deposition_fast_list = []
-            deposition_slow_list = []
-            vegetation_fast_list = []
-            vegetation_slow_list = []
-            reaction_fast_list = []
-            reaction_slow_list = []
-            E_t_ha_list = []
-            lost_soc_list = []
-            C_factor_list = []
-            K_factor_list = []
-            LS_factor_list = []
-            P_factor_list = []
-            R_factor_list = []
+            lat_grid, lon_grid = np.meshgrid(MAP_STATS.grid_y, MAP_STATS.grid_x, indexing='ij')
 
-            # Gather data for CSV
-            for i in range(rows_grid):
-                for j in range(cols_grid):
-                    cell_lon = MAP_STATS.grid_x[j]
-                    cell_lat = MAP_STATS.grid_y[i]
-                    lat_list.append(cell_lat)
-                    lon_list.append(cell_lon)
-                    landuse_list.append(str(INIT_VALUES.LANDUSE[i, j]))
-                    C_fast_list.append(MAP_STATS.C_fast_current[i, j])
-                    C_slow_list.append(MAP_STATS.C_slow_current[i, j])
+            lat_list =  lat_grid.ravel(order='C').tolist()      # 与 for i→for j 顺序一致
+            lon_list =  lon_grid.ravel(order='C').tolist()
+            landuse_list = INIT_VALUES.LANDUSE.astype(str).ravel(order='C').tolist()
 
-                    # Erosion
-                    if past:
-                        erosion_fast_list.append(SOC_loss_g_kg_month[i, j] * MAP_STATS.p_fast_grid[i, j])
-                        erosion_slow_list.append(SOC_loss_g_kg_month[i, j] * (1 - MAP_STATS.p_fast_grid[i, j]))
-                    else:
-                        erosion_fast_list.append(-SOC_loss_g_kg_month[i, j] * MAP_STATS.p_fast_grid[i, j])
-                        erosion_slow_list.append(-SOC_loss_g_kg_month[i, j] * (1 - MAP_STATS.p_fast_grid[i, j]))
+            pf = MAP_STATS.p_fast_grid
+            sign = 1 if past else -1                              # past=True ➜ 正号，False ➜ 取反
+            dep_conc = (D_soc * 1000.0) / M_soil                 # g kg‑1 → g kg‑1（与原式相同）
 
-                    # Deposition
-                    deposition_concentration = (D_soc[i, j] * 1000.0) / M_soil
-                    if past:
-                        deposition_fast_list.append(-deposition_concentration * MAP_STATS.p_fast_grid[i, j])
-                        deposition_slow_list.append(-deposition_concentration * (1 - MAP_STATS.p_fast_grid[i, j]))
-                    else:
-                        deposition_fast_list.append(deposition_concentration * MAP_STATS.p_fast_grid[i, j])
-                        deposition_slow_list.append(deposition_concentration * (1 - MAP_STATS.p_fast_grid[i, j]))
+            # SOC 组分
+            C_fast_list  = MAP_STATS.C_fast_current .ravel('C').tolist()
+            C_slow_list  = MAP_STATS.C_slow_current .ravel('C').tolist()
 
-                    # Vegetation
-                    vegetation_fast_list.append(V[i, j] * MAP_STATS.p_fast_grid[i, j])
-                    vegetation_slow_list.append(V[i, j] * (1 - MAP_STATS.p_fast_grid[i, j]))
+            # Erosion（侵蚀输出）
+            erosion_fast_list = ( sign * SOC_loss_g_kg_month *  pf          ).ravel('C').tolist()
+            erosion_slow_list = ( sign * SOC_loss_g_kg_month * (1 - pf)     ).ravel('C').tolist()
 
-                    # Reaction
-                    reaction_fast_list.append(-INIT_VALUES.K_fast[i, j] * MAP_STATS.C_fast_current[i, j])
-                    reaction_slow_list.append(-INIT_VALUES.K_slow[i, j] * MAP_STATS.C_slow_current[i, j])
+            # Deposition（沉积输入，符号与 erosion 相反）
+            deposition_fast_list = (-sign * dep_conc * pf          ).ravel('C').tolist()
+            deposition_slow_list = (-sign * dep_conc * (1 - pf)    ).ravel('C').tolist()
 
-                    E_t_ha_list.append(E_t_ha_month[i, j])
-                    C_factor_list.append(C_factor_2D[i, j])
-                    K_factor_list.append(K_month[i, j])
-                    LS_factor_list.append(LS_factor[i, j])
-                    P_factor_list.append(P_factor[i, j])
-                    R_factor_list.append(R_month[i, j])
-                    lost_soc_list.append(lost_soc[i, j])
+            # Vegetation（植被输入）
+            vegetation_fast_list = (V * pf         ).ravel('C').tolist()
+            vegetation_slow_list = (V * (1 - pf)   ).ravel('C').tolist()
+
+            # Reaction（微生物矿化）
+            reaction_fast_list = (-INIT_VALUES.K_fast * MAP_STATS.C_fast_current ).ravel('C').tolist()
+            reaction_slow_list = (-INIT_VALUES.K_slow * MAP_STATS.C_slow_current ).ravel('C').tolist()
+
+            # 其余月度/因子量
+            E_t_ha_list   =  E_t_ha_month .ravel('C').tolist()
+            C_factor_list =  C_factor_2D  .ravel('C').tolist()
+            K_factor_list =  K_month      .ravel('C').tolist()
+            LS_factor_list=  LS_factor    .ravel('C').tolist()
+            P_factor_list =  P_factor     .ravel('C').tolist()
+            R_factor_list =  R_month      .ravel('C').tolist()
+            lost_soc_list =  lost_soc     .ravel('C').tolist()
 
             print(f"Gather data for csv took {time.time() - time1} seconds")
             
@@ -290,7 +263,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'R_factor_month': R_factor_list,
                 'Lost_SOC_River': lost_soc_list
             })
-  
+            
             if USE_PARQUET:
                 filename_parquet = f"SOC_terms_{year}_{month_idx+1:02d}_River.parquet"
                 df_out.to_parquet(os.path.join(OUTPUT_DIR, "Data", filename_parquet), index=False, engine="pyarrow")
