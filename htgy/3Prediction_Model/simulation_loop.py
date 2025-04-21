@@ -168,9 +168,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, "
                   f"max: {max_vege_gain:.2f}, min: {min_vege_gain:.2f}")
 
-            mean_deposition_gain = np.mean(np.nan_to_num(D_soc*1000/M_soil, nan=0))
-            max_deposition_gain = np.nanmax(D_soc)
-            min_deposition_gain = np.nanmin(D_soc)
+            deposition_SOC_gain = D_soc*1000/M_soil
+            mean_deposition_gain = np.mean(np.nan_to_num(deposition_SOC_gain, nan=0))
+            max_deposition_gain = np.nanmax(deposition_SOC_gain)
+            min_deposition_gain = np.nanmin(deposition_SOC_gain)
             print(f"Year {year} Month {month_idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
                   f"max: {max_deposition_gain:.2f}, min: {min_deposition_gain:.2f}")
 
