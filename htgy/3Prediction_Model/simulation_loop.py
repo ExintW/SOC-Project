@@ -146,21 +146,53 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             )
             print(f"distribute soc took {time.time() - time1} seconds")
 
-            # Debug: Print lost SOC summary
-            mean_lost = np.mean(np.nan_to_num(lost_soc, nan=0))
-            max_lost = np.nanmax(lost_soc)
-            min_lost = np.nanmin(lost_soc)
-            print(f"Year {year} Month {month_idx+1}: Lost_SOC - mean: {mean_lost:.2f}, "
-                  f"max: {max_lost:.2f}, min: {min_lost:.2f}")
+            # Debug: Print SOC summary
+            mean_river_lost = np.mean(np.nan_to_num(lost_soc, nan=0))
+            max_river_lost = np.nanmax(lost_soc)
+            min_river_lost = np.nanmin(lost_soc)
+            print(f"Year {year} Month {month_idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
+                  f"max: {max_river_lost:.2f}, min: {min_river_lost:.2f}")
+
+            mean_erosion_lost = np.mean(np.nan_to_num(SOC_loss_g_kg_month, nan=0))
+            max_erosion_lost = np.nanmax(SOC_loss_g_kg_month)
+            min_erosion_lost = np.nanmin(SOC_loss_g_kg_month)
+            print(f"Year {year} Month {month_idx + 1}: Erosion_Lost_SOC - mean: {mean_erosion_lost:.2f}, "
+                  f"max: {max_erosion_lost:.2f}, min: {min_erosion_lost:.2f}")
 
             # Compute vegetation input
             V = vegetation_input(LAI_2D)
             
-            mean_gain = np.mean(np.nan_to_num(V, nan=0))
-            max_gain = np.nanmax(V)
-            min_gain = np.nanmin(V)
-            print(f"Year {year} Month {month_idx+1}: SOC gain - mean: {mean_gain:.2f}, "
-                  f"max: {max_gain:.2f}, min: {min_gain:.2f}")
+            mean_vege_gain = np.mean(np.nan_to_num(V, nan=0))
+            max_vege_gain = np.nanmax(V)
+            min_vege_gain = np.nanmin(V)
+            print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, "
+                  f"max: {max_vege_gain:.2f}, min: {min_vege_gain:.2f}")
+
+            mean_deposition_gain = np.mean(np.nan_to_num(D_soc*1000/M_soil, nan=0))
+            max_deposition_gain = np.nanmax(D_soc)
+            min_deposition_gain = np.nanmin(D_soc)
+            print(f"Year {year} Month {month_idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
+                  f"max: {max_deposition_gain:.2f}, min: {min_deposition_gain:.2f}")
+
+            reaction_fast_loss = INIT_VALUES.K_fast * MAP_STATS.C_fast_current
+            mean_reaction_fast_loss = np.mean(np.nan_to_num(reaction_fast_loss, nan=0))
+            max_reaction_fast_loss = np.nanmax(reaction_fast_loss)
+            min_reaction_fast_loss = np.nanmin(reaction_fast_loss)
+            print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Fast_Loss - mean: {mean_reaction_fast_loss:.2f}, "
+                  f"max: {max_reaction_fast_loss:.2f}, min: {min_reaction_fast_loss:.2f}")
+
+            reaction_slow_loss = INIT_VALUES.K_slow * MAP_STATS.C_slow_current
+            mean_reaction_slow_loss = np.mean(np.nan_to_num(reaction_slow_loss, nan=0))
+            max_reaction_slow_loss = np.nanmax(reaction_slow_loss)
+            min_reaction_slow_loss = np.nanmin(reaction_slow_loss)
+            print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Slow_Loss - mean: {mean_reaction_slow_loss:.2f}, "
+                  f"max: {max_reaction_slow_loss:.2f}, min: {min_reaction_slow_loss:.2f}")
+
+            print(f"Year {year} Month {month_idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
+
+
+
+
             
             if past:
                 dt = -1
