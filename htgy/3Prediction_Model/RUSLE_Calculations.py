@@ -46,12 +46,12 @@ def calculate_r_factor_annually(rain_year_mm):
         R = 0.0483 * P^1.61, if P <= 850mm
         R = 587.8 - 1.219P + 0.004105P^2, if P > 850mm
     """
-    # if np.mean(annual_tp) <= 850:
-    #     print(f"Annual tp = {np.mean(annual_tp)}")
-    #     R = 0.0483 * (annual_tp ** 1.61)
-    # else:
-    #     print(f"Annual tp = {np.mean(annual_tp)}")
-    #     R = 587.8 - 1.219 * annual_tp + 0.004105 * annual_tp**2
+    b = 1.8 # 1.61
+    c = 2
+    if np.mean(annual_tp) <= 850:
+        R = 0.0483 * (annual_tp ** b)
+    else:
+        R = 587.8 - 1.219 * annual_tp + 0.004105 * annual_tp**2
     
     """
     https://doi.org/10.11821/dlxb201509012
@@ -66,9 +66,9 @@ def calculate_r_factor_annually(rain_year_mm):
     """
     Zhou et al.(1995) as cited in Li et al.(2014)
     """
-    R = np.sum(-1.15527 + 1.792 * rain_year_mm, axis=0)
+    # R = np.sum(-1.15527 + 1.792 * rain_year_mm, axis=0)
     
-    return R     
+    return R / c
 
 def get_montly_r_factor(R_annual, rain_month_mm, rain_year_mm):
     """
@@ -78,6 +78,7 @@ def get_montly_r_factor(R_annual, rain_month_mm, rain_year_mm):
     """
     annual_tp = np.sum(rain_year_mm, axis=0)
     R_month = R_annual * ((rain_month_mm) / (annual_tp))
+    # R_month = R_annual * ((rain_month_mm ** 2) / (annual_tp ** 2))
     
     return R_month
 
@@ -165,7 +166,8 @@ def calculate_ls_factor(slope, dem, slope_length=1000):
 
 def calculate_c_factor(lai):
     """Compute C factor from LAI: C = exp(-1.7 * LAI)."""
-    return np.exp(-1.7 * lai)
+    a = -1.8    # -1.7
+    return np.exp(a * lai)
 
 def calculate_p_factor(landuse, slope):
     """Return P factor based on land use category."""

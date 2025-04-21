@@ -3,6 +3,8 @@ import numpy as np
 from affine import Affine
 from rasterio.features import rasterize
 import time
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.path import Path as MplPath
 import matplotlib.patches as mpatches
@@ -288,7 +290,7 @@ def precompute_river_basin_1():
     plt.grid(True)
     plt.tight_layout()
     # plt.show()
-    plt.close()
+    plt.close("all")
 
 
 """

@@ -3,6 +3,8 @@ import os
 import netCDF4 as nc
 import pandas as pd
 import pandas.testing as pdt
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import time
@@ -119,7 +121,6 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # Calculate monthly K factor
             K_month = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current), INIT_VALUES.LANDUSE)
             K_month = np.nan_to_num(K_month, nan=np.nanmean(K_month))
-            K_month = np.clip(K_month, 0, 0.7)
             print(f"Total elements in K: {K_month.size}, with max = {np.max(K_month)}, min = {np.min(K_month)}, and mean = {np.mean(K_month)}")
 
             # Calculate soil loss (t/ha/month) & then per cell
@@ -193,7 +194,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             ax.ticklabel_format(style='plain', axis='x')
             filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
             plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig))
-            plt.close(fig)
+            plt.close("all")
             
             print(f"plot took {time.time() - time1} seconds")
             

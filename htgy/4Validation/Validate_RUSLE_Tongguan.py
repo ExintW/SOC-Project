@@ -54,16 +54,16 @@ def get_tongguan_valid_data(data_path, year):
     return valid_A
 
 if __name__ == "__main__":
-    start_year = 1980
+    start_year = 1984
     end_year = 2018
     time_step = 1
 
     years_list = []
     A_valid_list = []  
     A_model_list = []
-    mae_list = []
-    mre_list = []
-    af_list = []
+    # mae_list = []
+    # mre_list = []
+    # af_list = []
     
     csv_dir = OUTPUT_DIR / "Data"
     valid_path = DATA_DIR / "潼关径流泥沙.xlsx"
@@ -77,17 +77,36 @@ if __name__ == "__main__":
         valid_mean_A = get_tongguan_valid_data(valid_path, year)
         A_valid_list.append(valid_mean_A)
 
-        mae = abs(model_mean_A - valid_mean_A)
-        mre = mae / valid_mean_A
-        af = max(model_mean_A / valid_mean_A, valid_mean_A / model_mean_A)
-        
-        mae_list.append(mae)
-        mre_list.append(mre)
-        af_list.append(af)
-
         print(f"{year}年模型模拟值: {model_mean_A:.2f} t/ha")
         print(f"{year}年潼关实测值: {valid_mean_A:.2f} t/ha")
-        print(f"MAE: {mae:.2f}, MRE: {mre:.2f}, Af: {af:.2f}")
+        
+    # Convert lists to numpy arrays
+    A_model_array = np.array(A_model_list)
+    A_valid_array = np.array(A_valid_list)
+
+    # Calculate errors
+    errors = A_model_array - A_valid_array
+    # RMSE
+    mse = np.mean(errors**2)
+    rmse = np.sqrt(mse)
+    # R²
+    ss_res = np.sum(errors**2)
+    ss_tot = np.sum((A_valid_array - np.mean(A_valid_array))**2)
+    r2 = 1 - (ss_res / ss_tot)
+    # NSE
+    nse = 1 - (np.sum(errors**2) / np.sum((A_valid_array - np.mean(A_valid_array))**2))
+    # MAE
+    mae = np.mean(np.abs(errors))
+    # AF
+    af = np.max([np.max(A_model_array / A_valid_array), np.max(A_valid_array / A_model_array)])
+
+    # Output
+    print("\n------总评估指标------")
+    print(f"Total RMSE: {rmse:.4f} t/ha")
+    print(f"Total R²: {r2:.4f}")
+    print(f"Total NSE: {nse:.4f}")
+    print(f"Total MAE: {mae:.4f} t/ha")
+    print(f"Total AF: {af:.4f}\n")
         
     # === Plot 1: 模拟值 vs 实测值 ===
     plt.figure(figsize=(8, 5))
@@ -103,17 +122,17 @@ if __name__ == "__main__":
     plt.show()
     plt.close()
 
-    # === Plot 2: 各种误差指标 ===
-    plt.figure(figsize=(10, 6))
-    plt.plot(years_list, mae_list, label='MAE', marker='o')
-    plt.plot(years_list, mre_list, label='MRE', marker='^')
-    plt.plot(years_list, af_list, label='Af', marker='d')
-    plt.xlabel('Year')
-    plt.ylabel('Error Metrics')
-    plt.title('Model Validation Error Metrics per Year')
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / "Tongguan_A_error_metrics.png")
-    plt.show()
-    plt.close()
+    # # === Plot 2: 各种误差指标 ===
+    # plt.figure(figsize=(10, 6))
+    # plt.plot(years_list, mae_list, label='MAE', marker='o')
+    # plt.plot(years_list, mre_list, label='MRE', marker='^')
+    # plt.plot(years_list, af_list, label='Af', marker='d')
+    # plt.xlabel('Year')
+    # plt.ylabel('Error Metrics')
+    # plt.title('Model Validation Error Metrics per Year')
+    # plt.legend()
+    # plt.grid(True)
+    # plt.tight_layout()
+    # plt.savefig(OUTPUT_DIR / "Tongguan_A_error_metrics.png")
+    # plt.show()
+    # plt.close()

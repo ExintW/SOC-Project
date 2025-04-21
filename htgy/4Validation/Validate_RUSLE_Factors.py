@@ -166,10 +166,36 @@ if __name__ == "__main__":
         valid_factor_lists.append(valid_factor_mean_list)
         model_factor_lists.append(model_factor_mean_list)
     
+    # Calculate error metrics
     errors = np.array(A_valid_list) - np.array(A_model_list)
     mse = np.mean(errors**2)
     rmse = np.sqrt(mse)
-    print(f"\nTotal RMSE: {rmse}\n")
+
+    # Calculate R^2
+    ss_res = np.sum(errors**2)  # Residual sum of squares
+    ss_tot = np.sum((np.array(A_valid_list) - np.mean(A_valid_list))**2)  # Total sum of squares
+    r2 = 1 - (ss_res / ss_tot)
+
+    # Calculate NSE
+    nse = 1 - (np.sum(errors**2) / np.sum((np.array(A_valid_list) - np.mean(A_valid_list))**2))
+
+    # Calculate MAE
+    mae = np.mean(np.abs(errors))
+
+    # Calculate AF
+    af = np.maximum(
+        np.array(A_model_list) / np.array(A_valid_list),
+        np.array(A_valid_list) / np.array(A_model_list)
+    )
+    af = np.mean(af)
+
+    # Output results
+    print("\n------总评估指标------")
+    print(f"Total RMSE: {rmse:.4f} t/ha")
+    print(f"Total R²: {r2:.4f}")
+    print(f"Total NSE: {nse:.4f}")
+    print(f"Total MAE: {mae:.4f} t/ha")
+    print(f"Total AF: {af:.4f}\n")
     
     plt.figure(figsize=(8, 5))
     plt.plot(years_list, A_valid_list, marker='o', label='A_valid', linestyle='-')
