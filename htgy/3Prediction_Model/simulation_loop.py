@@ -183,7 +183,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time1 = time.time()
             # Save figure output
             fig, ax = plt.subplots()
-            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis",
+            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=16,
                             extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
                             origin='upper')
             cbar = fig.colorbar(cax, label="SOC (g/kg)")
@@ -206,6 +206,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             lat_list =  lat_grid.ravel(order='C').tolist()      # 与 for i→for j 顺序一致
             lon_list =  lon_grid.ravel(order='C').tolist()
             landuse_list = INIT_VALUES.LANDUSE.astype(str).ravel(order='C').tolist()
+            Region_list = INIT_VALUES.REGION.astype(str).ravel(order='C').tolist()
 
             pf = MAP_STATS.p_fast_grid
             sign = 1 if past else -1                              # past=True ➜ 正号，False ➜ 取反
@@ -214,6 +215,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # SOC 组分
             C_fast_list  = MAP_STATS.C_fast_current .ravel('C').tolist()
             C_slow_list  = MAP_STATS.C_slow_current .ravel('C').tolist()
+            C_total_list = (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current).ravel('C').tolist()
 
             # Erosion（侵蚀输出）
             erosion_fast_list = ( sign * SOC_loss_g_kg_month *  pf          ).ravel('C').tolist()
@@ -246,8 +248,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'LAT': lat_list,
                 'LON': lon_list,
                 'Landuse': landuse_list,
+                'Region': Region_list,
                 'C_fast': C_fast_list,
                 'C_slow': C_slow_list,
+                'C_total': C_total_list,
                 'Erosion_fast': erosion_fast_list,
                 'Erosion_slow': erosion_slow_list,
                 'Deposition_fast': deposition_fast_list,

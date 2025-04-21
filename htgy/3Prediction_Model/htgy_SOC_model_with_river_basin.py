@@ -42,8 +42,6 @@ import os
 import time
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
@@ -125,15 +123,15 @@ ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
 ax.ticklabel_format(style='plain', axis='x')
-plt.savefig(os.path.join(OUTPUT_DIR / "Figure", "SOC_initial.png"))
-plt.close("all")
+plt.savefig(os.path.join(OUTPUT_DIR / "Figure"/ "SOC_initial.png"))
+plt.close(fig)
 
 # =============================================================================
 # MAIN SIMULATION LOOP (MONTHLY)
 # =============================================================================
 start_year = 2007   # year of init condition
-end_year = 2018     # last year of present
-past_year = 1980    # last year of past     (set to None to disable past year)
+end_year = 2025     # last year of present
+past_year = None    # last year of past     (set to None to disable past year)
 future_year = None  # last year of future   (set to None to disable future year)
 
 step_size = 1   # for quick RUSLE vaidation

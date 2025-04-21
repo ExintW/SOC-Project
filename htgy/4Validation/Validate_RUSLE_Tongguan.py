@@ -54,7 +54,7 @@ def get_tongguan_valid_data(data_path, year):
     return valid_A
 
 if __name__ == "__main__":
-    start_year = 1984
+    start_year = 1950
     end_year = 2018
     time_step = 1
 
