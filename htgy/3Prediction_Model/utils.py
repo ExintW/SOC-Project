@@ -14,9 +14,10 @@ def convert_soil_loss_to_soc_loss_monthly(E_t_ha_month, ORGA_g_per_kg, bulk_dens
     Convert soil loss (t/ha/month) to SOC loss (g/kg/month).
     1 t/ha = 100 g/m². Then multiply by (SOC_concentration / 1000) * bulk_density.
     """
+    depth = 0.2
     E_g_m2_month = E_t_ha_month * 100.0
-    soc_loss_g_m2_month = E_g_m2_month * (ORGA_g_per_kg / 1000.0) * bulk_density
-    return soc_loss_g_m2_month / bulk_density
+    soc_loss_g_per_kg = E_g_m2_month * (ORGA_g_per_kg / 1000.0)/depth / bulk_density
+    return soc_loss_g_per_kg
 
 # =============================================================================
 # HELPER: REGRID CMIP/ERA5 POINT DATA TO 2D GRID
