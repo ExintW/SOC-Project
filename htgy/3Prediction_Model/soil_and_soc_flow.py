@@ -130,7 +130,7 @@ def distribute_soil_and_soc_with_dams_numba(
 
                 if river_mask[ni, nj] and not reverse:
                     # 只有流向河流的那部分 SOC 会丢失
-                    local_atomic_add(lost_soc, (i, j), current_soc * frac)
+                    local_atomic_add(lost_soc, (i, j), source_soc * frac)
                 else:
                     # 其余方向按比例流入下游格点
                     local_atomic_add(inflow_soil, (ni, nj), source_soil * frac)

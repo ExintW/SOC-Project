@@ -175,6 +175,18 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             print(f"Year {year} Month {month_idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
                   f"max: {max_deposition_gain:.2f}, min: {min_deposition_gain:.2f}")
 
+            mean_K_fast = np.mean(np.nan_to_num(INIT_VALUES.K_fast, nan=0))
+            max_K_fast = np.nanmax(INIT_VALUES.K_fast)
+            min_K_fast = np.nanmin(INIT_VALUES.K_fast)
+            print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_fast:.6f}, "
+                  f"max: {max_K_fast:.6f}, min: {min_K_fast:.6f}")
+
+            mean_K_slow = np.mean(np.nan_to_num(INIT_VALUES.K_slow, nan=0))
+            max_K_slow = np.nanmax(INIT_VALUES.K_slow)
+            min_K_slow = np.nanmin(INIT_VALUES.K_slow)
+            print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_slow:.6f}, "
+                  f"max: {max_K_slow:.6f}, min: {min_K_slow:.6f}")
+
             reaction_fast_loss = INIT_VALUES.K_fast * MAP_STATS.C_fast_current
             mean_reaction_fast_loss = np.mean(np.nan_to_num(reaction_fast_loss, nan=0))
             max_reaction_fast_loss = np.nanmax(reaction_fast_loss)
