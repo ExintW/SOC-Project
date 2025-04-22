@@ -34,8 +34,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
     # Load monthly climate data (NetCDF)
     if future:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_2015-2100_126.nc"
-        nc_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_2015-2100_126.nc"
+        nc_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_2015-2100_126.nc"
+        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_2015-2100_126.nc"
     else:
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
     
@@ -43,16 +43,18 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         print(f"NetCDF file not found for year {year}: {nc_file}")
         return
 
-    with nc.Dataset(nc_file) as ds, (nc.Dataset(lai_file) if future else nullcontext()) as ds_pr:
+    with nc.Dataset(nc_file) as ds, (nc.Dataset(pr_file) if future else nullcontext()) as ds_pr:
         # valid_time = ds.variables['valid_time'][:]  # Expect 12 months
         # n_time = len(valid_time)
         n_time = 12
         
         if future:
             # LAI file variables
+
             lon_nc = ds.variables['lon'][:]  # Adjusted variable name if needed
             lat_nc = ds.variables['lat'][:]
             lai_data = ds.variables['lai'][:]      # shape: (time, n_points)
+
 
             # Precipitation file variables
             lon_nc_pr = ds_pr.variables['lon'][:]
@@ -83,10 +85,17 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time_range = range(n_time)
             
         for month_idx in time_range:
+            idx = month_idx
+            if future:
+                netcdf_index = (year - 2015) * n_time + month_idx
+                if netcdf_index < 0 or netcdf_index >= lai_data.shape[0]:
+                    continue
+                idx = netcdf_index
             # Regrid LAI data
             time_month = time.time()
-            
-            lai_1d = lai_data[month_idx, :]
+
+            print("Lai shape: ", lai_data.shape)
+            lai_1d = lai_data[idx, :]
             LAI_2D = create_grid_from_points(lon_nc, lat_nc, lai_1d, MAP_STATS.grid_x, MAP_STATS.grid_y)
             LAI_2D = np.nan_to_num(LAI_2D, nan=np.nanmean(LAI_2D))
             
@@ -94,7 +103,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time1 = time.time()
             
             # Regrid precipitation and convert to mm
-            tp_1d_mm = tp_data_mm[month_idx, :]
+            tp_1d_mm = tp_data_mm[idx, :]
             if future:
                 RAIN_2D = create_grid_from_points(lon_nc_pr, lat_nc_pr, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
             else:
@@ -150,13 +159,13 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             mean_river_lost = np.mean(np.nan_to_num(lost_soc, nan=0))
             max_river_lost = np.nanmax(lost_soc)
             min_river_lost = np.nanmin(lost_soc)
-            print(f"Year {year} Month {month_idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
+            print(f"Year {year} Month {idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
                   f"max: {max_river_lost:.2f}, min: {min_river_lost:.2f}")
 
             mean_erosion_lost = np.mean(np.nan_to_num(SOC_loss_g_kg_month, nan=0))
             max_erosion_lost = np.nanmax(SOC_loss_g_kg_month)
             min_erosion_lost = np.nanmin(SOC_loss_g_kg_month)
-            print(f"Year {year} Month {month_idx + 1}: Erosion_Lost_SOC - mean: {mean_erosion_lost:.2f}, "
+            print(f"Year {year} Month {idx + 1}: Erosion_Lost_SOC - mean: {mean_erosion_lost:.2f}, "
                   f"max: {max_erosion_lost:.2f}, min: {min_erosion_lost:.2f}")
 
             # Compute vegetation input
@@ -165,43 +174,43 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             mean_vege_gain = np.mean(np.nan_to_num(V, nan=0))
             max_vege_gain = np.nanmax(V)
             min_vege_gain = np.nanmin(V)
-            print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, "
+            print(f"Year {year} Month {idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, "
                   f"max: {max_vege_gain:.2f}, min: {min_vege_gain:.2f}")
 
             deposition_SOC_gain = D_soc*1000/M_soil
             mean_deposition_gain = np.mean(np.nan_to_num(deposition_SOC_gain, nan=0))
             max_deposition_gain = np.nanmax(deposition_SOC_gain)
             min_deposition_gain = np.nanmin(deposition_SOC_gain)
-            print(f"Year {year} Month {month_idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
+            print(f"Year {year} Month {idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
                   f"max: {max_deposition_gain:.2f}, min: {min_deposition_gain:.2f}")
 
             mean_K_fast = np.mean(np.nan_to_num(INIT_VALUES.K_fast, nan=0))
             max_K_fast = np.nanmax(INIT_VALUES.K_fast)
             min_K_fast = np.nanmin(INIT_VALUES.K_fast)
-            print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_fast:.6f}, "
+            print(f"Year {year} Month {idx + 1}: K_fast mean: {mean_K_fast:.6f}, "
                   f"max: {max_K_fast:.6f}, min: {min_K_fast:.6f}")
 
             mean_K_slow = np.mean(np.nan_to_num(INIT_VALUES.K_slow, nan=0))
             max_K_slow = np.nanmax(INIT_VALUES.K_slow)
             min_K_slow = np.nanmin(INIT_VALUES.K_slow)
-            print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_slow:.6f}, "
+            print(f"Year {year} Month {idx + 1}: K_fast mean: {mean_K_slow:.6f}, "
                   f"max: {max_K_slow:.6f}, min: {min_K_slow:.6f}")
 
             reaction_fast_loss = INIT_VALUES.K_fast * MAP_STATS.C_fast_current
             mean_reaction_fast_loss = np.mean(np.nan_to_num(reaction_fast_loss, nan=0))
             max_reaction_fast_loss = np.nanmax(reaction_fast_loss)
             min_reaction_fast_loss = np.nanmin(reaction_fast_loss)
-            print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Fast_Loss - mean: {mean_reaction_fast_loss:.2f}, "
+            print(f"Year {year} Month {idx + 1}: SOC_Reaction_Fast_Loss - mean: {mean_reaction_fast_loss:.2f}, "
                   f"max: {max_reaction_fast_loss:.2f}, min: {min_reaction_fast_loss:.2f}")
 
             reaction_slow_loss = INIT_VALUES.K_slow * MAP_STATS.C_slow_current
             mean_reaction_slow_loss = np.mean(np.nan_to_num(reaction_slow_loss, nan=0))
             max_reaction_slow_loss = np.nanmax(reaction_slow_loss)
             min_reaction_slow_loss = np.nanmin(reaction_slow_loss)
-            print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Slow_Loss - mean: {mean_reaction_slow_loss:.2f}, "
+            print(f"Year {year} Month {idx + 1}: SOC_Reaction_Slow_Loss - mean: {mean_reaction_slow_loss:.2f}, "
                   f"max: {max_reaction_slow_loss:.2f}, min: {min_reaction_slow_loss:.2f}")
 
-            print(f"Year {year} Month {month_idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
+            print(f"Year {year} Month {idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
 
 
 
@@ -222,22 +231,29 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 lost_soc=lost_soc
             )
 
+            C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
+            mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
+            max_C_total = np.nanmax(C_total)
+            min_C_total = np.nanmin(C_total)
+            print(f"Year {year} Month {idx + 1}: Total_SOC: {mean_C_total:.2f}, "
+                  f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
+
             # global_timestep += 1
-            print(f"Completed simulation for Year {year}, Month {month_idx+1}")
+            print(f"Completed simulation for Year {year}, Month {idx+1}")
 
             time1 = time.time()
             # Save figure output
             fig, ax = plt.subplots()
-            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=16,
+            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=14,
                             extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
                             origin='upper')
             cbar = fig.colorbar(cax, label="SOC (g/kg)")
-            ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx+1}")
+            ax.set_title(f"SOC at Timestep Year {year}, Month {idx+1}")
             ax.set_xlabel("Longitude")
             ax.set_ylabel("Latitude")
             ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
             ax.ticklabel_format(style='plain', axis='x')
-            filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
+            filename_fig = f"SOC_{year}_{idx+1:02d}_River.png"
             plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig))
             plt.close("all")
             
@@ -315,13 +331,13 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             })
             
             if USE_PARQUET:
-                filename_parquet = f"SOC_terms_{year}_{month_idx+1:02d}_River.parquet"
+                filename_parquet = f"SOC_terms_{year}_{idx+1:02d}_River.parquet"
                 df_out.to_parquet(os.path.join(OUTPUT_DIR, "Data", filename_parquet), index=False, engine="pyarrow")
-                print(f"Saved parquet output for Year {year}, Month {month_idx+1} as {filename_parquet}")
+                print(f"Saved parquet output for Year {year}, Month {idx+1} as {filename_parquet}")
             else:
-                filename_csv = f"SOC_terms_{year}_{month_idx+1:02d}_River.csv"
+                filename_csv = f"SOC_terms_{year}_{idx+1:02d}_River.csv"
                 df_out.to_csv(os.path.join(OUTPUT_DIR, "Data", filename_csv), index=False, float_format="%.6f")
-                print(f"Saved CSV output for Year {year}, Month {month_idx+1} as {filename_csv}")
+                print(f"Saved CSV output for Year {year}, Month {idx+1} as {filename_csv}")
             
             print(f"This month took {time.time() - time_month} seconds")
             

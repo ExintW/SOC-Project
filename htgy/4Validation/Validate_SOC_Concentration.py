@@ -48,7 +48,7 @@ for sheet_name in xls.sheet_names:
     year = sheet_name.split("-")[-1]
 
     # 2) Find all monthly Parquet files for this year
-    model_dir = OUTPUT_DIR / "Data"
+    model_dir = OUTPUT_DIR / "Data" / "Present"
     pattern = f"SOC_terms_{year}_*_River.parquet"
     parquet_files = sorted(model_dir.glob(pattern))
     if not parquet_files:
