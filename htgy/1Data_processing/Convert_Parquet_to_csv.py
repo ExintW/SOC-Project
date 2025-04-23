@@ -13,8 +13,8 @@ def parquet_to_csv(input_path: str, output_path: str = None) -> None:
 
 if __name__ == "__main__":
     # Your specific paths
-    input_file = r"D:\EcoSci\Dr.Shi\SOC_Github\Output\Data\SOC_Past\SOC_terms_2006_11_River.parquet"
-    output_dir = r"D:\EcoSci\Dr.Shi\SOC_Github\Output\Data\SOC_Past"
+    input_file = r"D:\EcoSci\Dr.Shi\SOC_Github\Output\Data\SOC_Present\SOC_terms_2024_12_River.parquet"
+    output_dir = r"D:\EcoSci\Dr.Shi\SOC_Github\Output\Data\SOC_Present"
 
     # Build the output filename by replacing the .parquet suffix with .csv
     filename = os.path.basename(input_file)                    # "SOC_terms_1971_06_River.parquet"

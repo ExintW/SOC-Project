@@ -130,8 +130,8 @@ plt.close(fig)
 # MAIN SIMULATION LOOP (MONTHLY)
 # =============================================================================
 start_year = 2007   # year of init condition
-end_year = 2024     # last year of present
-past_year = None    # last year of past     (set to None to disable past year)
+end_year = 2007     # last year of present
+past_year = 1950    # last year of past     (set to None to disable past year)
 future_year = None  # last year of future   (set to None to disable future year)
 
 step_size = 1   # for quick RUSLE vaidation

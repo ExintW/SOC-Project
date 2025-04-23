@@ -18,7 +18,7 @@ from utils import *
 from RUSLE_Calculations import *
 
 from soil_and_soc_flow import distribute_soil_and_soc_with_dams_numba
-from SOC_dynamics import vegetation_input, soc_dynamic_model
+from SOC_dynamics import vegetation_input, soc_dynamic_model, soc_dynamic_model_past
 
 
 def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, future=False):
@@ -221,15 +221,25 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             else:
                 dt = 1
                 
-            # Update SOC pools
-            MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model(
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
-                SOC_loss_g_kg_month, D_soil, D_soc, V,
-                INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
-                dt=dt,
-                M_soil=M_soil,
-                lost_soc=lost_soc
-            )
+            # Update SOC pool
+            if past:
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model_past(
+                    MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
+                    SOC_loss_g_kg_month, D_soil, D_soc, V,
+                    INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
+                    dt=dt,
+                    M_soil=M_soil,
+                    lost_soc=lost_soc
+                )
+            else:
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model(
+                    MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
+                    SOC_loss_g_kg_month, D_soil, D_soc, V,
+                    INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
+                    dt=dt,
+                    M_soil=M_soil,
+                    lost_soc=lost_soc
+                )
 
             C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
             mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
