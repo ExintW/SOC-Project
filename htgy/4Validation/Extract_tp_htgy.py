@@ -41,8 +41,8 @@ print(f"Total number of base points: {len(df_base)}")
 # ---------------------------------------------------------------------------------------
 # Prepare containers for each precipitation range
 # ---------------------------------------------------------------------------------------
-upper_range_factor = 1.00001
-lower_range_factor = 0.99999
+upper_range_factor = 1.0001
+lower_range_factor = 0.9999
 
 results_range1 = []  # For range: 0.0594/30 to 0.0606/30
 results_range2 = []  # For range: 0.0892/30 to 0.0908/30

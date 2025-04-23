@@ -159,13 +159,13 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             mean_river_lost = np.mean(np.nan_to_num(lost_soc, nan=0))
             max_river_lost = np.nanmax(lost_soc)
             min_river_lost = np.nanmin(lost_soc)
-            print(f"Year {year} Month {idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
+            print(f"Year {year} Month {month_idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
                   f"max: {max_river_lost:.2f}, min: {min_river_lost:.2f}")
 
             mean_erosion_lost = np.mean(np.nan_to_num(SOC_loss_g_kg_month, nan=0))
             max_erosion_lost = np.nanmax(SOC_loss_g_kg_month)
             min_erosion_lost = np.nanmin(SOC_loss_g_kg_month)
-            print(f"Year {year} Month {idx + 1}: Erosion_Lost_SOC - mean: {mean_erosion_lost:.2f}, "
+            print(f"Year {year} Month {month_idx + 1}: Erosion_Lost_SOC - mean: {mean_erosion_lost:.2f}, "
                   f"max: {max_erosion_lost:.2f}, min: {min_erosion_lost:.2f}")
 
             # Compute vegetation input
@@ -174,43 +174,43 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             mean_vege_gain = np.mean(np.nan_to_num(V, nan=0))
             max_vege_gain = np.nanmax(V)
             min_vege_gain = np.nanmin(V)
-            print(f"Year {year} Month {idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, "
+            print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, "
                   f"max: {max_vege_gain:.2f}, min: {min_vege_gain:.2f}")
 
             deposition_SOC_gain = D_soc*1000/M_soil
             mean_deposition_gain = np.mean(np.nan_to_num(deposition_SOC_gain, nan=0))
             max_deposition_gain = np.nanmax(deposition_SOC_gain)
             min_deposition_gain = np.nanmin(deposition_SOC_gain)
-            print(f"Year {year} Month {idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
+            print(f"Year {year} Month {month_idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
                   f"max: {max_deposition_gain:.2f}, min: {min_deposition_gain:.2f}")
 
             mean_K_fast = np.mean(np.nan_to_num(INIT_VALUES.K_fast, nan=0))
             max_K_fast = np.nanmax(INIT_VALUES.K_fast)
             min_K_fast = np.nanmin(INIT_VALUES.K_fast)
-            print(f"Year {year} Month {idx + 1}: K_fast mean: {mean_K_fast:.6f}, "
+            print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_fast:.6f}, "
                   f"max: {max_K_fast:.6f}, min: {min_K_fast:.6f}")
 
             mean_K_slow = np.mean(np.nan_to_num(INIT_VALUES.K_slow, nan=0))
             max_K_slow = np.nanmax(INIT_VALUES.K_slow)
             min_K_slow = np.nanmin(INIT_VALUES.K_slow)
-            print(f"Year {year} Month {idx + 1}: K_fast mean: {mean_K_slow:.6f}, "
+            print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_slow:.6f}, "
                   f"max: {max_K_slow:.6f}, min: {min_K_slow:.6f}")
 
             reaction_fast_loss = INIT_VALUES.K_fast * MAP_STATS.C_fast_current
             mean_reaction_fast_loss = np.mean(np.nan_to_num(reaction_fast_loss, nan=0))
             max_reaction_fast_loss = np.nanmax(reaction_fast_loss)
             min_reaction_fast_loss = np.nanmin(reaction_fast_loss)
-            print(f"Year {year} Month {idx + 1}: SOC_Reaction_Fast_Loss - mean: {mean_reaction_fast_loss:.2f}, "
+            print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Fast_Loss - mean: {mean_reaction_fast_loss:.2f}, "
                   f"max: {max_reaction_fast_loss:.2f}, min: {min_reaction_fast_loss:.2f}")
 
             reaction_slow_loss = INIT_VALUES.K_slow * MAP_STATS.C_slow_current
             mean_reaction_slow_loss = np.mean(np.nan_to_num(reaction_slow_loss, nan=0))
             max_reaction_slow_loss = np.nanmax(reaction_slow_loss)
             min_reaction_slow_loss = np.nanmin(reaction_slow_loss)
-            print(f"Year {year} Month {idx + 1}: SOC_Reaction_Slow_Loss - mean: {mean_reaction_slow_loss:.2f}, "
+            print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Slow_Loss - mean: {mean_reaction_slow_loss:.2f}, "
                   f"max: {max_reaction_slow_loss:.2f}, min: {min_reaction_slow_loss:.2f}")
 
-            print(f"Year {year} Month {idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
+            print(f"Year {year} Month {month_idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
 
 
 
@@ -235,11 +235,11 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
             max_C_total = np.nanmax(C_total)
             min_C_total = np.nanmin(C_total)
-            print(f"Year {year} Month {idx + 1}: Total_SOC: {mean_C_total:.2f}, "
+            print(f"Year {year} Month {month_idx + 1}: Total_SOC: {mean_C_total:.2f}, "
                   f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
 
             # global_timestep += 1
-            print(f"Completed simulation for Year {year}, Month {idx+1}")
+            print(f"Completed simulation for Year {year}, Month {month_idx+1}")
 
             time1 = time.time()
             # Save figure output
@@ -248,12 +248,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                             extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
                             origin='upper')
             cbar = fig.colorbar(cax, label="SOC (g/kg)")
-            ax.set_title(f"SOC at Timestep Year {year}, Month {idx+1}")
+            ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx+1}")
             ax.set_xlabel("Longitude")
             ax.set_ylabel("Latitude")
             ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
             ax.ticklabel_format(style='plain', axis='x')
-            filename_fig = f"SOC_{year}_{idx+1:02d}_River.png"
+            filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
             plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig))
             plt.close("all")
             
@@ -331,13 +331,13 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             })
             
             if USE_PARQUET:
-                filename_parquet = f"SOC_terms_{year}_{idx+1:02d}_River.parquet"
+                filename_parquet = f"SOC_terms_{year}_{month_idx+1:02d}_River.parquet"
                 df_out.to_parquet(os.path.join(OUTPUT_DIR, "Data", filename_parquet), index=False, engine="pyarrow")
-                print(f"Saved parquet output for Year {year}, Month {idx+1} as {filename_parquet}")
+                print(f"Saved parquet output for Year {year}, Month {month_idx+1} as {filename_parquet}")
             else:
-                filename_csv = f"SOC_terms_{year}_{idx+1:02d}_River.csv"
+                filename_csv = f"SOC_terms_{year}_{month_idx+1:02d}_River.csv"
                 df_out.to_csv(os.path.join(OUTPUT_DIR, "Data", filename_csv), index=False, float_format="%.6f")
-                print(f"Saved CSV output for Year {year}, Month {idx+1} as {filename_csv}")
+                print(f"Saved CSV output for Year {year}, Month {month_idx+1} as {filename_csv}")
             
             print(f"This month took {time.time() - time_month} seconds")
             

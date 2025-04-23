@@ -54,10 +54,9 @@ def extract_raster_values(tiff_path, lon, lat):
 
 # Function to convert SOM daily decomposition rate to SOC monthly decomposition rate
 def convert_som_to_soc_monthly(som_k_day):
-    """ Convert SOM daily rate (1/day) to SOC monthly rate (1/month). """
-    soc_k_day = 0.58 * som_k_day               # Apply SOC conversion factor
-    soc_k_month = 1 - np.exp(-soc_k_day * 30)  # Convert daily to monthly
-    return soc_k_month
+    """ Convert SOM daily rate (1/day) to SOC monthly rate (1/month). """               # Apply SOC conversion factor
+    som_k_month = 1 - np.exp(-som_k_day * 30)  # Convert daily to monthly
+    return som_k_month*0.58
 
 # Read the CSV file
 df = pd.read_csv(csv_file_path)
@@ -71,8 +70,8 @@ som_k1_day = extract_raster_values(tiff_k1_path, lon_csv, lat_csv)
 som_k2_day = extract_raster_values(tiff_k2_path, lon_csv, lat_csv)
 
 # Convert SOM to SOC monthly rates
-df["SOC_k1_fast_pool (1/day)"] = convert_som_to_soc_monthly(som_k1_day*0.58)
-df["SOC_k2_slow_pool (1/day)"] = convert_som_to_soc_monthly(som_k2_day*0.58)
+df["SOC_k1_fast_pool (1/day)"] = som_k1_day*0.58
+df["SOC_k2_slow_pool (1/day)"] = som_k2_day*0.58
 df["SOC_k1_fast_pool (1/month)"] = convert_som_to_soc_monthly(som_k1_day)
 df["SOC_k2_slow_pool (1/month)"] = convert_som_to_soc_monthly(som_k2_day)
 
