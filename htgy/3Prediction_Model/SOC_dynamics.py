@@ -44,6 +44,17 @@ def soc_dynamic_model(C_fast, C_slow,
     lost_fast = lost_soc * p_fast_grid
     lost_slow = lost_soc * (1 - p_fast_grid)
 
+    # print(f"erosion_fast mean = {np.nanmean(erosion_fast)}")
+    # print(f"erosion_slow mean = {np.nanmean(erosion_slow)}")
+    # print(f"deposition_fast mean = {np.nanmean(deposition_fast)}")
+    # print(f"deposition_slow mean = {np.nanmean(deposition_slow)}")
+    # print(f"vegetation_fast mean = {np.nanmean(vegetation_fast)}")
+    # print(f"vegetation_slow mean = {np.nanmean(vegetation_slow)}")
+    # print(f"reaction_fast mean = {np.nanmean(reaction_fast)}")
+    # print(f"reaction_slow mean = {np.nanmean(reaction_slow)}")
+    # print(f"lost_fast mean = {np.nanmean(lost_fast)}")
+    # print(f"lost_slow mean = {np.nanmean(lost_slow)}")
+    
     # Update each pool
     C_fast_new = np.maximum(
         C_fast + (erosion_fast + deposition_fast + vegetation_fast + reaction_fast - lost_fast) * dt,

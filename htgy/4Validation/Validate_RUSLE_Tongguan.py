@@ -65,21 +65,34 @@ if __name__ == "__main__":
     # mre_list = []
     # af_list = []
     
+    preload = False
+    preload_file = PROCESSED_DIR / "tongguan_valid.npy"
+    if preload_file.exists():
+        preload = True
+        print("Loading precomputed Tongguan valid data...")
+        A_valid_list = np.load(preload_file)
+    
     csv_dir = OUTPUT_DIR / "Data"
     valid_path = DATA_DIR / "潼关径流泥沙.xlsx"
 
+    idx = 0
     for year in range(start_year, end_year+1, time_step):
         years_list.append(year)
         
         model_mean_A = compute_annual_sum_from_month(csv_dir, year)
         A_model_list.append(model_mean_A)
         
-        valid_mean_A = get_tongguan_valid_data(valid_path, year)
-        A_valid_list.append(valid_mean_A)
+        if not preload:
+            valid_mean_A = get_tongguan_valid_data(valid_path, year)
+            A_valid_list.append(valid_mean_A)
 
+        print(f"{year}年潼关实测值: {A_valid_list[idx]:.2f} t/ha")
         print(f"{year}年模型模拟值: {model_mean_A:.2f} t/ha")
-        print(f"{year}年潼关实测值: {valid_mean_A:.2f} t/ha")
-        
+        idx += 1
+    
+    if not preload:
+        np.save(preload_file, A_valid_list)
+    
     # Convert lists to numpy arrays
     A_model_array = np.array(A_model_list)
     A_valid_array = np.array(A_valid_list)

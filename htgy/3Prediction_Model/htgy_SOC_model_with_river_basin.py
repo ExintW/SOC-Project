@@ -128,15 +128,15 @@ plt.close(fig)
 
 # =============================================================================
 # MAIN SIMULATION LOOP (MONTHLY)
-# =============================================================================
-start_year = 2007   # year of init condition
-end_year = 2025     # last year of present
+# ============================================================================
+start_year = 2024   # year of init condition
+end_year = 2024     # last year of present
 past_year = None    # last year of past     (set to None to disable past year)
-future_year = None  # last year of future   (set to None to disable future year)
+future_year = 2050  # last year of future   (set to None to disable future year)
 
 step_size = 1   # for quick RUSLE vaidation
 
-# Initialize current SOC pools
+# Initialize current SOC pools=
 MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
 MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
 
@@ -157,8 +157,8 @@ if CLEAN_OUTDIR:
 
 t_sim_start = time.perf_counter()
 
-for year in range(start_year, end_year + 1, step_size):
-    run_simulation_year(year, LS_factor, P_factor, sorted_indices)
+# for year in range(start_year, end_year + 1, step_size):
+#     run_simulation_year(year, LS_factor, P_factor, sorted_indices)
 
 if future_year != None:
     for year in range(end_year+1, future_year + 1):

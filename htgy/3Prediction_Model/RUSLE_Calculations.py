@@ -46,7 +46,7 @@ def calculate_r_factor_annually(rain_year_mm):
         R = 0.0483 * P^1.61, if P <= 850mm
         R = 587.8 - 1.219P + 0.004105P^2, if P > 850mm
     """
-    b = 1.8 # 1.61
+    b = 1.61 # 1.61
     c = 2
     if np.mean(annual_tp) <= 850:
         R = 0.0483 * (annual_tp ** b)
@@ -166,7 +166,7 @@ def calculate_ls_factor(slope, dem, slope_length=1000):
 
 def calculate_c_factor(lai):
     """Compute C factor from LAI: C = exp(-1.7 * LAI)."""
-    a = -1.8    # -1.7
+    a = -1.7   # -1.7
     return np.exp(a * lai)
 
 def calculate_p_factor(landuse, slope):

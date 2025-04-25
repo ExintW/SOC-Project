@@ -76,9 +76,13 @@ def compute_annual_mean_from_month(csv_folder, year, factor):
                 
                 # 对当月的 factor 做汇总
                 month_factor_mean = df_model[column_name].mean()
+                # if column_name == 'C_factor_month':
+                #     print(f"C month mean = {month_factor_mean}")
                 total_A.append(month_factor_mean)
                 # print(f"monthly mean: {month_factor_mean}")
 
+    # if column_name == 'C_factor_month':
+    #     print(f"C annual mean = {np.mean(total_A)}")
     return np.mean(total_A)
 
 def compute_annual_sum_from_month(csv_folder, year, factor):
