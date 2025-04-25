@@ -18,7 +18,7 @@ from utils import *
 from RUSLE_Calculations import *
 
 from soil_and_soc_flow import distribute_soil_and_soc_with_dams_numba
-from SOC_dynamics import vegetation_input, soc_dynamic_model
+from SOC_dynamics import vegetation_input, soc_dynamic_model, soc_dynamic_model_past
 
 
 def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, future=False):
@@ -51,9 +51,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         
         if future:
             # LAI file variables
+
             lon_nc = ds.variables['lon'][:]  # Adjusted variable name if needed
             lat_nc = ds.variables['lat'][:]
             lai_data = ds.variables['lai'][:]      # shape: (time, n_points)
+
+
             # Precipitation file variables
             lon_nc_pr = ds_pr.variables['lon'][:]
             lat_nc_pr = ds_pr.variables['lat'][:]
@@ -83,6 +86,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time_range = range(n_time)
             
         for month_idx in time_range:
+            idx = month_idx
+            if future:
+                netcdf_index = (year - 2015) * n_time + month_idx
+                if netcdf_index < 0 or netcdf_index >= lai_data.shape[0]:
+                    continue
+                idx = netcdf_index
             # Regrid LAI data
             time_month = time.time()
             idx = month_idx
@@ -105,9 +114,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time1 = time.time()
             
             # Regrid precipitation and convert to mm
-            print(f"tp data shape = {tp_data_mm.shape}")
             tp_1d_mm = tp_data_mm[idx, :]
-                
             if future:
                 RAIN_2D = create_grid_from_points(lon_nc_pr, lat_nc_pr, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
             else:
@@ -169,32 +176,82 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # Compute vegetation input
             V = vegetation_input(LAI_2D)
             
-            mean_gain = np.mean(np.nan_to_num(V, nan=0))
-            max_gain = np.nanmax(V)
-            min_gain = np.nanmin(V)
-            print(f"Year {year} Month {idx+1}: SOC gain - mean: {mean_gain:.2f}, "
-                  f"max: {max_gain:.2f}, min: {min_gain:.2f}")
+            mean_vege_gain = np.mean(np.nan_to_num(V, nan=0))
+            max_vege_gain = np.nanmax(V)
+            min_vege_gain = np.nanmin(V)
+            print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, "
+                  f"max: {max_vege_gain:.2f}, min: {min_vege_gain:.2f}")
+
+            deposition_SOC_gain = D_soc*1000/M_soil
+            mean_deposition_gain = np.mean(np.nan_to_num(deposition_SOC_gain, nan=0))
+            max_deposition_gain = np.nanmax(deposition_SOC_gain)
+            min_deposition_gain = np.nanmin(deposition_SOC_gain)
+            print(f"Year {year} Month {month_idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
+                  f"max: {max_deposition_gain:.2f}, min: {min_deposition_gain:.2f}")
+
+            mean_K_fast = np.mean(np.nan_to_num(INIT_VALUES.K_fast, nan=0))
+            max_K_fast = np.nanmax(INIT_VALUES.K_fast)
+            min_K_fast = np.nanmin(INIT_VALUES.K_fast)
+            print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_fast:.6f}, "
+                  f"max: {max_K_fast:.6f}, min: {min_K_fast:.6f}")
+
+            mean_K_slow = np.mean(np.nan_to_num(INIT_VALUES.K_slow, nan=0))
+            max_K_slow = np.nanmax(INIT_VALUES.K_slow)
+            min_K_slow = np.nanmin(INIT_VALUES.K_slow)
+            print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_slow:.6f}, "
+                  f"max: {max_K_slow:.6f}, min: {min_K_slow:.6f}")
+
+            reaction_fast_loss = INIT_VALUES.K_fast * MAP_STATS.C_fast_current
+            mean_reaction_fast_loss = np.mean(np.nan_to_num(reaction_fast_loss, nan=0))
+            max_reaction_fast_loss = np.nanmax(reaction_fast_loss)
+            min_reaction_fast_loss = np.nanmin(reaction_fast_loss)
+            print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Fast_Loss - mean: {mean_reaction_fast_loss:.2f}, "
+                  f"max: {max_reaction_fast_loss:.2f}, min: {min_reaction_fast_loss:.2f}")
+
+            reaction_slow_loss = INIT_VALUES.K_slow * MAP_STATS.C_slow_current
+            mean_reaction_slow_loss = np.mean(np.nan_to_num(reaction_slow_loss, nan=0))
+            max_reaction_slow_loss = np.nanmax(reaction_slow_loss)
+            min_reaction_slow_loss = np.nanmin(reaction_slow_loss)
+            print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Slow_Loss - mean: {mean_reaction_slow_loss:.2f}, "
+                  f"max: {max_reaction_slow_loss:.2f}, min: {min_reaction_slow_loss:.2f}")
+
+            print(f"Year {year} Month {month_idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
+
+
+
+
             
             if past:
                 dt = -1
             else:
                 dt = 1
                 
-            # Update SOC pools
-            MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model(
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
-                SOC_loss_g_kg_month, D_soil, D_soc, V,
-                INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
-                dt=dt,
-                M_soil=M_soil,
-                lost_soc=lost_soc
-            )
-            
-            total_C_fast = np.nansum(MAP_STATS.C_fast_current)
-            total_C_slow = np.nansum(MAP_STATS.C_slow_current)
-            print(f"\nTotal SOC = {total_C_fast + total_C_slow}")
-            print(f"number of nans for fast: {np.isnan(MAP_STATS.C_fast_current).sum()}")
-            print(f"number of nans for slow: {np.isnan(MAP_STATS.C_slow_current).sum()}\n")
+            # Update SOC pool
+            if past:
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model_past(
+                    MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
+                    SOC_loss_g_kg_month, D_soil, D_soc, V,
+                    INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
+                    dt=dt,
+                    M_soil=M_soil,
+                    lost_soc=lost_soc
+                )
+            else:
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model(
+                    MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
+                    SOC_loss_g_kg_month, D_soil, D_soc, V,
+                    INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
+                    dt=dt,
+                    M_soil=M_soil,
+                    lost_soc=lost_soc
+                )
+
+            C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
+            mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
+            max_C_total = np.nanmax(C_total)
+            min_C_total = np.nanmin(C_total)
+            print(f"Year {year} Month {month_idx + 1}: Total_SOC: {mean_C_total:.2f}, "
+                  f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
 
             # global_timestep += 1
             print(f"Completed simulation for Year {year}, Month {idx+1}")
@@ -202,7 +259,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time1 = time.time()
             # Save figure output
             fig, ax = plt.subplots()
-            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis",
+            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=14,
                             extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
                             origin='upper')
             cbar = fig.colorbar(cax, label="SOC (g/kg)")

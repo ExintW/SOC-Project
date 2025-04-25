@@ -37,7 +37,7 @@ for rate in precip_rates:
         df_meas_region = df_measured[df_measured["Region"].str.lower().str.contains(region.lower())]
 
         # Extract the measured SOC_k2_slow_pool values (convert to numeric and drop NaNs)
-        y_meas = pd.to_numeric(df_meas_region["SOC_k2_slow_pool (1/day)"], errors='coerce').dropna().values
+        y_meas = pd.to_numeric(df_meas_region["SOC_k1_fast_pool (1/day)"], errors='coerce').dropna().values
 
         # Check that we have measured data
         if len(y_meas) == 0:
