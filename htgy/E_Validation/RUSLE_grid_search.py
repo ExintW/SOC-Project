@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from globals import *  
@@ -54,9 +55,16 @@ if __name__ == "__main__":
     print(f"Theoretical max runtime = {(1000 * total_param_sets / 60 / 60):.2f} hrs")
     print(f"#######################################################################\n")
     
+    start_time = time.time()
     best_a, best_b, best_c, best_rmse = grid_search(a_range, b_range, c_range)
+    end_time = time.time()
     
     print(f"\n#######################################################################")
     print("Grid search finished!")
+    print(f"Grid search took {end_time - start_time / 3600} hrs")
     print(f"best_a: {best_a}, best_b: {best_b}, best_c: {best_c}, best_rmse: {best_rmse}")
     print(f"#######################################################################\n")
+    
+    with open(OUTPUT_DIR / 'grid_search_result.txt', 'w') as f:
+        f.write(f"Grid search took {end_time - start_time / 3600} hrs\n")
+        f.write(f"best_a: {best_a}, best_b: {best_b}, best_c: {best_c}, best_rmse: {best_rmse}\n")
