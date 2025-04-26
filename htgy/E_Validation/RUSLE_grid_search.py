@@ -1,11 +1,18 @@
 import sys
 import os
 import time
+import contextlib
+import io
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from globals import *  
 from htgy.D_Prediction_Model.htgy_SOC_model_with_river_basin import run_model
 from Validate_RUSLE_Factors import run_valid
+
+def suppress_print(func, *args, **kwargs):
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        return func(*args, **kwargs)
 
 def grid_search(a_range, b_range, c_range):
     best_a = a_range[0]
@@ -24,8 +31,12 @@ def grid_search(a_range, b_range, c_range):
                 print(f"Running a={a}, b={b}, c={c}...")
                 print(f"Cur best RMSE = {best_rmse}, a={best_a}, b={best_b}, c={best_c}")
                 print(f"#######################################################################\n")
-                run_model(a=a, b=b, c=c)
-                cur_rmse = run_valid()
+                
+                # NOTE for lwk: if the following two lines doesn't work, replace with:
+                # run_model(a, b, c)
+                # cur_rmse = run_valid()
+                suppress_print(run_model, a=a, b=b, c=c)
+                cur_rmse = suppress_print(run_valid)
                 
                 if cur_rmse < best_rmse:
                     best_a = a
