@@ -7,7 +7,9 @@ import numpy as np
 import pandas as pd
 import re
 import math
-import matplotlib.pyplot as plt  
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *  # 假设这里面定义了 OUTPUT_DIR, DATA_DIR 等
@@ -112,7 +114,7 @@ def compute_annual_sum_from_month(csv_folder, year, factor):
 
     return total_A
 
-if __name__ == "__main__":
+def run_valid():
     factors = ['C', 'K', 'LS', 'P', 'R']
     start_year = 1992
     end_year = 2018
@@ -211,7 +213,8 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, "A_Model_vs_A_Valid.png"))
     print("A Validation plot saved as: \"A_Model_vs_A_Valid.png\"")
-    plt.show()
+    # plt.show()
+    plt.close()
     
     fig, axes = plt.subplots(2, 3, figsize=(12, 6))  # 建两个 row, 每行最多放3个子图
     axes = axes.flatten()  # 展开成一维数组，方便索引
@@ -237,4 +240,10 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, "RUSLE_Factors_validation.png"))
     print("A Validation plot saved as: \"RUSLE_Factors_validation.png\"")
-    plt.show()
+    # plt.show()
+    plt.close()
+    
+    return rmse
+    
+if __name__ == "__main__":
+    run_valid()

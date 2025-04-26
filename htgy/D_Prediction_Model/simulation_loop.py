@@ -21,7 +21,7 @@ from soil_and_soc_flow import distribute_soil_and_soc_with_dams_numba
 from SOC_dynamics import vegetation_input, soc_dynamic_model, soc_dynamic_model_past
 
 
-def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, future=False):
+def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, future=False, a=-1.7, b=1.61, c=1):
     # Filter dams built on or before current year
     df_dam_active = MAP_STATS.df_dam[MAP_STATS.df_dam["year"] <= year].copy()
     dam_capacity_arr = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
@@ -62,7 +62,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             lat_nc_pr = ds_pr.variables['lat'][:]
             pr_data = ds_pr.variables['pr'][:]         # shape: (time, n_points), in kg m^-2 s^-1
             tp_data_mm = pr_data * 30 * 86400     
-            R_annual = calculate_r_factor_annually(tp_data_mm)
+            R_annual = calculate_r_factor_annually(tp_data_mm, c=c, b=b)
             R_annual_temp = create_grid_from_points(lon_nc_pr, lat_nc_pr, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
         
         else:
@@ -72,7 +72,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             tp_data = ds.variables['tp'][:]       # shape: (12, n_points), in meters
             tp_data = tp_data * 30
             tp_data_mm = tp_data * 1000.0
-            R_annual = calculate_r_factor_annually(tp_data_mm)
+            R_annual = calculate_r_factor_annually(tp_data_mm, c=c, b=b)
             R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
         
         R_annual_temp = np.nan_to_num(R_annual_temp, nan=np.nanmean(R_annual_temp))
@@ -135,7 +135,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             print(f"Total elements in R month: {R_month.size}, with max = {np.max(R_month)}, min = {np.min(R_month)}, and mean = {np.mean(R_month)}")
             
-            C_factor_2D = calculate_c_factor(LAI_2D)
+            C_factor_2D = calculate_c_factor(LAI_2D, a=a)
             print(f"Total elements in C: {C_factor_2D.size}, with max = {np.max(C_factor_2D)}, min = {np.min(C_factor_2D)}, and mean = {np.mean(C_factor_2D)}")
             
             # Calculate monthly K factor
@@ -166,12 +166,18 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             )
             print(f"distribute soc took {time.time() - time1} seconds")
 
-            # Debug: Print lost SOC summary
-            mean_lost = np.mean(np.nan_to_num(lost_soc, nan=0))
-            max_lost = np.nanmax(lost_soc)
-            min_lost = np.nanmin(lost_soc)
-            print(f"Year {year} Month {idx+1}: Lost_SOC - mean: {mean_lost:.2f}, "
-                  f"max: {max_lost:.2f}, min: {min_lost:.2f}")
+            # Debug: Print SOC summary
+            mean_river_lost = np.mean(np.nan_to_num(lost_soc, nan=0))
+            max_river_lost = np.nanmax(lost_soc)
+            min_river_lost = np.nanmin(lost_soc)
+            print(f"Year {year} Month {month_idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
+                f"max: {max_river_lost:.2f}, min: {min_river_lost:.2f}")
+
+            mean_erosion_lost = np.mean(np.nan_to_num(SOC_loss_g_kg_month, nan=0))
+            max_erosion_lost = np.nanmax(SOC_loss_g_kg_month)
+            min_erosion_lost = np.nanmin(SOC_loss_g_kg_month)
+            print(f"Year {year} Month {month_idx + 1}: Erosion_Lost_SOC - mean: {mean_erosion_lost:.2f}, "
+                f"max: {max_erosion_lost:.2f}, min: {min_erosion_lost:.2f}")
 
             # Compute vegetation input
             V = vegetation_input(LAI_2D)
@@ -216,10 +222,6 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                   f"max: {max_reaction_slow_loss:.2f}, min: {min_reaction_slow_loss:.2f}")
 
             print(f"Year {year} Month {month_idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
-
-
-
-
             
             if past:
                 dt = -1

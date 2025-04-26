@@ -1,0 +1,62 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+from globals import *  
+from htgy.D_Prediction_Model.htgy_SOC_model_with_river_basin import run_model
+from Validate_RUSLE_Factors import run_valid
+
+def grid_search(a_range, b_range, c_range):
+    best_a = a_range[0]
+    best_b = b_range[0]
+    best_c = c_range[0]
+    best_rmse = 1e6
+    
+    max_err_inc_count = 2   # for early stopping
+    
+    for a in a_range:
+        for b in b_range:
+            err_inc_counter = 0
+            before_rmse = 1e6   # for early stopping
+            for c in c_range:
+                print(f"\n#######################################################################")
+                print(f"Running a={a}, b={b}, c={c}...")
+                print(f"Cur best RMSE = {best_rmse}, a={best_a}, b={best_b}, c={best_c}")
+                print(f"#######################################################################\n")
+                run_model(a=a, b=b, c=c)
+                cur_rmse = run_valid()
+                
+                if cur_rmse < best_rmse:
+                    best_a = a
+                    best_b = b
+                    best_c = c
+                    best_rmse = cur_rmse
+                elif before_rmse < cur_rmse:
+                    err_inc_counter += 1
+                before_rmse = cur_rmse
+                
+                if err_inc_counter >= max_err_inc_count:
+                    break
+                
+    return best_a, best_b, best_c, best_rmse
+    
+
+if __name__ == "__main__":
+    a_range = [-1.8, -1.9]
+    b_range = [1.61, 1.7, 1.75, 1.80, 1.85, 1.90, 1.95, 2.0]
+    c_range = [2, 3, 4, 5, 6, 7, 8, 9]
+    
+    total_param_sets = len(a_range) * len(b_range) * len(c_range)
+    
+    print(f"\n#######################################################################")
+    print(f"Number of a: {len(a_range)}, b: {len(b_range)}, c:{len(c_range)}")
+    print(f"Total running: {total_param_sets} param sets")
+    print(f"Theoretical max runtime = {(1000 * total_param_sets / 60 / 60):.2f} hrs")
+    print(f"#######################################################################\n")
+    
+    best_a, best_b, best_c, best_rmse = grid_search(a_range, b_range, c_range)
+    
+    print(f"\n#######################################################################")
+    print("Grid search finished!")
+    print(f"best_a: {best_a}, best_b: {best_b}, best_c: {best_c}, best_rmse: {best_rmse}")
+    print(f"#######################################################################\n")

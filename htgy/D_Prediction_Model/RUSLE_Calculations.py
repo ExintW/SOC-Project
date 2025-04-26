@@ -25,7 +25,7 @@ def calculate_r_factor_monthly(rain_month_mm):
     # return 6.94 * rain_month_mm
     return 0.739 * (rain_month_mm ** 1.56)
 
-def calculate_r_factor_annually(rain_year_mm):
+def calculate_r_factor_annually(rain_year_mm, b, c):
     """
     Compute R by using the Modified Fournier Index (MFI)
     
@@ -46,8 +46,8 @@ def calculate_r_factor_annually(rain_year_mm):
         R = 0.0483 * P^1.61, if P <= 850mm
         R = 587.8 - 1.219P + 0.004105P^2, if P > 850mm
     """
-    b = 1.61 # 1.61
-    c = 2
+    # b = 1.9 # 1.61
+    # c = 5
     if np.mean(annual_tp) <= 850:
         R = 0.0483 * (annual_tp ** b)
     else:
@@ -164,9 +164,9 @@ def calculate_ls_factor(slope, dem, slope_length=1000):
     
     return LS
 
-def calculate_c_factor(lai):
+def calculate_c_factor(lai, a):
     """Compute C factor from LAI: C = exp(-1.7 * LAI)."""
-    a = -1.7   # -1.7
+    # a = -1.8   # -1.7
     return np.exp(a * lai)
 
 def calculate_p_factor(landuse, slope):
