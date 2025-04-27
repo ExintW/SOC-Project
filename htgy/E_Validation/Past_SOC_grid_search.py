@@ -24,8 +24,9 @@ def grid_search_init(fraction_range, a, b, c, start_year, past_year):
         print(f"Cur best RMSE = {best_rmse}, frac={best_frac}")
         print(f"#######################################################################\n")
 
-        # rmse = suppress_print(run_model, a=a, b=b, c=c, start_year=start_year, end_year=None, past_year=past_year, future_year=None)
-        rmse = run_model(a=a, b=b, c=c, start_year=start_year, end_year=None, past_year=past_year, future_year=None, fraction=frac)
+        rmse = suppress_print(run_model, a=a, b=b, c=c, start_year=start_year, end_year=None, past_year=past_year, future_year=None, fraction=frac)
+        # rmse = run_model(a=a, b=b, c=c, start_year=start_year, end_year=None, past_year=past_year, future_year=None, fraction=frac)
+        
         print(f"Cur RMSE = {rmse}")
         if rmse < best_rmse:
             best_frac = frac
@@ -36,7 +37,7 @@ def grid_search_init(fraction_range, a, b, c, start_year, past_year):
 if __name__ == "__main__":
     start_value = 0.95
     end_value = 0.7
-    step_size = -0.015
+    step_size = -0.005
     
     a = -1.9
     b = 1.8

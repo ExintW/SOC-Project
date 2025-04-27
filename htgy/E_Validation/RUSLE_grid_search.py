@@ -3,6 +3,7 @@ import os
 import time
 import contextlib
 import io
+import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from globals import *  
@@ -55,8 +56,8 @@ def grid_search(a_range, b_range, c_range):
 
 if __name__ == "__main__":
     a_range = [-1.9]
-    b_range = [1.80, 1.85, 1.90, 1.95, 2.0]
-    c_range = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    b_range = np.arange(1.75, 1.85, 0.01)
+    c_range = [ 5.5, 6, 6.5, 7, 7.5, 8]
     
     total_param_sets = len(a_range) * len(b_range) * len(c_range)
     
