@@ -164,10 +164,10 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
             run_simulation_year(year, LS_factor, P_factor, sorted_indices, future=True, a=a, b=b, c=c)
 
     if end_year != None or future_year != None:
-        INIT_VALUES.reset()
-        MAP_STATS.reset()
+        # INIT_VALUES.reset()
+        # MAP_STATS.reset()
         init_global_data_structs(fraction=fraction)
-        precompute_river_basin_1()
+        # precompute_river_basin_1()
         MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
         MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
 
