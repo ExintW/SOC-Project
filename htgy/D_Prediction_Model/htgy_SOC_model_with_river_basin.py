@@ -191,8 +191,8 @@ if __name__ == "__main__":
     c = 6
     
     start_year = 2007   # year of init condition
-    end_year = 2018     # last year of present  (set to None to disable present year)
-    past_year = 1992    # last year of past     (set to None to disable past year)
+    end_year = 2025     # last year of present  (set to None to disable present year)
+    past_year = None    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
     
     fraction = 0.9      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)

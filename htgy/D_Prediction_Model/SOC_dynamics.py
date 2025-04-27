@@ -95,8 +95,9 @@ def soc_dynamic_model_past(C_fast, C_slow,
     reaction_slow = C_slow - C_slow/(1-K_slow)
 
     # Lost SOC partition
-    lost_fast = lost_soc * p_fast_grid
-    lost_slow = lost_soc * (1 - p_fast_grid)
+    Lost_concentration = (lost_soc * 1000.0) / M_soil
+    lost_fast = Lost_concentration * p_fast_grid
+    lost_slow = Lost_concentration * (1 - p_fast_grid)
 
     # Update each pool
     C_fast_new = np.maximum(

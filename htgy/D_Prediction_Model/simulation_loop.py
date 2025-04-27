@@ -161,9 +161,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             print(f"distribute soc took {time.time() - time1} seconds")
 
             # Debug: Print SOC summary
-            mean_river_lost = np.mean(np.nan_to_num(lost_soc, nan=0))
-            max_river_lost = np.nanmax(lost_soc)
-            min_river_lost = np.nanmin(lost_soc)
+            Lost_soc_concentration = lost_soc*1000/M_soil
+            mean_river_lost = np.mean(np.nan_to_num(Lost_soc_concentration, nan=0))
+            max_river_lost = np.nanmax(Lost_soc_concentration)
+            min_river_lost = np.nanmin(Lost_soc_concentration)
             print(f"Year {year} Month {month_idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
                 f"max: {max_river_lost:.2f}, min: {min_river_lost:.2f}")
 
@@ -312,6 +313,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             R_factor_list =  R_month      .ravel('C').tolist()
             lost_soc_list =  lost_soc     .ravel('C').tolist()
 
+            C = C_total       .ravel('C').tolist()
+
             print(f"Gather data for csv took {time.time() - time1} seconds")
             
             df_out = pd.DataFrame({
@@ -320,6 +323,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'Landuse': landuse_list,
                 'C_fast': C_fast_list,
                 'C_slow': C_slow_list,
+                'Total_C': C_total,
                 'Erosion_fast': erosion_fast_list,
                 'Erosion_slow': erosion_slow_list,
                 'Deposition_fast': deposition_fast_list,
