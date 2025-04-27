@@ -9,8 +9,10 @@ def vegetation_input(LAI):
     """
     Compute vegetation input based on LAI using an empirical formula.
     E.g., V = a * LAI + b
+    # floor at a tiny positive value so log never sees zero or negatives
     """
-    return 0.11434652 * np.log(LAI) + 0.08709953
+    LAI_safe = np.maximum(LAI, 1e-6)
+    return 0.11434652 * np.log(LAI_safe) + 0.08709953
 
 def soc_dynamic_model(C_fast, C_slow,
                       soc_loss_g_kg_month, D_soil, D_soc, V,

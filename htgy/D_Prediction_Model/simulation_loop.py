@@ -34,8 +34,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
     # Load monthly climate data (NetCDF)
     if future:
-        nc_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_2015-2100_126.nc"
-        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_2015-2100_126.nc"
+        nc_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_245.nc"
+        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_245.nc"
         
     else:
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
@@ -96,7 +96,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time_month = time.time()
             
             print(f"\n=======================================================================")
-            print(f"                          Year {year} Month {idx+1}")
+            print(f"                          Year {year} Month {month_idx+1}")
             print(f"=======================================================================\n")
             
             print(f"lai_data shape = {lai_data.shape}")
@@ -251,7 +251,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                   f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
 
             # global_timestep += 1
-            print(f"Completed simulation for Year {year}, Month {idx+1}")
+            print(f"Completed simulation for Year {year}, Month {month_idx+1}")
 
             time1 = time.time()
             # Save figure output
@@ -260,12 +260,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                             extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
                             origin='upper')
             cbar = fig.colorbar(cax, label="SOC (g/kg)")
-            ax.set_title(f"SOC at Timestep Year {year}, Month {idx+1}")
+            ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx+1}")
             ax.set_xlabel("Longitude")
             ax.set_ylabel("Latitude")
             ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
             ax.ticklabel_format(style='plain', axis='x')
-            filename_fig = f"SOC_{year}_{idx+1:02d}_River.png"
+            filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
             plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig))
             plt.close("all")
             
@@ -313,7 +313,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             R_factor_list =  R_month      .ravel('C').tolist()
             lost_soc_list =  lost_soc     .ravel('C').tolist()
 
-            C = C_total       .ravel('C').tolist()
+            C_total_list = C_total       .ravel('C').tolist()
 
             print(f"Gather data for csv took {time.time() - time1} seconds")
             
@@ -323,7 +323,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'Landuse': landuse_list,
                 'C_fast': C_fast_list,
                 'C_slow': C_slow_list,
-                'Total_C': C_total,
+                'Total_C': C_total_list,
                 'Erosion_fast': erosion_fast_list,
                 'Erosion_slow': erosion_slow_list,
                 'Deposition_fast': deposition_fast_list,
@@ -342,13 +342,13 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             })
             
             if USE_PARQUET:
-                filename_parquet = f"SOC_terms_{year}_{idx+1:02d}_River.parquet"
+                filename_parquet = f"SOC_terms_{year}_{month_idx+1:02d}_River.parquet"
                 df_out.to_parquet(os.path.join(OUTPUT_DIR, "Data", filename_parquet), index=False, engine="pyarrow")
-                print(f"Saved parquet output for Year {year}, Month {idx+1} as {filename_parquet}")
+                print(f"Saved parquet output for Year {year}, Month {month_idx+1} as {filename_parquet}")
             else:
-                filename_csv = f"SOC_terms_{year}_{idx+1:02d}_River.csv"
+                filename_csv = f"SOC_terms_{year}_{month_idx+1:02d}_River.csv"
                 df_out.to_csv(os.path.join(OUTPUT_DIR, "Data", filename_csv), index=False, float_format="%.6f")
-                print(f"Saved CSV output for Year {year}, Month {idx+1} as {filename_csv}")
+                print(f"Saved CSV output for Year {year}, Month {month_idx+1} as {filename_csv}")
             
             print(f"This month took {time.time() - time_month} seconds")
             

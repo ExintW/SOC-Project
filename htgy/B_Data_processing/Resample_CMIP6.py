@@ -1,59 +1,99 @@
 import os
 import sys
 import xarray as xr
+import numpy as np
 import pandas as pd
+import csv
 from pathlib import Path
 
-# Append project root to sys.path (if needed)
+# Append project root so we can import DATA_DIR, PROCESSED_DIR
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from globals import *  # Assumes DATA_DIR and PROCESSED_DIR are defined here
+from globals import *
 
-# Define explicit file paths for LAI and PR
-lai_file = DATA_DIR / "CMIP6" / "lai_Lmon_ACCESS-ESM1-5_ssp585_r1i1p1f1_gn_201501-210012.nc"
-pr_file = DATA_DIR / "CMIP6" / "pr_Amon_ACCESS-ESM1-5_ssp585_r1i1p1f1_gn_201501-210012.hdf"
+# Input file paths for CMIP6 LAI and PR
+lai_path = Path(DATA_DIR) / "CMIP6" / "lai_Lmon_BCC-CSM2-MR_ssp585_r1i1p1f1_gn_201501-210012.nc"
+pr_path  = Path(DATA_DIR) / "CMIP6" / "pr_Amon_BCC-CSM2-MR_ssp585_r1i1p1f1_gn_201501-210012.nc"
 
-# Define output directory for resampled data
-output_dir = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled"
+# Load target 1 km grid points
+csv_pts = Path(PROCESSED_DIR) / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
+df_pts  = pd.read_csv(csv_pts)
+lons     = df_pts["LON"].values
+lats     = df_pts["LAT"].values
+
+# Output directory for interpolated data and stats
+output_dir = Path(PROCESSED_DIR) / "CMIP6_Data_Monthly_Resampled"
 os.makedirs(output_dir, exist_ok=True)
 
-# Load the CSV file containing target longitude and latitude points
-csv_file = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
-df_points = pd.read_csv(csv_file)
-lons = df_points["LON"].values
-lats = df_points["LAT"].values
 
-
-def resample_dataset(ds, var_label, output_path):
+def interp_and_collect(ds, var_name, label, save_interp_fname):
     """
-    Interpolates the input dataset spatially to the target points and saves the result as a NetCDF file.
+    Interpolate ds[var_name] onto target points bilinearly,
+    save the interpolated dataset, and return annual stats rows.
     """
-    # Determine coordinate names; CMIP6 datasets typically use "lon" and "lat"
+    # Determine coordinate dimension names
     lon_name = "longitude" if "longitude" in ds.dims else "lon"
-    lat_name = "latitude" if "latitude" in ds.dims else "lat"
+    lat_name = "latitude"  if "latitude"  in ds.dims else "lat"
 
-    # Interpolate onto the provided points using nearest neighbor method
-    ds_resampled = ds.interp({lon_name: xr.DataArray(lons, dims="points"),
-                              lat_name: xr.DataArray(lats, dims="points")},
-                             method="nearest")
+    # 1) Bilinear interpolation onto the 1 km points
+    ds_interp = ds.interp(
+        {lon_name: xr.DataArray(lons, dims="points"),
+         lat_name: xr.DataArray(lats, dims="points")},
+        method="linear"
+    )
 
-    # Save the resampled dataset as a NetCDF file
-    ds_resampled.to_netcdf(output_path)
-    print(f"✅ Resampling complete for {var_label}. Data saved to: {output_path}")
-    ds.close()
+    # 2) Save the interpolated Dataset to NetCDF
+    interp_path = output_dir / save_interp_fname
+    ds_interp.to_netcdf(interp_path)
+    print(f"→ Saved interpolated {label} to {interp_path.name}")
+
+    # 3) Compute annual min/max/mean across months and points
+    da = ds_interp[var_name]
+    rows = []
+    for year, grp in da.groupby("time.year"):
+        arr = grp.values.ravel()
+        mn = np.nanmin(arr)
+        mx = np.nanmax(arr)
+        mu = np.nanmean(arr)
+        print(f"{label} {int(year)} → min={mn:.3f}, max={mx:.3f}, mean={mu:.3f}")
+        rows.append((label, int(year), mn, mx, mu))
+
+    ds_interp.close()
+    return rows
 
 
-# Process LAI dataset (NetCDF)
+# Collect statistics for both variables
+lai_rows = []
+pr_rows  = []
+
+# Process LAI
 try:
-    ds_lai = xr.open_dataset(lai_file)
-    output_file_lai = output_dir / "resampled_lai_2015-2100_585.nc"
-    resample_dataset(ds_lai, "LAI", output_file_lai)
+    ds_lai = xr.open_dataset(lai_path)
+    print(">>> Processing LAI")
+    lai_rows = interp_and_collect(
+        ds_lai, "lai", "LAI", "resampled_lai_points_2015-2100_585.nc"
+    )
+    ds_lai.close()
 except Exception as e:
-    print(f"❌ Error processing LAI: {e}")
+    print(f"Error processing LAI: {e}")
 
-# Process PR dataset (HDF -> NetCDF)
+# Process Precipitation
 try:
-    ds_pr = xr.open_dataset(pr_file)
-    output_file_pr = output_dir / "resampled_pr_2015-2100_585.nc"
-    resample_dataset(ds_pr, "Precipitation", output_file_pr)
+    ds_pr = xr.open_dataset(pr_path)  # add engine='netcdf4' or 'h5netcdf' if needed
+    pr_var = "pr" if "pr" in ds_pr.data_vars else list(ds_pr.data_vars)[0]
+    print("\n>>> Processing PR")
+    pr_rows = interp_and_collect(
+        ds_pr, pr_var, "PR", "resampled_pr_points_2015-2100_585.nc"
+    )
+    ds_pr.close()
 except Exception as e:
-    print(f"❌ Error processing PR: {e}")
+    print(f"Error processing PR: {e}")
+
+# Write annual stats to CSV
+stats_file = output_dir / "annual_CMIP6_stats.csv"
+with open(stats_file, "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["variable", "year", "min", "max", "mean"])
+    for row in lai_rows + pr_rows:
+        writer.writerow(row)
+print(f"→ Annual stats saved to {stats_file.name}")
+
