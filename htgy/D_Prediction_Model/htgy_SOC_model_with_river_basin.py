@@ -163,12 +163,13 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         for year in range(end_year+1, future_year + 1):
             run_simulation_year(year, LS_factor, P_factor, sorted_indices, future=True, a=a, b=b, c=c)
 
-    INIT_VALUES.reset()
-    MAP_STATS.reset()
-    init_global_data_structs(fraction=fraction)
-    precompute_river_basin_1()
-    MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
-    MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
+    if end_year != None or future_year != None:
+        INIT_VALUES.reset()
+        MAP_STATS.reset()
+        init_global_data_structs(fraction=fraction)
+        precompute_river_basin_1()
+        MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
+        MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
 
     if past_year != None:
         if fraction == 1:
@@ -181,7 +182,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     print(f"Simulation complete. Total simulation time: {time.perf_counter() - t_sim_start:.2f} seconds.")
     print("Final SOC distribution is in C_fast_current + C_slow_current.")
     
-    rmse = np.sqrt(np.mean((MAP_STATS.C_fast_current + MAP_STATS.C_slow_current - INIT_VALUES.SOC_valid) ** 2))
+    rmse = np.sqrt(np.nanmean((MAP_STATS.C_fast_current + MAP_STATS.C_slow_current - INIT_VALUES.SOC_valid) ** 2))
     return rmse
 
 if __name__ == "__main__":

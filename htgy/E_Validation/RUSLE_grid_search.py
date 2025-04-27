@@ -28,7 +28,7 @@ def grid_search(a_range, b_range, c_range):
             before_rmse = 1e6   # for early stopping
             for c in c_range:
                 print(f"\n#######################################################################")
-                print(f"Running a={a}, b={b}, c={c}...")
+                print(f"Running a={a}, b={b}, c={c}")
                 print(f"Cur best RMSE = {best_rmse}, a={best_a}, b={best_b}, c={best_c}")
                 print(f"#######################################################################\n")
                 

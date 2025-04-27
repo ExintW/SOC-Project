@@ -20,12 +20,13 @@ def grid_search_init(fraction_range, a, b, c, start_year, past_year):
     
     for frac in fraction_range:
         print(f"\n#######################################################################")
-        print(f"Running frac={frac}...")
+        print(f"Running frac={frac}")
         print(f"Cur best RMSE = {best_rmse}, frac={best_frac}")
         print(f"#######################################################################\n")
 
         # rmse = suppress_print(run_model, a=a, b=b, c=c, start_year=start_year, end_year=None, past_year=past_year, future_year=None)
         rmse = run_model(a=a, b=b, c=c, start_year=start_year, end_year=None, past_year=past_year, future_year=None, fraction=frac)
+        print(f"Cur RMSE = {rmse}")
         if rmse < best_rmse:
             best_frac = frac
             best_rmse = rmse
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     
     a = -1.9
     b = 1.8
-    c = 3
+    c = 6
     
     fraction_range = np.arange(start_value, end_value - 1e-8, step_size)
     start_year = 2007   # year of init condition
