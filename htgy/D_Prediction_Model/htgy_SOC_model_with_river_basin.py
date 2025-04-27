@@ -68,7 +68,7 @@ from simulation_loop import run_simulation_year
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
 
-def run_model(a, b, c):
+def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1):
     # =============================================================================
     # CSV READING & GRID SETUP & SOC PARTITION
     # =============================================================================
@@ -132,11 +132,6 @@ def run_model(a, b, c):
     # =============================================================================
     # MAIN SIMULATION LOOP (MONTHLY)
     # =============================================================================
-    start_year = 2007   # year of init condition
-    end_year = 2018     # last year of present
-    past_year = 1992    # last year of past     (set to None to disable past year)
-    future_year = None  # last year of future   (set to None to disable future year)
-
     step_size = 1   # for quick RUSLE vaidation
 
     # Initialize current SOC pools=
@@ -159,28 +154,46 @@ def run_model(a, b, c):
             os.remove(file)
 
     t_sim_start = time.perf_counter()
-
-    for year in range(start_year, end_year + 1, step_size):
-        run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
+    
+    if end_year != None:
+        for year in range(start_year, end_year + 1, step_size):
+            run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
 
     if future_year != None:
         for year in range(end_year+1, future_year + 1):
             run_simulation_year(year, LS_factor, P_factor, sorted_indices, future=True, a=a, b=b, c=c)
 
-    init_global_data_structs()
+    INIT_VALUES.reset()
+    MAP_STATS.reset()
+    init_global_data_structs(fraction=fraction)
+    precompute_river_basin_1()
+    MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
+    MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
 
     if past_year != None:
-        for year in range(start_year-1, past_year-1, -1):
-            run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=True, a=a, b=b, c=c)
-            
-
+        if fraction == 1:
+            for year in range(start_year-1, past_year-1, -1):
+                run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=True, a=a, b=b, c=c)
+        else:   # run non-reversed past year simulation with given fraction as init condition
+            for year in range(past_year, start_year, step_size):
+                run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
 
     print(f"Simulation complete. Total simulation time: {time.perf_counter() - t_sim_start:.2f} seconds.")
     print("Final SOC distribution is in C_fast_current + C_slow_current.")
+    
+    rmse = np.sqrt(np.mean((MAP_STATS.C_fast_current + MAP_STATS.C_slow_current - INIT_VALUES.SOC_valid) ** 2))
+    return rmse
 
 if __name__ == "__main__":
-    a = -1.7
-    b = 1.61
-    c = 2
+    a = -1.8
+    b = 1.8
+    c = 6
     
-    run_model(a, b, c)
+    start_year = 2007   # year of init condition
+    end_year = 2018     # last year of present  (set to None to disable present year)
+    past_year = 1992    # last year of past     (set to None to disable past year)
+    future_year = None  # last year of future   (set to None to disable future year)
+    
+    fraction = 0.9      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
+    
+    run_model(a, b, c, start_year, end_year, past_year, future_year, fraction)

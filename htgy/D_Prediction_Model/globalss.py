@@ -14,6 +14,7 @@ PRESENT_YEAR = 2025
 
 class INIT_VALUES:
     SOC = None
+    SOC_valid = None
     DEM = None
     SAND = None
     SILT = None
@@ -25,6 +26,12 @@ class INIT_VALUES:
     K_slow = None
     C_fast = None
     C_slow = None
+    
+    @classmethod
+    def reset(cls):
+        for key in list(cls.__dict__):
+            if not key.startswith('__') and not callable(getattr(cls, key)):
+                setattr(cls, key, None)
     
 
 class MAP_STATS:
@@ -50,3 +57,9 @@ class MAP_STATS:
     
     c_fast_current = None
     c_slow_current = None
+    
+    @classmethod
+    def reset(cls):
+        for key in list(cls.__dict__):
+            if not key.startswith('__') and not callable(getattr(cls, key)):
+                setattr(cls, key, None)

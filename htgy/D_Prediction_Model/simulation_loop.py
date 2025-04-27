@@ -94,12 +94,6 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 idx = netcdf_index
             # Regrid LAI data
             time_month = time.time()
-            idx = month_idx
-            if future:
-                netcdf_index = (year - 2015) * 12 + month_idx
-                if netcdf_index < 0 or netcdf_index >= lai_data.shape[0]:
-                    continue
-                idx = netcdf_index
             
             print(f"\n=======================================================================")
             print(f"                          Year {year} Month {idx+1}")

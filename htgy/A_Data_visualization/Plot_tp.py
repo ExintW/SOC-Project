@@ -41,11 +41,11 @@ def compute_annual_sum_from_month(csv_folder, year, factor):
     return total_A
 
 
-start_year = 1950
+start_year = 1992
 end_year = 2018
 
 plot_R = False
-tongguan_tp = True
+tongguan_tp = False
 
 tp_list = []
 R_list = []
@@ -53,8 +53,8 @@ R_list = []
 csv_folder = OUTPUT_DIR / "Data"
 tg_basin = gpd.read_file(DATA_DIR / "潼关以上流域.shp").to_crs("EPSG:4326")
 minx, miny, maxx, maxy = tg_basin.total_bounds
-print(f"潼关经度范围: {minx:.4f}°E ~ {maxx:.4f}°E")
-print(f"潼关纬度范围: {miny:.4f}°N ~ {maxy:.4f}°N")
+# print(f"潼关经度范围: {minx:.4f}°E ~ {maxx:.4f}°E")
+# print(f"潼关纬度范围: {miny:.4f}°N ~ {maxy:.4f}°N")
 
 
 for year in range(start_year, end_year+1):
@@ -90,7 +90,7 @@ for year in range(start_year, end_year+1):
                     total_tp += month_mean_tp
                     lon_min, lat_min = gdf_clip['lon'].min(), gdf_clip['lat'].min()
                     lon_max, lat_max = gdf_clip['lon'].max(), gdf_clip['lat'].max()
-                    print(f"裁剪后点的经纬度范围: [{lon_min}, {lat_min}], [{lon_max}, {lat_max}]")
+                    # print(f"裁剪后点的经纬度范围: [{lon_min}, {lat_min}], [{lon_max}, {lat_max}]")
                 else:
                     print(f"No data inside basin for {year} month {month_idx+1}")
                 

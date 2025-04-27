@@ -66,9 +66,10 @@ def calculate_r_factor_annually(rain_year_mm, b, c):
     """
     Zhou et al.(1995) as cited in Li et al.(2014)
     """
-    # R = np.sum(-1.15527 + 1.792 * rain_year_mm, axis=0)
+    # R = np.sum(-1.15527 + b * rain_year_mm, axis=0)
     
-    return R / c
+    # return R / c
+    return R - c*100
 
 def get_montly_r_factor(R_annual, rain_month_mm, rain_year_mm):
     """

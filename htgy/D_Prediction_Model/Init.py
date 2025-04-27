@@ -48,7 +48,7 @@ def allocate_fast_slow_soc():
             p_fast_grid[i, j] = props['fast']
     return C_fast, C_slow, p_fast_grid
 
-def init_global_data_structs():
+def init_global_data_structs(fraction=1):
     # Read the Loess Plateau border shapefile and combine all features into one geometry.
     loess_border_path = DATA_DIR / "Loess_Plateau_vector_border.shp"
     loess_border = gpd.read_file(loess_border_path)
@@ -102,6 +102,8 @@ def init_global_data_structs():
     # Create 2D arrays from CSV
     # ---------------------------------------------------------------------
     INIT_VALUES.SOC = create_grid(df, soc_col)  # SOC concentration (g/kg)
+    INIT_VALUES.SOC_valid = INIT_VALUES.SOC.copy() # for validation
+    INIT_VALUES.SOC *= fraction                 # for past simulation
     INIT_VALUES.SOC = np.clip(INIT_VALUES.SOC, None, 12)    # Clip values above 12
     INIT_VALUES.DEM = create_grid(df, dem_col)
     INIT_VALUES.SAND = create_grid(df, "SAND")
