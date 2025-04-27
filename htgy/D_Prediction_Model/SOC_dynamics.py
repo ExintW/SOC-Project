@@ -9,8 +9,10 @@ def vegetation_input(LAI):
     """
     Compute vegetation input based on LAI using an empirical formula.
     E.g., V = a * LAI + b
+    # floor at a tiny positive value so log never sees zero or negatives
     """
-    return 0.11434652 * np.log(LAI) + 0.08709953
+    LAI_safe = np.maximum(LAI, 1e-6)
+    return 0.11434652 * np.log(LAI_safe) + 0.08709953
 
 def soc_dynamic_model(C_fast, C_slow,
                       soc_loss_g_kg_month, D_soil, D_soc, V,
@@ -95,8 +97,9 @@ def soc_dynamic_model_past(C_fast, C_slow,
     reaction_slow = C_slow - C_slow/(1-K_slow)
 
     # Lost SOC partition
-    lost_fast = lost_soc * p_fast_grid
-    lost_slow = lost_soc * (1 - p_fast_grid)
+    Lost_concentration = (lost_soc * 1000.0) / M_soil
+    lost_fast = Lost_concentration * p_fast_grid
+    lost_slow = Lost_concentration * (1 - p_fast_grid)
 
     # Update each pool
     C_fast_new = np.maximum(

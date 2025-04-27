@@ -75,6 +75,20 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     init_global_data_structs()
 
     # =============================================================================
+    # LOAD FUTURE-INITIAL SOC FROM PARQUET
+    # =============================================================================
+    if future_year != None:
+        # Path to the snapshot for December of the present period
+        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present" / "SOC_terms_2024_12_River.parquet"
+        if future_initial_file.exists():
+            df_init = pd.read_parquet(future_initial_file)
+            # reshape to original grid shape
+            INIT_VALUES.C_fast = df_init['C_fast'].values.reshape(INIT_VALUES.C_fast.shape)
+            INIT_VALUES.C_slow = df_init['C_slow'].values.reshape(INIT_VALUES.C_slow.shape)
+        else:
+            print(f"Warning: future initial file not found at {future_initial_file}, using default INIT_VALUES")
+
+    # =============================================================================
     # RASTERIZE RIVER BASIN BOUNDARIES & MAIN RIVER USING PRECOMPUTED MASKS
     # =============================================================================
     precompute_river_basin_1()
@@ -190,10 +204,10 @@ if __name__ == "__main__":
     b = 1.8
     c = 6
     
-    start_year = 2007   # year of init condition
-    end_year = 2018     # last year of present  (set to None to disable present year)
-    past_year = 1992    # last year of past     (set to None to disable past year)
-    future_year = None  # last year of future   (set to None to disable future year)
+    start_year = 2024   # year of init condition
+    end_year = 2024     # last year of present  (set to None to disable present year)
+    past_year = None    # last year of past     (set to None to disable past year)
+    future_year = 2100  # last year of future   (set to None to disable future year)
     
     fraction = 0.9      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     
