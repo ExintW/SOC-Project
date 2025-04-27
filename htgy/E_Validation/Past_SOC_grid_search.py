@@ -63,6 +63,6 @@ if __name__ == "__main__":
     print(f"best_frac: {best_frac}, best_rmse: {best_rmse}")
     print(f"#######################################################################\n")
     
-    with open(OUTPUT_DIR / 'grid_search_result.txt', 'w') as f:
+    with open(OUTPUT_DIR / 'Past_SOC_grid_search_result.txt', 'w') as f:
         f.write(f"Grid search took {end_time - start_time / 3600} hrs\n")
         f.write(f"best_frac: {best_frac}, best_rmse: {best_rmse}\n")
