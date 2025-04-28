@@ -34,9 +34,9 @@ def grid_search(a_range, b_range, c_range):
                 print(f"#######################################################################\n")
                 
                 # NOTE for lwk: if the following two lines doesn't work, replace with:
-                # run_model(a, b, c)
+                # run_model(a=a, b=b, c=c, start_year=2007, end_year=2018, past_year=1992, future_year=None)
                 # cur_rmse = run_valid()
-                suppress_print(run_model, a=a, b=b, c=c, start_year=2007, end_year=2018, past_year=1992, future_year=None)
+                suppress_print(run_model, a=a, b=b, c=c, start_year=2007, end_year=2018, past_year=1992, future_year=None, fraction=0.9)
                 cur_rmse = suppress_print(run_valid)
                 
                 if cur_rmse < best_rmse:
