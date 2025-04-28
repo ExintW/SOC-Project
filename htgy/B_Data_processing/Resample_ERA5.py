@@ -7,52 +7,71 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *
 
 # Define paths
-ERA5_DATA_DIR = DATA_DIR / "ERA5"  # Directory containing .nc files
-csv_file = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"  # CSV file path
-output_dir = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled"  # Output directory
+ERA5_DATA_DIR = DATA_DIR / "ERA5"
+csv_file       = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
+output_dir     = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled"
 
-# Create output directory if it doesn't exist
 os.makedirs(output_dir, exist_ok=True)
 
-# Load the CSV file containing longitude and latitude
+# Load point coordinates
 df_points = pd.read_csv(csv_file)
-lons = df_points["LON"].values  # Extract longitude
-lats = df_points["LAT"].values  # Extract latitude
+lons = df_points["LON"].values
+lats = df_points["LAT"].values
 
-# Define the range of years
 start_year = 1950
-end_year = 2025
+end_year   = 2025
 
-# Loop through each year and resample data
 for year in range(start_year, end_year + 1):
-    nc_file = os.path.join(ERA5_DATA_DIR, f"{year}.nc")  # Construct file path
-
-    # Check if the NetCDF file exists
-    if not os.path.exists(nc_file):
+    nc_file = ERA5_DATA_DIR / f"{year}.nc"
+    if not nc_file.exists():
         print(f"File {nc_file} not found, skipping...")
         continue
 
-    # Open the NetCDF file
     try:
         ds = xr.open_dataset(nc_file)
 
-        # Ensure correct variable names
+        # detect lon/lat names
         lon_name = "longitude" if "longitude" in ds.dims else "lon"
-        lat_name = "latitude" if "latitude" in ds.dims else "lat"
+        lat_name = "latitude"  if "latitude"  in ds.dims else "lat"
 
-        # Interpolate to match CSV file's lon/lat
-        ds_resampled = ds.interp({lon_name: xr.DataArray(lons, dims="points"),
-                                  lat_name: xr.DataArray(lats, dims="points")},
-                                 method="nearest")
+        # linear interpolation onto your points
+        ds_res = ds.interp(
+            {
+                lon_name: xr.DataArray(lons, dims="points"),
+                lat_name: xr.DataArray(lats, dims="points")
+            },
+            method="linear"
+        )
 
-        # Save the resampled data
-        output_file = os.path.join(output_dir, f"resampled_{year}.nc")
-        ds_resampled.to_netcdf(output_file)
+        # detect which time dimension (if any) we have
+        if   "time"       in ds_res.dims: time_dim = "time"
+        elif "valid_time" in ds_res.dims: time_dim = "valid_time"
+        else:                             time_dim = None
 
-        # Print completion message
-        print(f"✅ Resampling complete for {year}. Data saved to: {output_file}")
+        for var in ("lai_lv", "lai_hv", "tp"):
+            if var not in ds_res:
+                continue
 
-        # Close dataset
+            da = ds_res[var]
+
+            if time_dim:
+                # loop over each timestamp
+                for t in da[time_dim].values:
+                    arr = da.sel({time_dim: t})
+                    dt    = pd.to_datetime(t)
+                    month = dt.month
+                    vmin, vmax, vmean = float(arr.min()), float(arr.max()), float(arr.mean())
+                    print(f"{year}-{month:02d} | {var}: min={vmin:.3f}, max={vmax:.3f}, mean={vmean:.3f}")
+            else:
+                # no time axis: single snapshot
+                vmin, vmax, vmean = float(da.min()), float(da.max()), float(da.mean())
+                print(f"{year} | {var}: min={vmin:.3f}, max={vmax:.3f}, mean={vmean:.3f}")
+
+        # save out
+        out_path = output_dir / f"resampled_{year}.nc"
+        ds_res.to_netcdf(out_path)
+        print(f"✅ Resampling complete for {year}. Saved to: {out_path}")
+
         ds.close()
 
     except Exception as e:
