@@ -125,3 +125,4 @@ def init_global_data_structs(fraction=1):
     # 2) PARTITION SOC INTO FAST & SLOW POOLS
     # =============================================================================
     INIT_VALUES.C_fast, INIT_VALUES.C_slow, MAP_STATS.p_fast_grid = allocate_fast_slow_soc()
+    
