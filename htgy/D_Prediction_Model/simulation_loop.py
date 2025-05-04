@@ -290,7 +290,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
             ax.ticklabel_format(style='plain', axis='x')
             filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
-            plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig))
+            plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig), dpi=300)
             plt.close("all")
             
             print(f"plot took {time.time() - time1} seconds")
