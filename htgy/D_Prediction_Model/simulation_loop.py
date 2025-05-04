@@ -262,7 +262,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             #         lost_soc=lost_soc
             #     )
             if not past:
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V)
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V)
             else:
                 print("Running Past")
                 MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model_past(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V)
@@ -306,10 +306,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             lat_list =  lat_grid.ravel(order='C').tolist()      # 与 for i→for j 顺序一致
             lon_list =  lon_grid.ravel(order='C').tolist()
             landuse_list = INIT_VALUES.LANDUSE.astype(str).ravel(order='C').tolist()
+            Region_list = INIT_VALUES.REGION.astype(str).ravel(order='C').tolist()
 
             pf = MAP_STATS.p_fast_grid
             sign = 1 if past else -1                              # past=True ➜ 正号，False ➜ 取反
-            #dep_conc = (D_soc * 1000.0) / M_soil                 # g kg‑1 → g kg‑1（与原式相同）
 
             # SOC 组分
             C_fast_list  = MAP_STATS.C_fast_current .ravel('C').tolist()
@@ -320,8 +320,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             erosion_slow_list = ( sign * SOC_loss_g_kg_month * (1 - pf)     ).ravel('C').tolist()
 
             # Deposition（沉积输入，符号与 erosion 相反）
-            # deposition_fast_list = (-sign * dep_conc * pf          ).ravel('C').tolist()
-            # deposition_slow_list = (-sign * dep_conc * (1 - pf)    ).ravel('C').tolist()
+            deposition_fast_list = (-sign * dep_soc * pf          ).ravel('C').tolist()
+            deposition_slow_list = (-sign * dep_soc * (1 - pf)    ).ravel('C').tolist()
 
             # Vegetation（植被输入）
             vegetation_fast_list = (V * pf         ).ravel('C').tolist()
@@ -338,7 +338,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             LS_factor_list=  LS_factor    .ravel('C').tolist()
             P_factor_list =  P_factor     .ravel('C').tolist()
             R_factor_list =  R_month      .ravel('C').tolist()
-            #lost_soc_list =  lost_soc     .ravel('C').tolist()
+            lost_soc_list =  lost_soc     .ravel('C').tolist()
 
             C_total_list = C_total       .ravel('C').tolist()
 
@@ -348,13 +348,14 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'LAT': lat_list,
                 'LON': lon_list,
                 'Landuse': landuse_list,
+                'Region': Region_list,
                 'C_fast': C_fast_list,
                 'C_slow': C_slow_list,
                 'Total_C': C_total_list,
                 'Erosion_fast': erosion_fast_list,
                 'Erosion_slow': erosion_slow_list,
-                # 'Deposition_fast': deposition_fast_list,
-                # 'Deposition_slow': deposition_slow_list,
+                'Deposition_fast': deposition_fast_list,
+                'Deposition_slow': deposition_slow_list,
                 'Vegetation_fast': vegetation_fast_list,
                 'Vegetation_slow': vegetation_slow_list,
                 'Reaction_fast': reaction_fast_list,
@@ -365,7 +366,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'LS_factor_month': LS_factor_list,
                 'P_factor_month': P_factor_list,
                 'R_factor_month': R_factor_list,
-                # 'Lost_SOC_River': lost_soc_list
+                'Lost_SOC_River': lost_soc_list
             })
             
             if USE_PARQUET:

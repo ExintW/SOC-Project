@@ -242,7 +242,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     C_fast_new = np.maximum((C_fast_current + del_soc_fast), 0)
     C_slow_new = np.maximum((C_slow_current + del_soc_slow), 0)
     
-    return C_fast_new, C_slow_new
+    return C_fast_new, C_slow_new, dep_soc, lost_soc
 
 def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V):
     C_fast_current = MAP_STATS.C_fast_current
