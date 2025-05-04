@@ -224,7 +224,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         if dam_proportion > 0:
             time1 = time.time()
             get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, DEM,
-                                    (C_fast_current + C_slow_current) * dam_proportion, 
+                                    (C_fast_current[row][col] + C_slow_current[row][col]) * dam_proportion, 
                                     small_boundary_mask, small_outlet_mask,
                                     large_boundary_mask, large_outlet_mask,
                                     loess_border_mask)
@@ -335,7 +335,7 @@ def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stor
         if dam_proportion > 0:
             time1 = time.time()
             get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, DEM,
-                                    (C_fast_past + C_slow_past) * dam_proportion, 
+                                    (C_fast_past[row][col] + C_slow_past[row][col]) * dam_proportion, 
                                     small_boundary_mask, small_outlet_mask,
                                     large_boundary_mask, large_outlet_mask,
                                     loess_border_mask)
