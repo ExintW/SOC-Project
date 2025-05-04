@@ -160,10 +160,21 @@ def precompute_river_basin_2():
 
 def precompute_river_basin_1(cache_path=None):
     """
-        Precompute (or load) river-basin masks, saving to/loading from a compressed .npz
-        to skip heavy GIS work on subsequent runs.
-        """
-    # --- Determine cache file path ---
+    Precompute (or load) river-basin masks with unique IDs for each small and large basin.
+    Saves to / loads from a compressed .npz to skip heavy GIS work on subsequent runs.
+
+    Parameters:
+        cache_path (path-like, optional): path to .npz cache file.
+            Defaults to PROCESSED_DIR / "precomputed_masks.npz".
+
+    On success, sets:
+        MAP_STATS.small_boundary_mask  : 2D np.int32 array of small-basin IDs (0 = background)
+        MAP_STATS.large_boundary_mask  : 2D np.int32 array of large-basin IDs
+        MAP_STATS.river_mask           : 2D np.bool_ mask of river locations
+        MAP_STATS.small_outlet_mask    : 2D np.bool_ mask of small-basin outlet pixels
+        MAP_STATS.large_outlet_mask    : 2D np.bool_ mask of large-basin outlet pixels
+    """
+    # Determine cache location
     if cache_path is None:
         cache_path = PROCESSED_DIR / "precomputed_masks.npz"
     os.makedirs(cache_path.parent, exist_ok=True)
@@ -182,7 +193,7 @@ def precompute_river_basin_1(cache_path=None):
     # --- 2) Otherwise compute from scratch ---
     # === 创建 transform 和分辨率 ===
     dx = np.mean(np.diff(MAP_STATS.grid_x))
-    dy = np.abs(np.mean(np.diff(MAP_STATS.grid_y)))  # 保证为正数
+    dy = abs(np.mean(np.diff(MAP_STATS.grid_y)))
     transform = Affine.translation(MAP_STATS.grid_x[0], MAP_STATS.grid_y[0]) * Affine.scale(dx, -dy)
     out_shape = (len(MAP_STATS.grid_y), len(MAP_STATS.grid_x))
     loess_border = MAP_STATS.loess_border_geom
@@ -216,32 +227,54 @@ def precompute_river_basin_1(cache_path=None):
     large_boundary_clip = large_boundary_clip.explode(index_parts=True).reset_index(drop=True)
     river_clip = river_clip.explode(index_parts=True).reset_index(drop=True)
 
-    # === 栅格化为掩膜 ===
+    # === 栅格化为掩膜，给每个 basin 唯一 ID ===
+    # Small basins: ID = idx + 1 (background=0)
+    small_shapes = [(geom, idx + 1) for idx, geom in enumerate(small_boundary_clip.geometry)]
     MAP_STATS.small_boundary_mask = rasterize(
-        [(geom, 1) for geom in small_boundary_clip.geometry],
-        out_shape=out_shape, transform=transform,
-        fill=0, dtype=np.uint8, all_touched=True
-    ).astype(bool)
+        small_shapes,
+        out_shape=out_shape,
+        transform=transform,
+        fill=0,
+        dtype=np.int32,
+        all_touched=True
+    )
 
+    # Large basins: 同理
+    large_shapes = [(geom, idx + 1) for idx, geom in enumerate(large_boundary_clip.geometry)]
     MAP_STATS.large_boundary_mask = rasterize(
-        [(geom, 1) for geom in large_boundary_clip.geometry],
-        out_shape=out_shape, transform=transform,
-        fill=0, dtype=np.uint8, all_touched=True
-    ).astype(bool)
+        large_shapes,
+        out_shape=out_shape,
+        transform=transform,
+        fill=0,
+        dtype=np.int32,
+        all_touched=True
+    )
 
+    # River mask: 仍为布尔
     MAP_STATS.river_mask = rasterize(
         [(geom, 1) for geom in river_clip.geometry],
-        out_shape=out_shape, transform=transform,
-        fill=0, dtype=np.uint8, all_touched=True
+        out_shape=out_shape,
+        transform=transform,
+        fill=0,
+        dtype=np.uint8,
+        all_touched=True
     ).astype(bool)
 
     print("Masks computed:")
     small_true = np.count_nonzero(MAP_STATS.small_boundary_mask)
     large_true = np.count_nonzero(MAP_STATS.large_boundary_mask)
     river_true = np.count_nonzero(MAP_STATS.river_mask)
-    print(f"  small_boundary_mask: {small_true} pixels (True)")
-    print(f"  large_boundary_mask: {large_true} pixels (True)")
+    print(f"  small_boundary_mask: {small_true} pixels (ID>0)")
+    print(f"  large_boundary_mask: {large_true} pixels (ID>0)")
     print(f"  river_mask: {river_true} pixels (True)")
+
+    # --- Count unique basin IDs ---
+    small_ids = np.unique(MAP_STATS.small_boundary_mask)
+    small_ids = small_ids[small_ids != 0]
+    print(f"Number of small basin IDs: {len(small_ids)}")
+    large_ids = np.unique(MAP_STATS.large_boundary_mask)
+    large_ids = large_ids[large_ids != 0]
+    print(f"Number of large basin IDs: {len(large_ids)}")
 
     # --- Compute Multi-Outlet Masks ---
     MAP_STATS.small_outlet_mask = compute_multi_outlet_mask(

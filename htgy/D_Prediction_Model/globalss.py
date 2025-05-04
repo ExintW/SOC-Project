@@ -6,6 +6,7 @@ CLEAN_OUTDIR = True
 desired_crs = "EPSG:4326"
 #desired_crs = "EPSG:3857"
 BULK_DENSITY = 1300  # Convert dam capacity from 10,000 m³ to tons using a bulk density of 1300 t/m³.
+DEPTH = 0.2
 CELL_AREA_HA = 100.0  # 1 km² = 100 ha
 M_soil = 2.6e8  # total soil mass per cell (kg)
 INIT_YEAR = 2007
@@ -55,8 +56,8 @@ class MAP_STATS:
     large_boundary_mask = None
     river_mask = None
     
-    c_fast_current = None
-    c_slow_current = None
+    C_fast_current = None
+    C_slow_current = None
     
     @classmethod
     def reset(cls):

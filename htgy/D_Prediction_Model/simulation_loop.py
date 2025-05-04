@@ -24,13 +24,30 @@ from SOC_dynamics import vegetation_input, soc_dynamic_model, soc_dynamic_model_
 def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, future=False, a=-1.7, b=1.61, c=1):
     # Filter dams built on or before current year
     df_dam_active = MAP_STATS.df_dam[MAP_STATS.df_dam["year"] <= year].copy()
+    active_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
+    dam_max_cap = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
+    dam_cur_stored = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
     dam_capacity_arr = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
+    
     for _, row in df_dam_active.iterrows():
         i_idx = find_nearest_index(MAP_STATS.grid_y, row["y"])
         j_idx = find_nearest_index(MAP_STATS.grid_x, row["x"])
         capacity_10000_m3 = row["capacity_remained"]
         capacity_tons = capacity_10000_m3 * 10000 * BULK_DENSITY
         dam_capacity_arr[i_idx, j_idx] = capacity_tons
+        
+        max_cap_10000_m3 = row["total_stor"]
+        max_cap_tons = max_cap_10000_m3 * 10000 * BULK_DENSITY
+        dam_max_cap[i_idx, j_idx] = max_cap_tons
+        
+        if dam_cur_stored[i_idx, j_idx] == 0.0:   # Only initialize cur_stored for new dams for this year
+            cur_stored_10000_m3 = row["deposition"]
+            cur_stored_tons = cur_stored_10000_m3 * 10000 * BULK_DENSITY
+            if np.isnan(cur_stored_tons):
+                cur_stored_tons = 0.0
+            dam_cur_stored[i_idx, j_idx] = cur_stored_tons
+        
+        active_dams[i_idx, j_idx] = 1
 
     # Load monthly climate data (NetCDF)
     if future:
@@ -39,12 +56,13 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         
     else:
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
-    
+
     if not os.path.exists(nc_file):
         print(f"NetCDF file not found for year {year}: {nc_file}")
         return
 
     with nc.Dataset(nc_file) as ds, (nc.Dataset(pr_file) if future else nullcontext()) as ds_pr:
+            
         # valid_time = ds.variables['valid_time'][:]  # Expect 12 months
         # n_time = len(valid_time)
         n_time = 12
@@ -74,14 +92,14 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             tp_data_mm = tp_data * 1000.0
             R_annual = calculate_r_factor_annually(tp_data_mm, c=c, b=b)
             R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
-        
+
         R_annual_temp = np.nan_to_num(R_annual_temp, nan=np.nanmean(R_annual_temp))
         print(f"Total elements in R Year: {R_annual_temp.size}, with max = {np.max(R_annual_temp)}, min = {np.min(R_annual_temp)}, mean = {np.mean(R_annual_temp)}")
     
         E_month_avg_list = []   # for calculating annual mean for validation
         
         if past:
-            time_range = range(n_time-1, -1, -1)
+            time_range = range(n_time-1, -1, -1)    # 11 -> 0
         else:
             time_range = range(n_time)
             
@@ -150,105 +168,110 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 E_t_ha_month, (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
             )
             
-            time1 = time.time()
-            # Call the Numba-accelerated routing function
-            D_soil, D_soc, inflow_soil, inflow_soc, lost_soc = distribute_soil_and_soc_with_dams_numba(
-                E_tcell_month, S, INIT_VALUES.DEM, dam_capacity_arr, MAP_STATS.grid_x, MAP_STATS.grid_y,
-                MAP_STATS.small_boundary_mask, MAP_STATS.small_outlet_mask,
-                MAP_STATS.large_boundary_mask, MAP_STATS.large_outlet_mask,
-                MAP_STATS.river_mask, sorted_indices,
-                reverse=past
-            )
-            print(f"distribute soc took {time.time() - time1} seconds")
+            A = convert_soil_to_soc_loss(E_tcell_month)
+            
+            # # Call the Numba-accelerated routing function
+            # D_soil, D_soc, inflow_soil, inflow_soc, lost_soc = distribute_soil_and_soc_with_dams_numba(
+            #     E_tcell_month, S, INIT_VALUES.DEM, dam_capacity_arr, MAP_STATS.grid_x, MAP_STATS.grid_y,
+            #     MAP_STATS.small_boundary_mask, MAP_STATS.small_outlet_mask,
+            #     MAP_STATS.large_boundary_mask, MAP_STATS.large_outlet_mask,
+            #     MAP_STATS.river_mask, sorted_indices,
+            #     reverse=past
+            # )
 
-            # Debug: Print SOC summary
-            Lost_soc_concentration = lost_soc*1000/M_soil
-            mean_river_lost = np.mean(np.nan_to_num(Lost_soc_concentration, nan=0))
-            max_river_lost = np.nanmax(Lost_soc_concentration)
-            min_river_lost = np.nanmin(Lost_soc_concentration)
-            print(f"Year {year} Month {month_idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
-                f"max: {max_river_lost:.2f}, min: {min_river_lost:.2f}")
+            # # Debug: Print SOC summary
+            # Lost_soc_concentration = lost_soc*1000/M_soil
+            # mean_river_lost = np.mean(np.nan_to_num(Lost_soc_concentration, nan=0))
+            # max_river_lost = np.nanmax(Lost_soc_concentration)
+            # min_river_lost = np.nanmin(Lost_soc_concentration)
+            # print(f"Year {year} Month {month_idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
+            #     f"max: {max_river_lost:.2f}, min: {min_river_lost:.2f}")
 
-            mean_erosion_lost = np.mean(np.nan_to_num(SOC_loss_g_kg_month, nan=0))
-            max_erosion_lost = np.nanmax(SOC_loss_g_kg_month)
-            min_erosion_lost = np.nanmin(SOC_loss_g_kg_month)
-            print(f"Year {year} Month {month_idx + 1}: Erosion_Lost_SOC - mean: {mean_erosion_lost:.2f}, "
-                f"max: {max_erosion_lost:.2f}, min: {min_erosion_lost:.2f}")
+            # mean_erosion_lost = np.mean(np.nan_to_num(SOC_loss_g_kg_month, nan=0))
+            # max_erosion_lost = np.nanmax(SOC_loss_g_kg_month)
+            # min_erosion_lost = np.nanmin(SOC_loss_g_kg_month)
+            # print(f"Year {year} Month {month_idx + 1}: Erosion_Lost_SOC - mean: {mean_erosion_lost:.2f}, "
+            #     f"max: {max_erosion_lost:.2f}, min: {min_erosion_lost:.2f}")
 
             # Compute vegetation input
             V = vegetation_input(LAI_2D)
             
-            mean_vege_gain = np.mean(np.nan_to_num(V, nan=0))
-            max_vege_gain = np.nanmax(V)
-            min_vege_gain = np.nanmin(V)
-            print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, "
-                  f"max: {max_vege_gain:.2f}, min: {min_vege_gain:.2f}")
+            # mean_vege_gain = np.mean(np.nan_to_num(V, nan=0))
+            # max_vege_gain = np.nanmax(V)
+            # min_vege_gain = np.nanmin(V)
+            # print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, "
+            #       f"max: {max_vege_gain:.2f}, min: {min_vege_gain:.2f}")
 
-            deposition_SOC_gain = D_soc*1000/M_soil
-            mean_deposition_gain = np.mean(np.nan_to_num(deposition_SOC_gain, nan=0))
-            max_deposition_gain = np.nanmax(deposition_SOC_gain)
-            min_deposition_gain = np.nanmin(deposition_SOC_gain)
-            print(f"Year {year} Month {month_idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
-                  f"max: {max_deposition_gain:.2f}, min: {min_deposition_gain:.2f}")
+            # deposition_SOC_gain = D_soc*1000/M_soil
+            # mean_deposition_gain = np.mean(np.nan_to_num(deposition_SOC_gain, nan=0))
+            # max_deposition_gain = np.nanmax(deposition_SOC_gain)
+            # min_deposition_gain = np.nanmin(deposition_SOC_gain)
+            # print(f"Year {year} Month {month_idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
+            #       f"max: {max_deposition_gain:.2f}, min: {min_deposition_gain:.2f}")
 
-            mean_K_fast = np.mean(np.nan_to_num(INIT_VALUES.K_fast, nan=0))
-            max_K_fast = np.nanmax(INIT_VALUES.K_fast)
-            min_K_fast = np.nanmin(INIT_VALUES.K_fast)
-            print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_fast:.6f}, "
-                  f"max: {max_K_fast:.6f}, min: {min_K_fast:.6f}")
+            # mean_K_fast = np.mean(np.nan_to_num(INIT_VALUES.K_fast, nan=0))
+            # max_K_fast = np.nanmax(INIT_VALUES.K_fast)
+            # min_K_fast = np.nanmin(INIT_VALUES.K_fast)
+            # print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_fast:.6f}, "
+            #       f"max: {max_K_fast:.6f}, min: {min_K_fast:.6f}")
 
-            mean_K_slow = np.mean(np.nan_to_num(INIT_VALUES.K_slow, nan=0))
-            max_K_slow = np.nanmax(INIT_VALUES.K_slow)
-            min_K_slow = np.nanmin(INIT_VALUES.K_slow)
-            print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_slow:.6f}, "
-                  f"max: {max_K_slow:.6f}, min: {min_K_slow:.6f}")
+            # mean_K_slow = np.mean(np.nan_to_num(INIT_VALUES.K_slow, nan=0))
+            # max_K_slow = np.nanmax(INIT_VALUES.K_slow)
+            # min_K_slow = np.nanmin(INIT_VALUES.K_slow)
+            # print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_slow:.6f}, "
+            #       f"max: {max_K_slow:.6f}, min: {min_K_slow:.6f}")
 
-            reaction_fast_loss = INIT_VALUES.K_fast * MAP_STATS.C_fast_current
-            mean_reaction_fast_loss = np.mean(np.nan_to_num(reaction_fast_loss, nan=0))
-            max_reaction_fast_loss = np.nanmax(reaction_fast_loss)
-            min_reaction_fast_loss = np.nanmin(reaction_fast_loss)
-            print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Fast_Loss - mean: {mean_reaction_fast_loss:.2f}, "
-                  f"max: {max_reaction_fast_loss:.2f}, min: {min_reaction_fast_loss:.2f}")
+            # reaction_fast_loss = INIT_VALUES.K_fast * MAP_STATS.C_fast_current
+            # mean_reaction_fast_loss = np.mean(np.nan_to_num(reaction_fast_loss, nan=0))
+            # max_reaction_fast_loss = np.nanmax(reaction_fast_loss)
+            # min_reaction_fast_loss = np.nanmin(reaction_fast_loss)
+            # print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Fast_Loss - mean: {mean_reaction_fast_loss:.2f}, "
+            #       f"max: {max_reaction_fast_loss:.2f}, min: {min_reaction_fast_loss:.2f}")
 
-            reaction_slow_loss = INIT_VALUES.K_slow * MAP_STATS.C_slow_current
-            mean_reaction_slow_loss = np.mean(np.nan_to_num(reaction_slow_loss, nan=0))
-            max_reaction_slow_loss = np.nanmax(reaction_slow_loss)
-            min_reaction_slow_loss = np.nanmin(reaction_slow_loss)
-            print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Slow_Loss - mean: {mean_reaction_slow_loss:.2f}, "
-                  f"max: {max_reaction_slow_loss:.2f}, min: {min_reaction_slow_loss:.2f}")
+            # reaction_slow_loss = INIT_VALUES.K_slow * MAP_STATS.C_slow_current
+            # mean_reaction_slow_loss = np.mean(np.nan_to_num(reaction_slow_loss, nan=0))
+            # max_reaction_slow_loss = np.nanmax(reaction_slow_loss)
+            # min_reaction_slow_loss = np.nanmin(reaction_slow_loss)
+            # print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Slow_Loss - mean: {mean_reaction_slow_loss:.2f}, "
+            #       f"max: {max_reaction_slow_loss:.2f}, min: {min_reaction_slow_loss:.2f}")
 
-            print(f"Year {year} Month {month_idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
+            # print(f"Year {year} Month {month_idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
             
-            if past:
-                dt = -1
-            else:
-                dt = 1
+            # if past:
+            #     dt = -1
+            # else:
+            #     dt = 1
                 
-            # Update SOC pool
-            if past:
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model_past(
-                    MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
-                    SOC_loss_g_kg_month, D_soil, D_soc, V,
-                    INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
-                    dt=dt,
-                    M_soil=M_soil,
-                    lost_soc=lost_soc
-                )
+            # # Update SOC pool
+            # if past:
+            #     MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model_past(
+            #         MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
+            #         SOC_loss_g_kg_month, D_soil, D_soc, V,
+            #         INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
+            #         dt=dt,
+            #         M_soil=M_soil,
+            #         lost_soc=lost_soc
+            #     )
+            # else:
+            #     MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model(
+            #         MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
+            #         SOC_loss_g_kg_month, D_soil, D_soc, V,
+            #         INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
+            #         dt=dt,
+            #         M_soil=M_soil,
+            #         lost_soc=lost_soc
+            #     )
+            if not past:
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V)
             else:
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model(
-                    MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
-                    SOC_loss_g_kg_month, D_soil, D_soc, V,
-                    INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
-                    dt=dt,
-                    M_soil=M_soil,
-                    lost_soc=lost_soc
-                )
-
+                print("Running Past")
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model_past(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V)
+                
             C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
             mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
             max_C_total = np.nanmax(C_total)
             min_C_total = np.nanmin(C_total)
-            print(f"Year {year} Month {month_idx + 1}: Total_SOC: {mean_C_total:.2f}, "
+            print(f"Year {year} Month {month_idx + 1}: Total_SOC_mean: {mean_C_total:.2f}, "
                   f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
 
             # global_timestep += 1
@@ -283,7 +306,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             pf = MAP_STATS.p_fast_grid
             sign = 1 if past else -1                              # past=True ➜ 正号，False ➜ 取反
-            dep_conc = (D_soc * 1000.0) / M_soil                 # g kg‑1 → g kg‑1（与原式相同）
+            #dep_conc = (D_soc * 1000.0) / M_soil                 # g kg‑1 → g kg‑1（与原式相同）
 
             # SOC 组分
             C_fast_list  = MAP_STATS.C_fast_current .ravel('C').tolist()
@@ -294,8 +317,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             erosion_slow_list = ( sign * SOC_loss_g_kg_month * (1 - pf)     ).ravel('C').tolist()
 
             # Deposition（沉积输入，符号与 erosion 相反）
-            deposition_fast_list = (-sign * dep_conc * pf          ).ravel('C').tolist()
-            deposition_slow_list = (-sign * dep_conc * (1 - pf)    ).ravel('C').tolist()
+            # deposition_fast_list = (-sign * dep_conc * pf          ).ravel('C').tolist()
+            # deposition_slow_list = (-sign * dep_conc * (1 - pf)    ).ravel('C').tolist()
 
             # Vegetation（植被输入）
             vegetation_fast_list = (V * pf         ).ravel('C').tolist()
@@ -312,7 +335,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             LS_factor_list=  LS_factor    .ravel('C').tolist()
             P_factor_list =  P_factor     .ravel('C').tolist()
             R_factor_list =  R_month      .ravel('C').tolist()
-            lost_soc_list =  lost_soc     .ravel('C').tolist()
+            #lost_soc_list =  lost_soc     .ravel('C').tolist()
 
             C_total_list = C_total       .ravel('C').tolist()
 
@@ -327,8 +350,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'Total_C': C_total_list,
                 'Erosion_fast': erosion_fast_list,
                 'Erosion_slow': erosion_slow_list,
-                'Deposition_fast': deposition_fast_list,
-                'Deposition_slow': deposition_slow_list,
+                # 'Deposition_fast': deposition_fast_list,
+                # 'Deposition_slow': deposition_slow_list,
                 'Vegetation_fast': vegetation_fast_list,
                 'Vegetation_slow': vegetation_slow_list,
                 'Reaction_fast': reaction_fast_list,
@@ -339,7 +362,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'LS_factor_month': LS_factor_list,
                 'P_factor_month': P_factor_list,
                 'R_factor_month': R_factor_list,
-                'Lost_SOC_River': lost_soc_list
+                # 'Lost_SOC_River': lost_soc_list
             })
             
             if USE_PARQUET:
