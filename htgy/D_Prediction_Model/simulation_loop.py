@@ -266,7 +266,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             else:
                 print("Running Past")
                 MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model_past(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V)
-                
+            
+            print(f"C fast nan: {np.isnan(MAP_STATS.C_fast_current).sum()}")
+            print(f"C slow nan: {np.isnan(MAP_STATS.C_slow_current).sum()}")
+            
             C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
             mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
             max_C_total = np.nanmax(C_total)

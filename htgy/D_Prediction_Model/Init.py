@@ -114,15 +114,37 @@ def init_global_data_structs(fraction=1):
     INIT_VALUES.SLOPE = create_grid(df, slope_col)
     INIT_VALUES.K_fast = create_grid(df, k1_col)
     INIT_VALUES.K_slow = create_grid(df, k2_col)
-
-    # Fill missing values in some arrays.
-    INIT_VALUES.DEM = np.nan_to_num(INIT_VALUES.DEM, nan=np.nanmean(INIT_VALUES.DEM))
-    INIT_VALUES.SLOPE = np.nan_to_num(INIT_VALUES.SLOPE, nan=np.nanmean(INIT_VALUES.SLOPE))
-    INIT_VALUES.K_fast = np.nan_to_num(INIT_VALUES.K_fast, nan=np.nanmean(INIT_VALUES.K_fast))
-    INIT_VALUES.K_slow = np.nan_to_num(INIT_VALUES.K_slow, nan=np.nanmean(INIT_VALUES.K_slow))
     
     # =============================================================================
     # 2) PARTITION SOC INTO FAST & SLOW POOLS
     # =============================================================================
     INIT_VALUES.C_fast, INIT_VALUES.C_slow, MAP_STATS.p_fast_grid = allocate_fast_slow_soc()
     
+def clean_nan():
+    INIT_VALUES.SOC[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.DEM[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.SAND[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.SILT[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.CLAY[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.LANDUSE[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.REGION[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.SLOPE[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.K_fast[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.K_slow[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.C_fast[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.C_slow[~MAP_STATS.loess_border_mask] = np.nan
+    MAP_STATS.p_fast_grid[~MAP_STATS.loess_border_mask] = np.nan
+    
+    # Fill missing values in some arrays.
+    INIT_VALUES.DEM[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.DEM[MAP_STATS.loess_border_mask], nan=np.nanmean(INIT_VALUES.DEM))
+    INIT_VALUES.SOC[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.SOC[MAP_STATS.loess_border_mask], nan=np.nanmean(INIT_VALUES.SOC))
+    INIT_VALUES.SAND[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.SAND[MAP_STATS.loess_border_mask], nan=np.nanmean(INIT_VALUES.SAND))
+    INIT_VALUES.SILT[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.SILT[MAP_STATS.loess_border_mask], nan=np.nanmean(INIT_VALUES.SILT))
+    INIT_VALUES.CLAY[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.CLAY[MAP_STATS.loess_border_mask], nan=np.nanmean(INIT_VALUES.CLAY))
+    INIT_VALUES.LANDUSE[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.LANDUSE[MAP_STATS.loess_border_mask], nan='not used')
+    INIT_VALUES.REGION[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.REGION[MAP_STATS.loess_border_mask], nan='erosion area')
+    INIT_VALUES.SLOPE[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.SLOPE[MAP_STATS.loess_border_mask], nan=np.nanmean(INIT_VALUES.SLOPE))
+    INIT_VALUES.K_fast[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.K_fast[MAP_STATS.loess_border_mask], nan=np.nanmean(INIT_VALUES.K_fast))
+    INIT_VALUES.K_slow[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.K_slow[MAP_STATS.loess_border_mask], nan=np.nanmean(INIT_VALUES.K_slow))
+    INIT_VALUES.C_fast[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.C_fast[MAP_STATS.loess_border_mask], nan=np.nanmean(INIT_VALUES.C_fast))
+    INIT_VALUES.C_slow[MAP_STATS.loess_border_mask] = np.nan_to_num(INIT_VALUES.C_slow[MAP_STATS.loess_border_mask], nan=np.nanmean(INIT_VALUES.C_slow))

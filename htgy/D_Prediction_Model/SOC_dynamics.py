@@ -5,11 +5,11 @@ import time
 from numba import njit
 
 _NEIGHBOR_OFFSETS = ((-1, -1), (-1, 0), (-1, 1),
-            ( 0, -1),          ( 0, 1),
-            ( 1, -1), ( 1, 0), ( 1, 1))
+                    ( 0, -1),          ( 0, 1),
+                    ( 1, -1), ( 1, 0), ( 1, 1))
 _NEIGHBOR_DIST   = (math.sqrt(2), 1.0, math.sqrt(2),
-            1.0,          1.0,
-            math.sqrt(2), 1.0, math.sqrt(2))
+                    1.0,                        1.0,
+                    math.sqrt(2), 1.0, math.sqrt(2))
 
 # =============================================================================
 # VEGETATION INPUT & UPDATED SOC DYNAMIC MODEL
@@ -123,10 +123,9 @@ def vegetation_input(LAI):
 #     return C_fast_new, C_slow_new
 
 def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, 
-                            DEM, C_fast_current, C_slow_current, 
-                            small_boundary_mask, small_outlet_mask,
-                            large_boundary_mask, large_outlet_mask,
-                            loess_border_mask):
+                            DEM, C_total, small_boundary_mask, 
+                            small_outlet_mask, large_boundary_mask,
+                            large_outlet_mask, loess_border_mask,):
     row, col = point
     total_slope = 0.0
     neighbours = []  # neighbours indicies that are lower than cur point
@@ -154,12 +153,10 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
     if total_slope == 0.0:
         return
     
-    C_total = C_fast_current[row][col] + C_slow_current[row][col]
-    
     for nr, nc, slope in neighbours:
         w = slope / total_slope
-        dep_soc[nr, nc]  += A[nr, nc] * C_total * w
-        dep_soil[nr, nc] += E_tcell[nr, nc] * w
+        dep_soc[nr, nc]  += A[row, col] * C_total * w
+        dep_soil[nr, nc] += E_tcell[row, col] * w
       
 
 def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V):
@@ -185,9 +182,6 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     del_soc_slow  = np.zeros(shape, dtype=np.float64) # Change in SOC 
     lost_soc = np.zeros(shape, dtype=np.float64)      # keep track of river losses
     
-    fast_proportion = np.zeros(shape, dtype=np.float64)
-    slow_proportion = np.zeros(shape, dtype=np.float64)
-    
     total_dep_time = 0.0
     
     time_start = time.time()
@@ -198,28 +192,24 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         if not loess_border_mask[row][col]:
             continue
         
-        fast_proportion[row][col] = C_fast_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
-        slow_proportion[row][col] = C_slow_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
-        
-        time1 = time.time()
-        get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, DEM, C_fast_current, C_slow_current, 
-                                small_boundary_mask, small_outlet_mask,
-                                large_boundary_mask, large_outlet_mask,
-                                loess_border_mask)
-        time2 = time.time()
-        
-        total_dep_time += time2 - time1
+        fast_proportion = C_fast_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
+        slow_proportion = C_slow_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
         
         if river_mask[row][col]:
             lost_soc[row][col] += dep_soc[row][col]
+            C_fast_current[row][col] = 0.0
+            C_slow_current[row][col] = 0.0
             continue
         
         ero_soc[row][col] = A[row][col] * (C_fast_current[row][col] + C_slow_current[row][col])
+        
+        dam_proportion = 1
         
         if active_dams[row][col]:    # is dam
             if dam_cur_stored[row][col] <= dam_max_cap[row][col]:
                 ero_soc[row][col] = 0.0
                 ero_soil[row][col] = 0.0
+                dam_proportion = 0.0
             else:
                 extra_soil = dam_cur_stored[row][col] - dam_max_cap[row][col]
                 assert extra_soil > 0, f'Error: dam extra soil <= 0: dam_cur_stored[row][col] = {dam_cur_stored[row][col]}, dam_max_cap[row][col] = {dam_max_cap[row][col]}'
@@ -227,11 +217,22 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
                 assert ero_proportion <= 1, f'Error: extra soil > total soil in dam: extra_soil = {extra_soil}, dam_cur_stored[row][col] = {dam_cur_stored[row][col]}, dam_max_cap[row][col] = {dam_max_cap[row][col]}'
                 ero_soc[row][col] = A[row][col] * ero_proportion * (C_fast_current[row][col] + C_slow_current[row][col])   # Only extra soc (over capacity) will erode
                 ero_soil[row][col] = ero_proportion * E_tcell[row][col]    # Only extra soil (over capacity) will erode
+                dam_proportion = ero_proportion
             dam_cur_stored[row][col] += dep_soil[row][col]
             dam_cur_stored[row][col] -= ero_soil[row][col]
         
-        del_soc_fast[row][col] += fast_proportion[row][col] * (dep_soc[row][col] + V[row][col] - ero_soc[row][col]) - (K_fast[row][col] * C_fast_current[row][col])
-        del_soc_slow[row][col] += slow_proportion[row][col] * (dep_soc[row][col] + V[row][col] - ero_soc[row][col]) - (K_slow[row][col] * C_slow_current[row][col])
+        if dam_proportion > 0:
+            time1 = time.time()
+            get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, DEM,
+                                    (C_fast_current + C_slow_current) * dam_proportion, 
+                                    small_boundary_mask, small_outlet_mask,
+                                    large_boundary_mask, large_outlet_mask,
+                                    loess_border_mask)
+            time2 = time.time()
+            total_dep_time += time2 - time1        
+        
+        del_soc_fast[row][col] += fast_proportion * (dep_soc[row][col] + V[row][col] - ero_soc[row][col]) - (K_fast[row][col] * C_fast_current[row][col])
+        del_soc_slow[row][col] += slow_proportion * (dep_soc[row][col] + V[row][col] - ero_soc[row][col]) - (K_slow[row][col] * C_slow_current[row][col])
         
     time_end = time.time()
     
@@ -271,6 +272,8 @@ def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stor
     
     C_fast_past = np.zeros(shape, np.float64)
     C_slow_past = np.zeros(shape, np.float64)
+    C_fast_past[~MAP_STATS.loess_border_mask] = np.nan
+    C_slow_past[~MAP_STATS.loess_border_mask] = np.nan
     
     # fast_proportion = MAP_STATS.p_fast_grid
     # slow_proportion = 1 - MAP_STATS.p_fast_grid
@@ -288,49 +291,58 @@ def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stor
         fast_proportion[row][col] = C_fast_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
         slow_proportion[row][col] = C_slow_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
         
-        if not river_mask[row][col]:
-            L_fast = 1 - K_fast[row][col]
-            L_slow = 1 - K_slow[row][col]
-            
-            ero_soc[row][col] = A[row][col].copy()
-            
-            if active_dams[row][col]:    # is dam
-                if dam_cur_stored[row][col] <= dam_max_cap[row][col]:
-                    ero_soc[row][col] = 0.0
-                    ero_soil[row][col] = 0.0
-                else:
-                    extra_soil = dam_cur_stored[row][col] - dam_max_cap[row][col]
-                    assert extra_soil > 0, f'Error: dam extra soil <= 0: dam_cur_stored[row][col] = {dam_cur_stored[row][col]}, dam_max_cap[row][col] = {dam_max_cap[row][col]}'
-                    ero_proportion = extra_soil / dam_cur_stored[row][col]
-                    assert ero_proportion <= 1, f'Error: extra soil > total soil in dam: extra_soil = {extra_soil}, dam_cur_stored[row][col] = {dam_cur_stored[row][col]}, dam_max_cap[row][col] = {dam_max_cap[row][col]}'
-                    ero_soc[row][col] = A[row][col] * ero_proportion    # Only extra soc (over capacity) will erode
-                    ero_soil[row][col] = ero_proportion * E_tcell[row][col]    # Only extra soil (over capacity) will erode
-                dam_cur_stored[row][col] -= dep_soil[row][col]
-                dam_cur_stored[row][col] += ero_soil[row][col]
-            
-            L_fast -= ero_soc[row][col] * fast_proportion[row][col]
-            L_slow -= ero_soc[row][col] * slow_proportion[row][col]
-            
-            C_fast_past[row][col] = C_fast_current[row][col] - (fast_proportion[row][col] * V[row][col])
-            C_fast_past[row][col] /= L_fast + 1e-9
-            C_slow_past[row][col] = C_slow_current[row][col] - (slow_proportion[row][col] * V[row][col])
-            C_slow_past[row][col] /= L_slow + 1e-9
-        
-        time1 = time.time()
-        get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, DEM, C_fast_past, C_slow_past, 
-                                small_boundary_mask, small_outlet_mask,
-                                large_boundary_mask, large_outlet_mask)
-        time2 = time.time()
-        
-        total_dep_time += time2 - time1
-        
         if river_mask[row][col]:
             lost_soc[row][col] += dep_soc[row][col]
-            continue
+            C_fast_current[row][col] = 0.0
+            C_slow_current[row][col] = 0.0
+            continue  
         
+        L_fast = 1 - K_fast[row][col]
+        L_slow = 1 - K_slow[row][col]
+        
+        ero_soc[row][col] = A[row][col].copy()
+        
+        dam_proportion = 1
+        
+        if active_dams[row][col]:    # is dam
+            if dam_cur_stored[row][col] <= dam_max_cap[row][col]:
+                ero_soc[row][col] = 0.0
+                ero_soil[row][col] = 0.0
+                dam_proportion = 0.0
+            else:
+                extra_soil = dam_cur_stored[row][col] - dam_max_cap[row][col]
+                assert extra_soil > 0, f'Error: dam extra soil <= 0: dam_cur_stored[row][col] = {dam_cur_stored[row][col]}, dam_max_cap[row][col] = {dam_max_cap[row][col]}'
+                ero_proportion = extra_soil / dam_cur_stored[row][col]
+                assert ero_proportion <= 1, f'Error: extra soil > total soil in dam: extra_soil = {extra_soil}, dam_cur_stored[row][col] = {dam_cur_stored[row][col]}, dam_max_cap[row][col] = {dam_max_cap[row][col]}'
+                ero_soc[row][col] = A[row][col] * ero_proportion    # Only extra soc (over capacity) will erode
+                ero_soil[row][col] = ero_proportion * E_tcell[row][col]    # Only extra soil (over capacity) will erode
+                dam_proportion = ero_proportion
+            dam_cur_stored[row][col] -= dep_soil[row][col]
+            dam_cur_stored[row][col] += ero_soil[row][col]
+        
+        L_fast -= ero_soc[row][col] * fast_proportion[row][col]
+        L_slow -= ero_soc[row][col] * slow_proportion[row][col]
+        
+        C_fast_past[row][col] = C_fast_current[row][col] - (fast_proportion[row][col] * V[row][col])
+        C_fast_past[row][col] /= L_fast + 1e-9
+        C_slow_past[row][col] = C_slow_current[row][col] - (slow_proportion[row][col] * V[row][col])
+        C_slow_past[row][col] /= L_slow + 1e-9
+    
         if dep_soc[row][col] > 0.0:
             C_fast_past[row][col] -= (fast_proportion[row][col] * dep_soc[row][col]) / (L_fast + 1e-9)
             C_slow_past[row][col] -= (slow_proportion[row][col] * dep_soc[row][col]) / (L_slow + 1e-9)
+    
+        if dam_proportion > 0:
+            time1 = time.time()
+            get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, DEM,
+                                    (C_fast_past + C_slow_past) * dam_proportion, 
+                                    small_boundary_mask, small_outlet_mask,
+                                    large_boundary_mask, large_outlet_mask,
+                                    loess_border_mask)
+            time2 = time.time()
+            total_dep_time += time2 - time1
+        
+        
         
         # if (C_fast_past[row][col] + C_slow_past[row][col]) - (C_fast_current[row][col] + C_slow_current[row][col]) > 2:
         #     print(f"Change in SOC: {(C_fast_past[row][col] + C_slow_past[row][col]) - (C_fast_current[row][col] + C_slow_current[row][col])}")

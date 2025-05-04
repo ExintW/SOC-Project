@@ -59,7 +59,7 @@ sys.path.append(os.path.dirname(__file__))
 
 from RUSLE_Calculations import *
 from globalss import *
-from Init import init_global_data_structs
+from Init import init_global_data_structs, clean_nan
 from River_Basin import * 
 from utils import *
 from simulation_loop import run_simulation_year
@@ -92,7 +92,12 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # RASTERIZE RIVER BASIN BOUNDARIES & MAIN RIVER USING PRECOMPUTED MASKS
     # =============================================================================
     precompute_river_basin_1()
-
+    
+    # =============================================================================
+    # CLEAN UP GLOBAL DATA: SET NAN TO MEAN AND VALUES OUTSIDE OF BORDER TO NAN
+    # =============================================================================
+    clean_nan()
+    
     # =============================================================================
     # COMPUTE CONSTANT RUSLE FACTORS
     # =============================================================================
@@ -151,6 +156,8 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # Initialize current SOC pools=
     MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
     MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
+    MAP_STATS.C_fast_current[~MAP_STATS.loess_border_mask] = np.nan
+    MAP_STATS.C_slow_current[~MAP_STATS.loess_border_mask] = np.nan
 
     os.makedirs(OUTPUT_DIR / "Figure", exist_ok=True)
     os.makedirs(OUTPUT_DIR / "Data", exist_ok=True)
@@ -181,9 +188,12 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         # INIT_VALUES.reset()
         # MAP_STATS.reset()
         init_global_data_structs(fraction=fraction)
+        clean_nan()
         # precompute_river_basin_1()
         MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
         MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
+        MAP_STATS.C_fast_current[~MAP_STATS.loess_border_mask] = np.nan
+        MAP_STATS.C_slow_current[~MAP_STATS.loess_border_mask] = np.nan
 
     if past_year != None:
         if fraction == 1:
