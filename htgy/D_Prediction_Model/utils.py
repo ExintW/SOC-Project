@@ -16,7 +16,7 @@ def convert_soil_loss_to_soc_loss_monthly(E_t_ha_month, ORGA_g_per_kg, bulk_dens
     """
     depth = 0.2
     E_g_m2_month = E_t_ha_month * 100.0
-    soc_loss_g_per_kg = E_g_m2_month * (ORGA_g_per_kg / 1000.0)/depth / bulk_density
+    soc_loss_g_per_kg = (E_g_m2_month / 1000.0) * ORGA_g_per_kg/depth / bulk_density
     return soc_loss_g_per_kg
 
 def convert_soil_to_soc_loss(E_t_ha_month):
