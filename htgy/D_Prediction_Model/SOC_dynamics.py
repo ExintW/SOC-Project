@@ -125,7 +125,8 @@ def vegetation_input(LAI):
 def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, 
                             DEM, C_fast_current, C_slow_current, 
                             small_boundary_mask, small_outlet_mask,
-                            large_boundary_mask, large_outlet_mask):
+                            large_boundary_mask, large_outlet_mask,
+                            loess_border_mask):
     row, col = point
     total_slope = 0.0
     neighbours = []  # neighbours indicies that are lower than cur point
@@ -134,6 +135,9 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
         nr, nc = row + dx, col + dy
         # map bounds check
         if nr < 0 or nr >= nrows or nc < 0 or nc >= ncols:
+            continue
+        # 2) Skip if neighbour is outside the Loess Plateau boundary
+        if not loess_border_mask[nr][nc]:
             continue
         # 流域检查
         if small_boundary_mask[row, col] != small_boundary_mask[nr,nc] and not small_outlet_mask[row, col]:
@@ -169,6 +173,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     small_outlet_mask = MAP_STATS.small_outlet_mask
     large_boundary_mask = MAP_STATS.large_boundary_mask
     large_outlet_mask = MAP_STATS.large_outlet_mask
+    loess_border_mask = MAP_STATS.loess_border_mask
 
     shape = DEM.shape
     dep_soil = np.zeros(shape, np.float64)
@@ -189,8 +194,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     for point in sorted_indices:
         row = point[0]
         col = point[1]
-        
-        if np.isnan(E_tcell[row][col]):
+
+        if not loess_border_mask[row][col]:
             continue
         
         fast_proportion[row][col] = C_fast_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
@@ -199,7 +204,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         time1 = time.time()
         get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, DEM, C_fast_current, C_slow_current, 
                                 small_boundary_mask, small_outlet_mask,
-                                large_boundary_mask, large_outlet_mask)
+                                large_boundary_mask, large_outlet_mask,
+                                loess_border_mask)
         time2 = time.time()
         
         total_dep_time += time2 - time1
@@ -248,6 +254,7 @@ def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stor
     small_outlet_mask = MAP_STATS.small_outlet_mask
     large_boundary_mask = MAP_STATS.large_boundary_mask
     large_outlet_mask = MAP_STATS.large_outlet_mask
+    loess_border_mask = MAP_STATS.loess_border_mask
 
     shape = DEM.shape
     dep_soil = np.zeros(shape, np.float64)
@@ -274,9 +281,8 @@ def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stor
     for point in sorted_indices:
         row = point[0]
         col = point[1]
-        
-        if np.isnan(DEM[row][col]):
-            print('continuing')
+
+        if not loess_border_mask[row][col]:
             continue
         
         fast_proportion[row][col] = C_fast_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)

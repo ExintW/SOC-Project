@@ -54,6 +54,8 @@ class MAP_STATS:
     
     small_boundary_mask = None
     large_boundary_mask = None
+
+    loess_border_mask = None
     river_mask = None
     
     C_fast_current = None
