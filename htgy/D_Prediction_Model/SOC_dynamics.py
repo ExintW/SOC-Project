@@ -158,8 +158,8 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
     
     for nr, nc, slope in neighbours:
         w = slope / total_slope
-        dep_soc[nr, nc]  += A[nr, nc] * C_total * w
-        dep_soil[nr, nc] += E_tcell[nr, nc] * w
+        dep_soc[nr, nc]  += A[row, col] * C_total * w
+        dep_soil[nr, nc] += E_tcell[row, col] * w
       
 
 def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V):
@@ -211,7 +211,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         total_dep_time += time2 - time1
         
         if river_mask[row][col]:
-            lost_soc[row][col] += dep_soc[row][col]
+            lost_soc[row][col] = dep_soc[row][col]
             continue
         
         ero_soc[row][col] = A[row][col] * (C_fast_current[row][col] + C_slow_current[row][col])
@@ -241,7 +241,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     C_fast_new = np.maximum((C_fast_current + del_soc_fast), 0)
     C_slow_new = np.maximum((C_slow_current + del_soc_slow), 0)
     
-    return C_fast_new, C_slow_new
+    return C_fast_new, C_slow_new, dep_soc, lost_soc
 
 def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V):
     C_fast_current = MAP_STATS.C_fast_current
