@@ -242,13 +242,35 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     C_fast_new = np.maximum((C_fast_current + del_soc_fast), 0)
     C_slow_new = np.maximum((C_slow_current + del_soc_slow), 0)
     
+    # if (C_fast_new[row][col] + C_slow_new[row][col]) - (C_fast_current[row][col] + C_slow_current[row][col]) > 10:
+    #     print(f"Change in SOC: {(C_fast_new[row][col] + C_slow_new[row][col]) - (C_fast_current[row][col] + C_slow_current[row][col])}")
+    #     print(f"\tA = {A[row][col]}")
+    #     print()
+    #     print(f"\tNew SOC fast: {(C_fast_new[row][col])}")
+    #     print(f"\tOld SOC fast: {(C_fast_current[row][col])}")
+    #     print(f"\tero_soc fast: {ero_soc[row][col] * fast_proportion}")
+    #     print(f"\tdep_soc fast: {dep_soc[row][col] * fast_proportion}")
+    #     print(f"\tV fast: {V[row][col] * fast_proportion}")
+    #     print(f"\tK_fast: {K_fast[row][col]}")
+    #     print(f"\tA fast: {A[row][col] * fast_proportion}")
+    #     print(f"\tfast proportion: {fast_proportion}")
+    #     print()
+    #     print(f"\tNew SOC slow: {(C_slow_new[row][col])}")
+    #     print(f"\tOld SOC slow: {(C_slow_current[row][col])}")
+    #     print(f"\tero_soc slow: {ero_soc[row][col] * slow_proportion}")
+    #     print(f"\tdep_soc slow: {dep_soc[row][col] * slow_proportion}")
+    #     print(f"\tV slow: {V[row][col] * slow_proportion}")
+    #     print(f"\tK_slow: {K_slow[row][col]}")
+    #     print(f"\tA slow: {A[row][col] * slow_proportion}")
+    #     print(f"\tslow proportion: {slow_proportion}")
+    
     return C_fast_new, C_slow_new, dep_soc, lost_soc
 
 def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V):
     C_fast_current = MAP_STATS.C_fast_current
     C_slow_current = MAP_STATS.C_slow_current
     river_mask = MAP_STATS.river_mask
-    K_fast = INIT_VALUES.K_fast
+    K_fast = INIT_VALUES.K_fast     # setting K_fast = K_slow
     K_slow = INIT_VALUES.K_slow
     DEM = INIT_VALUES.DEM
     small_boundary_mask = MAP_STATS.small_boundary_mask
@@ -263,9 +285,6 @@ def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stor
     ero_soil  = np.zeros(shape, np.float64)
     ero_soc   = np.zeros(shape, np.float64)
     lost_soc = np.zeros(shape, dtype=np.float64)      # keep track of river losses
-    
-    fast_proportion = np.zeros(shape, dtype=np.float64)
-    slow_proportion = np.zeros(shape, dtype=np.float64)
     
     L_fast = np.zeros(shape, dtype=np.float64)
     L_slow = np.zeros(shape, dtype=np.float64)
@@ -288,8 +307,13 @@ def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stor
         if not loess_border_mask[row][col]:
             continue
         
-        fast_proportion[row][col] = C_fast_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
-        slow_proportion[row][col] = C_slow_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
+        A[row][col] = min(A[row][col], 0.1)
+        K_fast[row][col] = min(K_fast[row][col] * 0.015, 0.1)
+        K_slow[row][col] = min(K_slow[row][col] * 0.015, 0.1)
+        # V[row][col] = min(V[row][col] * 100, 0.4)
+        
+        fast_proportion = C_fast_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
+        slow_proportion = C_slow_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
         
         if river_mask[row][col]:
             lost_soc[row][col] += dep_soc[row][col]
@@ -320,18 +344,21 @@ def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stor
             dam_cur_stored[row][col] -= dep_soil[row][col]
             dam_cur_stored[row][col] += ero_soil[row][col]
         
-        L_fast -= ero_soc[row][col] * fast_proportion[row][col]
-        L_slow -= ero_soc[row][col] * slow_proportion[row][col]
+        L_fast -= ero_soc[row][col] * fast_proportion
+        L_slow -= ero_soc[row][col] * slow_proportion
         
-        C_fast_past[row][col] = C_fast_current[row][col] - (fast_proportion[row][col] * V[row][col])
+        C_fast_past[row][col] = C_fast_current[row][col] - (fast_proportion * V[row][col])
         C_fast_past[row][col] /= L_fast + 1e-9
-        C_slow_past[row][col] = C_slow_current[row][col] - (slow_proportion[row][col] * V[row][col])
+        C_slow_past[row][col] = C_slow_current[row][col] - (slow_proportion * V[row][col])
         C_slow_past[row][col] /= L_slow + 1e-9
     
         if dep_soc[row][col] > 0.0:
-            C_fast_past[row][col] -= (fast_proportion[row][col] * dep_soc[row][col]) / (L_fast + 1e-9)
-            C_slow_past[row][col] -= (slow_proportion[row][col] * dep_soc[row][col]) / (L_slow + 1e-9)
-    
+            C_fast_past[row][col] -= (fast_proportion * dep_soc[row][col]) / (L_fast + 1e-9)
+            C_slow_past[row][col] -= (slow_proportion * dep_soc[row][col]) / (L_slow + 1e-9)
+
+        C_fast_past[row][col] = max(C_fast_past[row][col], 0)
+        C_slow_past[row][col] = max(C_slow_past[row][col], 0)
+        
         if dam_proportion > 0:
             time1 = time.time()
             get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, DEM,
@@ -342,34 +369,36 @@ def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stor
             time2 = time.time()
             total_dep_time += time2 - time1
         
-        
-        
-        # if (C_fast_past[row][col] + C_slow_past[row][col]) - (C_fast_current[row][col] + C_slow_current[row][col]) > 2:
+        # if (C_fast_past[row][col] + C_slow_past[row][col]) - (C_fast_current[row][col] + C_slow_current[row][col]) > 30:
         #     print(f"Change in SOC: {(C_fast_past[row][col] + C_slow_past[row][col]) - (C_fast_current[row][col] + C_slow_current[row][col])}")
+        #     print(f"\tA = {A[row][col]}")
+        #     print()
         #     print(f"\tNew SOC fast: {(C_fast_past[row][col])}")
         #     print(f"\tOld SOC fast: {(C_fast_current[row][col])}")
-        #     print(f"\tero_soc fast: {ero_soc[row][col] * fast_proportion[row][col]}")
-        #     print(f"\tdep_soc fast: {dep_soc[row][col] * fast_proportion[row][col]}")
-        #     print(f"\tV fast: {V[row][col] * fast_proportion[row][col]}")
+        #     print(f"\tero_soc fast: {ero_soc[row][col] * fast_proportion}")
+        #     print(f"\tdep_soc fast: {dep_soc[row][col] * fast_proportion}")
+        #     print(f"\tV fast: {V[row][col] * fast_proportion}")
         #     print(f"\tL_fast: {L_fast}")
         #     print(f"\tK_fast: {K_fast[row][col]}")
-        #     print(f"\tA fast: {A[row][col] * fast_proportion[row][col]}")
+        #     print(f"\tA fast: {A[row][col] * fast_proportion}")
+        #     print(f"\tfast proportion: {fast_proportion}")
         #     print()
         #     print(f"\tNew SOC slow: {(C_slow_past[row][col])}")
         #     print(f"\tOld SOC slow: {(C_slow_current[row][col])}")
-        #     print(f"\tero_soc slow: {ero_soc[row][col] * slow_proportion[row][col]}")
-        #     print(f"\tdep_soc slow: {dep_soc[row][col] * slow_proportion[row][col]}")
-        #     print(f"\tV slow: {V[row][col] * slow_proportion[row][col]}")
+        #     print(f"\tero_soc slow: {ero_soc[row][col] * slow_proportion}")
+        #     print(f"\tdep_soc slow: {dep_soc[row][col] * slow_proportion}")
+        #     print(f"\tV slow: {V[row][col] * slow_proportion}")
         #     print(f"\tL_slow: {L_slow}")
         #     print(f"\tK_slow: {K_slow[row][col]}")
-        #     print(f"\tA slow: {A[row][col] * slow_proportion[row][col]}")
+        #     print(f"\tA slow: {A[row][col] * slow_proportion}")
+        #     print(f"\tslow proportion: {slow_proportion}")
         
     time_end = time.time()
     
     print(f"total time: {time_end - time_start}")
     print(f"dep time: {total_dep_time}")
     
-    return np.maximum(C_fast_past, 0), np.maximum(C_slow_past, 0)
+    return np.maximum(C_fast_past, 0), np.maximum(C_slow_past, 0), dep_soc, lost_soc
 
 ###########################################################
 #                Inlined and flattened version
