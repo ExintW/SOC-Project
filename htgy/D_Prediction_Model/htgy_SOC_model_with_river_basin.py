@@ -165,7 +165,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # Delete previous results
     if CLEAN_OUTDIR:
         data_dir = OUTPUT_DIR / "Data"
-        for file in glob.glob(str(data_dir / "*.csv")):
+        for file in glob.glob(str(data_dir / "*.csv")):  
             os.remove(file)
         for file in glob.glob(str(data_dir / "*.parquet")):
             os.remove(file)
@@ -216,7 +216,7 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year = 2007   # year of init condition
-    end_year = 2008     # last year of present  (set to None to disable present year)
+    end_year = None     # last year of present  (set to None to disable present year)
     past_year = 2006    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
     

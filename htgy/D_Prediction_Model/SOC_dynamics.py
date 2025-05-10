@@ -200,6 +200,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         C_fast_past[~MAP_STATS.loess_border_mask] = np.nan
         C_slow_past[~MAP_STATS.loess_border_mask] = np.nan
 
+    A = np.clip(A, max=0.1)
     
     total_dep_time = 0.0
     
@@ -219,8 +220,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         # slow_proportion = C_slow_current[row][col] / (C_slow_current[row][col] + C_fast_current[row][col] + 1e-9)
         
         # A[row][col] = min(A[row][col], 0.1)
-        # K_fast[row][col] = min(K_fast[row][col] * 0.015, 0.1)
-        # K_slow[row][col] = min(K_slow[row][col] * 0.015, 0.1)
+        # K_fast[row][col] = min(K_fast[row][col], 0.1)
+        # K_slow[row][col] = min(K_slow[row][col], 0.1)
         # V[row][col] = min(V[row][col] * 100, 0.4)
         
         if river_mask[row][col]:
@@ -313,16 +314,34 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     time_end = time.time()
     
     print(f'avg fast_proportion = {np.nanmean(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}, max = {np.nanmax(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}, min = {np.nanmin(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}')
+    print(f'avg K_fast = {np.nanmean(K_fast)}, max = {np.nanmax(K_fast)}, min = {np.nanmin(K_fast)}')
+    print(f'avg K_slow = {np.nanmean(K_slow)}, max = {np.nanmax(K_slow)}, min = {np.nanmin(K_slow)}')
+    print(f'avg A = {np.nanmean(A)}, max = {np.nanmax(A)}, min = {np.nanmin(A)}')
+    # print(f'max diff = {np.nanmax(C_fast_current) - np.nanmax(C_fast_prev)}')
+    # print(f'max Damp = {LAMBDA_FAST * (np.nanmax(C_fast_current) - np.nanmax(C_fast_prev))}')
     
     print(f"total time: {time_end - time_start}")
     print(f"dep time: {total_dep_time}")
     
+    MAP_STATS.C_fast_prev = C_fast_current.copy()
+    MAP_STATS.C_slow_prev = C_slow_current.copy()
+    
     if not past:
         C_fast_new = np.maximum((C_fast_current + del_soc_fast), 0)
         C_slow_new = np.maximum((C_slow_current + del_soc_slow), 0)
+        damp_fast = LAMBDA_FAST * (C_fast_new - C_fast_current)
+        damp_slow = LAMBDA_SLOW * (C_slow_new - C_slow_current)
+        C_fast_new -= damp_fast
+        C_slow_new -= damp_slow
     else:
         C_fast_new = np.maximum(C_fast_past, 0)
         C_slow_new = np.maximum(C_slow_past, 0)
+        damp_fast = LAMBDA_FAST * (C_fast_new - C_fast_current)
+        damp_slow = LAMBDA_SLOW * (C_slow_new - C_slow_current)
+        C_fast_new -= damp_fast
+        C_slow_new -= damp_slow
+        
+    print(f'avg damping in fast = {np.nanmean(damp_fast)}, max = {np.nanmax(damp_fast)}, min = {np.nanmin(damp_fast)}')
     
     return C_fast_new, C_slow_new, dep_soc, lost_soc
 

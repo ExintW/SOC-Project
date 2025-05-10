@@ -145,20 +145,20 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             print(f"R_month regrid took {time.time() - time2} seconds")
             print(f"before R_month took {time.time() - time_month} seconds\n")
 
-            print(f"Total elements in R month: {R_month.size}, with max = {np.max(R_month)}, min = {np.min(R_month)}, and mean = {np.mean(R_month)}")
+            # print(f"Total elements in R month: {R_month.size}, with max = {np.max(R_month)}, min = {np.min(R_month)}, and mean = {np.mean(R_month)}")
             
             C_factor_2D = calculate_c_factor(LAI_2D, a=a)
-            print(f"Total elements in C: {C_factor_2D.size}, with max = {np.max(C_factor_2D)}, min = {np.min(C_factor_2D)}, and mean = {np.mean(C_factor_2D)}")
-            print(f"\nLAI mean = {np.nanmean(LAI_2D)}\n")
+            # print(f"Total elements in C: {C_factor_2D.size}, with max = {np.max(C_factor_2D)}, min = {np.min(C_factor_2D)}, and mean = {np.mean(C_factor_2D)}")
+            # print(f"\nLAI mean = {np.nanmean(LAI_2D)}\n")
             
             # Calculate monthly K factor
             K_month = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current), INIT_VALUES.LANDUSE)
             K_month = np.nan_to_num(K_month, nan=np.nanmean(K_month))
-            print(f"Total elements in K: {K_month.size}, with max = {np.max(K_month)}, min = {np.min(K_month)}, and mean = {np.mean(K_month)}")
+            # print(f"Total elements in K: {K_month.size}, with max = {np.max(K_month)}, min = {np.min(K_month)}, and mean = {np.mean(K_month)}")
 
             # Calculate soil loss (t/ha/month) & then per cell
             E_t_ha_month = R_month * K_month * LS_factor * C_factor_2D * P_factor
-            print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.max(E_t_ha_month)}, min = {np.min(E_t_ha_month)}, and mean = {np.mean(E_t_ha_month)}")
+            # print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.max(E_t_ha_month)}, min = {np.min(E_t_ha_month)}, and mean = {np.mean(E_t_ha_month)}")
             E_tcell_month = E_t_ha_month * CELL_AREA_HA
             E_month_avg_list.append(np.mean(E_t_ha_month))
 
@@ -264,8 +264,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, past)
             
-            print(f"C fast nan: {np.isnan(MAP_STATS.C_fast_current).sum()}")
-            print(f"C slow nan: {np.isnan(MAP_STATS.C_slow_current).sum()}")
+            # print(f"C fast nan: {np.isnan(MAP_STATS.C_fast_current).sum()}")
+            # print(f"C slow nan: {np.isnan(MAP_STATS.C_slow_current).sum()}")
             
             C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
             mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
