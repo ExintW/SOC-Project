@@ -6,14 +6,15 @@ import numpy as np
 from scipy.spatial import cKDTree
 import sys
 import os
+import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *
 
 # === 1. 设置文件路径 ===
-csv_file = PROCESSED_DIR / "resampled_Loess_Plateau_1km.csv"  # 输入的点位CSV
+csv_file = PROCESSED_DIR / "Resampled_Loess_Plateau_1km.csv"  # 输入的点位CSV
 shp_path = DATA_DIR / "Loess_Plateau_vector_border.shp"  # htgy边界
 tif_path = DATA_DIR / "htgyDEM.tif"  # TIFF文件路径
-output_csv = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM.csv"  # 输出CSV路径
+output_csv = PROCESSED_DIR / "Resampled_Loess_Plateau_1km_with_DEM.csv"  # 输出CSV路径
 
 # === 2. 读取数据 ===
 df = pd.read_csv(csv_file)
@@ -77,6 +78,29 @@ if points_within_boundary["htgy_DEM"].isnull().sum() > 0:
 
     # 用最近邻的值填充缺失值
     points_within_boundary.loc[points_within_boundary["htgy_DEM"].isnull(), "htgy_DEM"] = valid_values[idx]
+
+
+# 确保 boundary 和 points_within_boundary 在同一 CRS（上面已投影到 dem_crs）
+fig, ax = plt.subplots(figsize=(10, 8))
+
+# 画出边界
+boundary.plot(ax=ax, edgecolor='black', facecolor='none', linewidth=1)
+
+# 按照 htgy_DEM 值给点着色
+points_within_boundary.plot(
+    ax=ax,
+    column='htgy_DEM',
+    cmap='terrain',
+    markersize=5,
+    legend=True,
+    legend_kwds={'label': 'Elevation (m)', 'shrink': 0.6}
+)
+
+ax.set_title("Resampled DEM Values on Loess Plateau Grid Points")
+ax.set_xlabel("X coordinate")
+ax.set_ylabel("Y coordinate")
+plt.tight_layout()
+plt.show()
 
 # === 8. 保存结果 ===
 points_within_boundary.drop(columns="geometry", inplace=True)

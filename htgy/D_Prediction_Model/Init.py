@@ -65,7 +65,7 @@ def init_global_data_structs(fraction=1):
 
 
     # Define file paths for the region CSV, dam CSV, and SOC proportion CSV.
-    region_csv_path = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
+    region_csv_path = PROCESSED_DIR / "Resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
     dam_csv_path = PROCESSED_DIR / "htgy_Dam_with_matched_points.csv"
     proportion_csv_path = DATA_DIR / "Fast_Slow_SOC_Proportion.csv"
 
@@ -104,7 +104,7 @@ def init_global_data_structs(fraction=1):
     INIT_VALUES.SOC = create_grid(df, soc_col)  # SOC concentration (g/kg)
     INIT_VALUES.SOC_valid = INIT_VALUES.SOC.copy() # for validation
     INIT_VALUES.SOC *= fraction                 # for past simulation
-    INIT_VALUES.SOC = np.clip(INIT_VALUES.SOC, None, 12)    # Clip values above 12
+    INIT_VALUES.SOC = np.clip(INIT_VALUES.SOC, None, 14)    # Clip values above 12
     INIT_VALUES.DEM = create_grid(df, dem_col)
     INIT_VALUES.SAND = create_grid(df, "SAND")
     INIT_VALUES.SILT = create_grid(df, "SILT")

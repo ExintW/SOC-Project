@@ -63,6 +63,7 @@ from Init import init_global_data_structs, clean_nan
 from River_Basin import * 
 from utils import *
 from simulation_loop import run_simulation_year
+from shapely.geometry import LineString, MultiLineString
 
 # Append parent directory to path to access 'globals' if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -131,24 +132,6 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         print("Warning: numba.atomic.add not available; using non-atomic addition (serial mode).")
 
     # =============================================================================
-    # FIGURE OUTPUT SETUP & INITIAL PLOT
-    # =============================================================================
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    fig, ax = plt.subplots()
-    cax = ax.imshow(INIT_VALUES.C_fast + INIT_VALUES.C_slow, cmap="viridis",
-                    extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
-                    origin='upper')
-    cbar = fig.colorbar(cax, label="SOC (g/kg)")
-    ax.set_title("Initial SOC Distribution (t = 0)")
-    ax.set_xlabel("Longitude")
-    ax.set_ylabel("Latitude")
-    ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
-    ax.ticklabel_format(style='plain', axis='x')
-    plt.savefig(os.path.join(OUTPUT_DIR / "Figure"/ "SOC_initial.png"))
-    plt.close(fig)
-
-    # =============================================================================
     # MAIN SIMULATION LOOP (MONTHLY)
     # =============================================================================
     step_size = 1   # for quick RUSLE vaidation
@@ -165,7 +148,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # Delete previous results
     if CLEAN_OUTDIR:
         data_dir = OUTPUT_DIR / "Data"
-        for file in glob.glob(str(data_dir / "*.csv")):  
+        for file in glob.glob(str(data_dir / "*.csv")):
             os.remove(file)
         for file in glob.glob(str(data_dir / "*.parquet")):
             os.remove(file)
@@ -173,6 +156,35 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         figure_dir = OUTPUT_DIR / "Figure"
         for file in glob.glob(str(figure_dir / "*.png")):
             os.remove(file)
+
+        # =============================================================================
+        # FIGURE OUTPUT SETUP & INITIAL PLOT
+        # =============================================================================
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    fig, ax = plt.subplots()
+    cax = ax.imshow(INIT_VALUES.C_fast + INIT_VALUES.C_slow, cmap="viridis",
+                    extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(),
+                            MAP_STATS.grid_y.max()],
+                    origin='upper')
+    # overlay the border (no fill, just outline)
+    border = MAP_STATS.loess_border_geom.boundary
+
+    if isinstance(border, LineString):
+        x, y = border.xy
+        ax.plot(x, y, color="black", linewidth=0.4)
+    elif isinstance(border, MultiLineString):
+        for seg in border.geoms:
+            x, y = seg.xy
+            ax.plot(x, y, color="black", linewidth=0.4)
+    cbar = fig.colorbar(cax, label="SOC (g/kg)")
+    ax.set_title("Initial SOC Distribution (t = 0)")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
+    ax.ticklabel_format(style='plain', axis='x')
+    plt.savefig(os.path.join(OUTPUT_DIR / "Figure" / "SOC_initial.png"), dpi=600)
+    plt.close(fig)
 
     t_sim_start = time.perf_counter()
     
@@ -216,14 +228,14 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year = 2007   # year of init condition
-    end_year = None     # last year of present  (set to None to disable present year)
-    past_year = 2006    # last year of past     (set to None to disable past year)
+    end_year = 2010     # last year of present  (set to None to disable present year)
+    past_year = None    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
     
     fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     
     log = False     # save output to a log file
-    
+
     if log:
         with open(OUTPUT_DIR / "out.log", "w") as f:
             original_stdout = sys.stdout

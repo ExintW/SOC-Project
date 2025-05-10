@@ -12,8 +12,8 @@ M_soil = 2.6e8  # total soil mass per cell (kg)
 INIT_YEAR = 2007
 PRESENT_YEAR = 2025
 # global_timestep = 0
-LAMBDA_FAST = 0.9       # for damping, set to 0 to disable
-LAMBDA_SLOW = 0.1       # for damping, set to 0 to disable
+LAMBDA_FAST = 0       # for damping, set to 0 to disable
+LAMBDA_SLOW = 0       # for damping, set to 0 to disable
 
 class INIT_VALUES:
     SOC = None

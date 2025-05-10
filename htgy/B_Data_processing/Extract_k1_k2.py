@@ -11,8 +11,8 @@ from globals import *
 # File Paths
 tiff_k1_path = DATA_DIR / "k1_halfDegree.tif"
 tiff_k2_path = DATA_DIR / "k2_halfDegree.tif"
-csv_file_path = DATA_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_labeled.csv"
-output_csv_path = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
+csv_file_path = PROCESSED_DIR / "Resampled_Loess_Plateau_1km_with_DEM_region_labeled.csv"
+output_csv_path = PROCESSED_DIR / "Resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
 
 # Function to extract raster values at given coordinates
 def extract_raster_values(tiff_path, lon, lat):
