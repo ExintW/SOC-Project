@@ -207,6 +207,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     print("Final SOC distribution is in C_fast_current + C_slow_current.")
     
     rmse = np.sqrt(np.nanmean((MAP_STATS.C_fast_current + MAP_STATS.C_slow_current - INIT_VALUES.SOC_valid) ** 2))
+    print(f"RMSE = {rmse}")
     return rmse
 
 if __name__ == "__main__":
@@ -215,11 +216,21 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year = 2007   # year of init condition
-    end_year = 2012     # last year of present  (set to None to disable present year)
+    end_year = 2008     # last year of present  (set to None to disable present year)
     past_year = 2006    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
     
     fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     
-    rmse = run_model(a, b, c, start_year, end_year, past_year, future_year, fraction)
-    print(f"RMSE = {rmse}")
+    log = False     # save output to a log file
+    
+    if log:
+        with open(OUTPUT_DIR / "out.log", "w") as f:
+            original_stdout = sys.stdout
+            sys.stdout = f
+            try:
+                rmse = run_model(a, b, c, start_year, end_year, past_year, future_year, fraction)
+            finally:
+                sys.stdout = original_stdout
+    else:
+        rmse = run_model(a, b, c, start_year, end_year, past_year, future_year, fraction)

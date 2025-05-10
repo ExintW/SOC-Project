@@ -18,7 +18,7 @@ from utils import *
 from RUSLE_Calculations import *
 
 from soil_and_soc_flow import distribute_soil_and_soc_with_dams_numba
-from SOC_dynamics import vegetation_input, soc_dynamic_model, soc_dynamic_model_past
+from SOC_dynamics import vegetation_input, soc_dynamic_model
 
 
 def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, future=False, a=-1.7, b=1.61, c=1):
@@ -261,11 +261,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             #         M_soil=M_soil,
             #         lost_soc=lost_soc
             #     )
-            if not past:
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V)
-            else:
-                print("Running Past")
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model_past(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V)
+
+            MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, past)
             
             print(f"C fast nan: {np.isnan(MAP_STATS.C_fast_current).sum()}")
             print(f"C slow nan: {np.isnan(MAP_STATS.C_slow_current).sum()}")
