@@ -261,9 +261,11 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             L_fast -= ero_soc[row][col] * init_fast_proportion[row][col]
             L_slow -= ero_soc[row][col] * init_slow_proportion[row][col]
             
-            C_fast_past[row][col] = C_fast_current[row][col] - (init_fast_proportion[row][col] * V[row][col])
+            # C_fast_past[row][col] = C_fast_current[row][col] - (init_fast_proportion[row][col] * V[row][col])
+            C_fast_past[row][col] = C_fast_current[row][col] -  (V_FAST_PROP * V[row][col])
             C_fast_past[row][col] /= L_fast + 1e-9
-            C_slow_past[row][col] = C_slow_current[row][col] - (init_slow_proportion[row][col] * V[row][col])
+            # C_slow_past[row][col] = C_slow_current[row][col] - (init_slow_proportion[row][col] * V[row][col])
+            C_slow_past[row][col] = C_slow_current[row][col] - (1 - V_FAST_PROP) * V[row][col]
             C_slow_past[row][col] /= L_slow + 1e-9
         
             if dep_soc[row][col] > 0.0:
@@ -271,6 +273,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
                 C_slow_past[row][col] -= (init_slow_proportion[row][col] * dep_soc[row][col]) / (L_slow + 1e-9)
 
             C_fast_past[row][col] = max(C_fast_past[row][col], 0)
+            # for humification
+            C_slow_past[row][col] -= (ALPHA * C_fast_past[row][col] * K_fast[row][col]) / (L_slow + 1e-9)
             C_slow_past[row][col] = max(C_slow_past[row][col], 0)
         
         if dam_proportion > 0:
@@ -284,39 +288,25 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             total_dep_time += time2 - time1        
         
         if not past:
-            del_soc_fast[row][col] += init_fast_proportion[row][col] * (dep_soc[row][col] + V[row][col] - ero_soc[row][col]) - (K_fast[row][col] * C_fast_current[row][col])
-            del_soc_slow[row][col] += init_slow_proportion[row][col] * (dep_soc[row][col] + V[row][col] - ero_soc[row][col]) - (K_slow[row][col] * C_slow_current[row][col])
-       
-        # if (C_fast_past[row][col] + C_slow_past[row][col]) - (C_fast_current[row][col] + C_slow_current[row][col]) > 30:
-        #     print(f"Change in SOC: {(C_fast_past[row][col] + C_slow_past[row][col]) - (C_fast_current[row][col] + C_slow_current[row][col])}")
-        #     print(f"\tA = {A[row][col]}")
-        #     print()
-        #     print(f"\tNew SOC fast: {(C_fast_past[row][col])}")
-        #     print(f"\tOld SOC fast: {(C_fast_current[row][col])}")
-        #     print(f"\tero_soc fast: {ero_soc[row][col] * fast_proportion}")
-        #     print(f"\tdep_soc fast: {dep_soc[row][col] * fast_proportion}")
-        #     print(f"\tV fast: {V[row][col] * fast_proportion}")
-        #     print(f"\tL_fast: {L_fast}")
-        #     print(f"\tK_fast: {K_fast[row][col]}")
-        #     print(f"\tA fast: {A[row][col] * fast_proportion}")
-        #     print(f"\tfast proportion: {fast_proportion}")
-        #     print()
-        #     print(f"\tNew SOC slow: {(C_slow_past[row][col])}")
-        #     print(f"\tOld SOC slow: {(C_slow_current[row][col])}")
-        #     print(f"\tero_soc slow: {ero_soc[row][col] * slow_proportion}")
-        #     print(f"\tdep_soc slow: {dep_soc[row][col] * slow_proportion}")
-        #     print(f"\tV slow: {V[row][col] * slow_proportion}")
-        #     print(f"\tL_slow: {L_slow}")
-        #     print(f"\tK_slow: {K_slow[row][col]}")
-        #     print(f"\tA slow: {A[row][col] * slow_proportion}")
-        #     print(f"\tslow proportion: {slow_proportion}")
+            # del_soc_fast[row][col] += init_fast_proportion[row][col] * (dep_soc[row][col] - ero_soc[row][col] + V[row][col]) - (K_fast[row][col] * C_fast_current[row][col])
+            # del_soc_slow[row][col] += init_slow_proportion[row][col] * (dep_soc[row][col] - ero_soc[row][col] + V[row][col]) - (K_slow[row][col] * C_slow_current[row][col])
+            del_soc_fast[row][col] += init_fast_proportion[row][col] * (dep_soc[row][col] - ero_soc[row][col]) - (K_fast[row][col] * C_fast_current[row][col]) + V_FAST_PROP * V[row][col]
+            del_soc_slow[row][col] += init_slow_proportion[row][col] * (dep_soc[row][col] - ero_soc[row][col]) - (K_slow[row][col] * C_slow_current[row][col]) + (1 - V_FAST_PROP) * V[row][col] + ALPHA * K_fast[row][col] * C_fast_current[row][col]
         
     time_end = time.time()
     
     print(f'avg fast_proportion = {np.nanmean(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}, max = {np.nanmax(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}, min = {np.nanmin(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}')
     print(f'avg K_fast = {np.nanmean(K_fast)}, max = {np.nanmax(K_fast)}, min = {np.nanmin(K_fast)}')
     print(f'avg K_slow = {np.nanmean(K_slow)}, max = {np.nanmax(K_slow)}, min = {np.nanmin(K_slow)}')
+    print(f'avg C_fast_current = {np.nanmean(C_fast_current)}, max = {np.nanmax(C_fast_current)}, min = {np.nanmin(C_fast_current)}')
+    print(f'avg C_slow_current = {np.nanmean(C_slow_current)}, max = {np.nanmax(C_slow_current)}, min = {np.nanmin(C_slow_current)}')
+    print(f'avg dep_soc = {np.nanmean(dep_soc)}, max = {np.nanmax(dep_soc)}, min = {np.nanmin(dep_soc)}')
+    print(f'avg ero_soc = {np.nanmean(ero_soc)}, max = {np.nanmax(ero_soc)}, min = {np.nanmin(ero_soc)}')
     print(f'avg A = {np.nanmean(A)}, max = {np.nanmax(A)}, min = {np.nanmin(A)}')
+    print(f'avg V = {np.nanmean(V)}, max = {np.nanmax(V)}, min = {np.nanmin(V)}')
+    if past:
+        print(f'avg L_fast = {np.nanmean(L_fast)}, max = {np.nanmax(L_fast)}, min = {np.nanmin(L_fast)}')
+    print(f'avg humification = {np.nanmean(ALPHA * K_fast * C_fast_current)}, max = {np.nanmax(ALPHA * K_fast * C_fast_current)}, min = {np.nanmin(ALPHA * K_fast * C_fast_current)}')
     # print(f'max diff = {np.nanmax(C_fast_current) - np.nanmax(C_fast_prev)}')
     # print(f'max Damp = {LAMBDA_FAST * (np.nanmax(C_fast_current) - np.nanmax(C_fast_prev))}')
     

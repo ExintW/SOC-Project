@@ -30,8 +30,8 @@ def allocate_fast_slow_soc():
     """
     prop_dict = {
         row['Type']: {
-            'fast': row['Fast SOC(%)'] / 100,
-            'slow': row['Slow SOC(%)'] / 100
+            'fast': row['Fast SOC(%)'] / 100 / P_FAST_DIV_FACTOR,
+            'slow': 1 - (row['Fast SOC(%)'] / 100 / P_FAST_DIV_FACTOR)
         }
         for _, row in MAP_STATS.df_prop.iterrows()
     }
@@ -65,7 +65,7 @@ def init_global_data_structs(fraction=1):
 
 
     # Define file paths for the region CSV, dam CSV, and SOC proportion CSV.
-    region_csv_path = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
+    region_csv_path = PROCESSED_DIR / "Resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
     dam_csv_path = PROCESSED_DIR / "htgy_Dam_with_matched_points.csv"
     proportion_csv_path = DATA_DIR / "Fast_Slow_SOC_Proportion.csv"
 
@@ -119,6 +119,8 @@ def init_global_data_structs(fraction=1):
     # 2) PARTITION SOC INTO FAST & SLOW POOLS
     # =============================================================================
     INIT_VALUES.C_fast, INIT_VALUES.C_slow, MAP_STATS.p_fast_grid = allocate_fast_slow_soc()
+    
+    print(f"Initial p_fast_grid mean = {np.nanmean(MAP_STATS.p_fast_grid)}, max = {np.nanmax(MAP_STATS.p_fast_grid)}, min = {np.nanmin(MAP_STATS.p_fast_grid)}")
     
 def clean_nan():
     INIT_VALUES.SOC[~MAP_STATS.loess_border_mask] = np.nan
