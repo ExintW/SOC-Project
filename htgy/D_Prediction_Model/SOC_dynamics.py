@@ -122,9 +122,9 @@ def vegetation_input(LAI):
 #     )
 #     return C_fast_new, C_slow_new
 
-def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, 
-                            DEM, C_total, small_boundary_mask, 
-                            small_outlet_mask, large_boundary_mask,
+def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
+                            DEM, C_total, low_point_cur_stored, low_point_capacity,
+                            small_boundary_mask, small_outlet_mask, large_boundary_mask,
                             large_outlet_mask, loess_border_mask,):
     row, col = point
     total_slope = 0.0
@@ -142,6 +142,8 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
         if small_boundary_mask[row, col] != small_boundary_mask[nr,nc] and not small_outlet_mask[row, col]:
             continue
         if large_boundary_mask[row, col] != large_boundary_mask[nr,nc] and not large_outlet_mask[row, col]:
+            continue
+        if low_point_cur_stored[row][col] >= low_point_capacity[row][col]:
             continue
         
         diff = DEM[row, col] - DEM[nr, nc]
@@ -167,6 +169,9 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     C_fast_current = MAP_STATS.C_fast_current
     C_slow_current = MAP_STATS.C_slow_current
     river_mask = MAP_STATS.river_mask
+    low_point_mask = MAP_STATS.low_mask
+    low_point_capacity = MAP_STATS.Low_Point_Capacity
+    low_point_cur_stored = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
     K_fast = INIT_VALUES.K_fast
     K_slow = INIT_VALUES.K_slow
     DEM = INIT_VALUES.DEM
@@ -229,6 +234,16 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             C_fast_current[row][col] = 0.0
             C_slow_current[row][col] = 0.0
             continue
+
+        if low_point_mask[row][col] and not active_dams[row][col]:
+            ero_soc[row][col] = 0.0
+            ero_soil[row][col] = 0.0
+            if low_point_cur_stored[row][col] <= low_point_capacity[row][col]:
+                low_point_cur_stored[row][col] += dep_soil[row][col]
+            else:
+                dep_soc[row][col] = 0.0
+                dep_soil[row][col] = 0.0
+
         
         if past:
             L_fast[row][col] = 1 - K_fast[row][col]
@@ -300,6 +315,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             total_dep_time += time2 - time1
         
         
+    MAP_STATS.dam_cur_stored = dam_cur_stored    
     time_end = time.time()
     
     print_max = True
