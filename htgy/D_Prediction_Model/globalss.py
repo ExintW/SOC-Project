@@ -15,12 +15,12 @@ PRESENT_YEAR = 2025
 LAMBDA_FAST = 0       # for damping, set to 0 to disable
 LAMBDA_SLOW = 0       # for damping, set to 0 to disable
 
-ALPHA = 0.65          # for humification -> % minerized C fast that becomes C slow
+ALPHA = 0.8          # for humification -> % minerized C fast that becomes C slow
 
 V_FAST_PROP = 0.6     # for vegetation input proportion
-V_FACTOR = 2          # for vegetation scaling (set to 1 to disable)
+V_FACTOR = 4          # for vegetation scaling (set to 1 to disable)
 
-P_FAST_DIV_FACTOR = 6   # 1 to use original
+P_FAST_DIV_FACTOR = 20   # 1 to use original
 
 class INIT_VALUES:
     SOC = None
