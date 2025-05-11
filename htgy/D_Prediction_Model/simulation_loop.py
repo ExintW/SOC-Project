@@ -321,6 +321,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             lon_list =  lon_grid.ravel(order='C').tolist()
             landuse_list = INIT_VALUES.LANDUSE.astype(str).ravel(order='C').tolist()
             Region_list = INIT_VALUES.REGION.astype(str).ravel(order='C').tolist()
+            Low_point_list = MAP_STATS.low_mask.astype(str).ravel('C').tolist()
 
             pf = MAP_STATS.p_fast_grid
             sign = 1 if past else -1                              # past=True ➜ 正号，False ➜ 取反
@@ -363,6 +364,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'LON': lon_list,
                 'Landuse': landuse_list,
                 'Region': Region_list,
+                'Low point': Low_point_list,
                 'C_fast': C_fast_list,
                 'C_slow': C_slow_list,
                 'Total_C': C_total_list,

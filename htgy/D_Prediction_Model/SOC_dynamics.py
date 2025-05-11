@@ -307,7 +307,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             else:
                 C_total = C_fast_current[row][col] + C_slow_current[row][col]
             get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, DEM,
-                                    C_total * dam_proportion,
+                                    C_total * dam_proportion, low_point_cur_stored, low_point_capacity,
                                     small_boundary_mask, small_outlet_mask,
                                     large_boundary_mask, large_outlet_mask,
                                     loess_border_mask)
@@ -320,23 +320,37 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     
     print_max = True
     if print_max:
-        max_idx = np.unravel_index(np.nanargmax(C_fast_past), C_fast_past.shape)
-        row = max_idx[0]
-        col = max_idx[1]
-        print(f'idx = {max_idx}')
-        print(f'K_fast = {K_fast[row][col]}')
-        print(f'C_fast_current = {C_fast_current[row][col]}')
-        print(f'C_fast_past = {C_fast_past[row][col]}')
-        print(f'dep_soc = {dep_soc[row][col]}')
         if past:
-            print(f'ero_soc = {ero_soc[row][col] * (C_fast_past[row][col] + C_slow_past[row][col])}')
+            max_idx = np.unravel_index(np.nanargmax(C_fast_past), C_fast_past.shape)
+            row = max_idx[0]
+            col = max_idx[1]
+            print(f'idx = {max_idx}')
+            print(f'K_fast = {K_fast[row][col]}')
+            print(f'C_fast_current = {C_fast_current[row][col]}')
+            print(f'C_fast_past = {C_fast_past[row][col]}')
+            print(f'dep_soc = {dep_soc[row][col]}')
+            if past:
+                print(f'ero_soc = {ero_soc[row][col] * (C_fast_past[row][col] + C_slow_past[row][col])}')
+            else:
+                print(f'ero_soc = {ero_soc[row][col]}')
+            print(f'A = {A[row][col]}')
+            print(f'V = {V[row][col]}')
+            if past:
+                print(f'L_fast = {L_fast[row][col]}')
+            print(f'humification = {ALPHA * K_fast[row][col] * C_fast_past[row][col]}')
         else:
+            max_idx = np.unravel_index(np.nanargmax(C_fast_current), C_fast_current.shape)
+            row = max_idx[0]
+            col = max_idx[1]
+            print(f'idx = {max_idx}')
+            print(f'K_fast = {K_fast[row][col]}')
+            print(f'C_fast_current = {C_fast_current[row][col]}')
+            print(f'dep_soc = {dep_soc[row][col]}')
             print(f'ero_soc = {ero_soc[row][col]}')
-        print(f'A = {A[row][col]}')
-        print(f'V = {V[row][col]}')
-        if past:
+            print(f'A = {A[row][col]}')
+            print(f'V = {V[row][col]}')
             print(f'L_fast = {L_fast[row][col]}')
-        print(f'humification = {ALPHA * K_fast[row][col] * C_fast_past[row][col]}')
+            print(f'humification = {ALPHA * K_fast[row][col] * C_fast_current[row][col]}')
         
     print_all = False
     if print_all:

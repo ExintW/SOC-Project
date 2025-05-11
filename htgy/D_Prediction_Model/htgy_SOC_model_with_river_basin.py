@@ -97,7 +97,8 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     # COMPUTE CONSTANT LOW POINT MASK AND LOW POINT CAPACITY
     # =============================================================================
-    MAP_STATS.low_mask, MAP_STATS.Low_Point_Capacity = precompute_low_point()
+    MAP_STATS.low_mask, MAP_STATS.Low_Point_Capacity, MAP_STATS.Low_Point_DEM_Dif = precompute_low_point()
+    print(f"Low point DEM difference: max = {np.nanmax(MAP_STATS.Low_Point_DEM_Dif):.2f}, min = {np.nanmin(MAP_STATS.Low_Point_DEM_Dif):.2f}, and mean = {np.nanmean(MAP_STATS.Low_Point_DEM_Dif):.2f}")
 
     # =============================================================================
     # CLEAN UP GLOBAL DATA: SET NAN TO MEAN AND VALUES OUTSIDE OF BORDER TO NAN
@@ -236,8 +237,8 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year = 2007   # year of init condition
-    end_year = None     # last year of present  (set to None to disable present year)
-    past_year = 2006    # last year of past     (set to None to disable past year)
+    end_year = 2010     # last year of present  (set to None to disable present year)
+    past_year = None    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
     
     fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)

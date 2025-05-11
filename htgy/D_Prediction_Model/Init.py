@@ -147,8 +147,13 @@ def precompute_low_point():
     # only fill where low_mask is True
     Low_Point_Capacity[low_mask] = area * (neigh_min[low_mask] - dem[low_mask])
 
+    # --- 5. build a matrix with the dem difference
+    Low_Point_DEM_Dif = np.zeros_like(dem, dtype=float)
+    Low_Point_DEM_Dif[low_mask] = neigh_min[low_mask] - dem[low_mask]
+    Low_Point_DEM_Dif[Low_Point_DEM_Dif == 0] = np.nan
+
     # Now Low_Point_Capacity[i,j] > 0 exactly at your low-lying points
-    return low_mask, Low_Point_Capacity
+    return low_mask, Low_Point_Capacity, Low_Point_DEM_Dif
 
 
 def clean_nan():
