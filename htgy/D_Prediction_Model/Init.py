@@ -3,6 +3,7 @@ import sys
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from scipy.ndimage import minimum_filter
 from globalss import *
 
 # Append parent directory to path to access 'globals' if needed
@@ -121,7 +122,35 @@ def init_global_data_structs(fraction=1):
     INIT_VALUES.C_fast, INIT_VALUES.C_slow, MAP_STATS.p_fast_grid = allocate_fast_slow_soc()
     
     print(f"Initial p_fast_grid mean = {np.nanmean(MAP_STATS.p_fast_grid)}, max = {np.nanmax(MAP_STATS.p_fast_grid)}, min = {np.nanmin(MAP_STATS.p_fast_grid)}")
-    
+
+def precompute_low_point():
+    # your DEM grid
+    dem = INIT_VALUES.DEM  # shape (nrows, ncols)
+
+    # parameters
+    area = 1000 * 1000  # m² per 1 km × 1 km cell
+
+    # --- 1. set up a footprint that picks exactly the 8 neighbours (not the center) ---
+    footprint = np.array([[1, 1, 1],
+                          [1, 0, 1],
+                          [1, 1, 1]], dtype=bool)
+
+    # --- 2. compute the minimum elevation among those 8 neighbours for every cell ---
+    #    mode='nearest' will mirror the border so edges get handled gracefully
+    neigh_min = minimum_filter(dem, footprint=footprint, mode='nearest')
+
+    # --- 3. identify low-lying cells: all neighbours higher than the cell itself ---
+    low_mask = neigh_min > dem
+
+    # --- 4. build the capacity matrix ---
+    Low_Point_Capacity = np.zeros_like(dem, dtype=float)
+    # only fill where low_mask is True
+    Low_Point_Capacity[low_mask] = area * (neigh_min[low_mask] - dem[low_mask])
+
+    # Now Low_Point_Capacity[i,j] > 0 exactly at your low-lying points
+    return low_mask, Low_Point_Capacity
+
+
 def clean_nan():
     INIT_VALUES.SOC[~MAP_STATS.loess_border_mask] = np.nan
     INIT_VALUES.DEM[~MAP_STATS.loess_border_mask] = np.nan

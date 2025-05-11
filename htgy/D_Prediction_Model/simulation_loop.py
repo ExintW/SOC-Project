@@ -27,7 +27,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
     df_dam_active = MAP_STATS.df_dam[MAP_STATS.df_dam["year"] <= year].copy()
     active_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
     dam_max_cap = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
-    dam_cur_stored = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
+    dam_cur_stored = MAP_STATS.dam_cur_stored
     dam_capacity_arr = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
     
     for _, row in df_dam_active.iterrows():

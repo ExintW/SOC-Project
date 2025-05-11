@@ -59,7 +59,7 @@ sys.path.append(os.path.dirname(__file__))
 
 from RUSLE_Calculations import *
 from globalss import *
-from Init import init_global_data_structs, clean_nan
+from Init import init_global_data_structs, clean_nan, precompute_low_point
 from River_Basin import * 
 from utils import *
 from simulation_loop import run_simulation_year
@@ -93,7 +93,12 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # RASTERIZE RIVER BASIN BOUNDARIES & MAIN RIVER USING PRECOMPUTED MASKS
     # =============================================================================
     precompute_river_basin_1()
-    
+
+    # =============================================================================
+    # COMPUTE CONSTANT LOW POINT MASK AND LOW POINT CAPACITY
+    # =============================================================================
+    MAP_STATS.low_mask, MAP_STATS.Low_Point_Capacity = precompute_low_point()
+
     # =============================================================================
     # CLEAN UP GLOBAL DATA: SET NAN TO MEAN AND VALUES OUTSIDE OF BORDER TO NAN
     # =============================================================================
@@ -144,6 +149,9 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
 
     os.makedirs(OUTPUT_DIR / "Figure", exist_ok=True)
     os.makedirs(OUTPUT_DIR / "Data", exist_ok=True)
+
+    # Initialize current dam capacity
+    MAP_STATS.dam_cur_stored = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
 
     # Delete previous results
     if CLEAN_OUTDIR:
@@ -234,7 +242,7 @@ if __name__ == "__main__":
     
     fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     
-    log = True     # save output to a log file
+    log = False     # save output to a log file
     
     if log:
         with open(OUTPUT_DIR / "out.log", "w") as f:
