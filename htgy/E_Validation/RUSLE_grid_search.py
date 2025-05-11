@@ -3,7 +3,6 @@ import os
 import time
 import contextlib
 import io
-import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from globals import *  
@@ -29,12 +28,12 @@ def grid_search(a_range, b_range, c_range):
             before_rmse = 1e6   # for early stopping
             for c in c_range:
                 print(f"\n#######################################################################")
-                print(f"Running a={a}, b={b}, c={c}")
+                print(f"Running a={a}, b={b}, c={c}...")
                 print(f"Cur best RMSE = {best_rmse}, a={best_a}, b={best_b}, c={best_c}")
                 print(f"#######################################################################\n")
                 
                 # NOTE for lwk: if the following two lines doesn't work, replace with:
-                # run_model(a=a, b=b, c=c, start_year=2007, end_year=2018, past_year=1992, future_year=None)
+                # run_model(a, b, c)
                 # cur_rmse = run_valid()
                 suppress_print(run_model, a=a, b=b, c=c, start_year=2007, end_year=2018, past_year=1992, future_year=None, fraction=0.9)
                 cur_rmse = suppress_print(run_valid)
@@ -56,8 +55,8 @@ def grid_search(a_range, b_range, c_range):
 
 if __name__ == "__main__":
     a_range = [-1.9]
-    b_range = np.arange(1.75, 1.85, 0.01)
-    c_range = [ 5.5, 6, 6.5, 7, 7.5, 8]
+    b_range = [1.80, 1.83, 1.85, 1.88, 1.91, 1.94, 1.97, 2.0]
+    c_range = [5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 10, 11]
     
     total_param_sets = len(a_range) * len(b_range) * len(c_range)
     

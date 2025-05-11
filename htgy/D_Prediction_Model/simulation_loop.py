@@ -8,6 +8,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import time
+from shapely.geometry import LineString, MultiLineString
 import pyarrow
 from contextlib import nullcontext
 
@@ -263,7 +264,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             #     )
 
             MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, past)
-            
+            if not past:
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V)
+            else:
+                print("Running Past")
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model_past(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V)
+
             # print(f"C fast nan: {np.isnan(MAP_STATS.C_fast_current).sum()}")
             # print(f"C slow nan: {np.isnan(MAP_STATS.C_slow_current).sum()}")
             
@@ -271,6 +277,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
             max_C_total = np.nanmax(C_total)
             min_C_total = np.nanmin(C_total)
+
+            # New: count and report cells where C_total > 40 and it's an active dam
+            high_dam_mask = (C_total > 40) & active_dams
+            count_high_dam = np.count_nonzero(high_dam_mask)
+            print(f"Number of active dam cells with C_total > 40: {count_high_dam}")
+
             print(f"Year {year} Month {month_idx + 1}: Total_SOC_mean: {mean_C_total:.2f}, "
                   f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
 
@@ -283,6 +295,16 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=14,
                             extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
                             origin='upper')
+            # overlay the border (no fill, just outline)
+            border = MAP_STATS.loess_border_geom.boundary
+
+            if isinstance(border, LineString):
+                x, y = border.xy
+                ax.plot(x, y, color="black", linewidth=0.4)
+            elif isinstance(border, MultiLineString):
+                for seg in border.geoms:
+                    x, y = seg.xy
+                    ax.plot(x, y, color="black", linewidth=0.4)
             cbar = fig.colorbar(cax, label="SOC (g/kg)")
             ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx+1}")
             ax.set_xlabel("Longitude")
@@ -290,7 +312,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
             ax.ticklabel_format(style='plain', axis='x')
             filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
-            plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig), dpi=300)
+            plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig), dpi=600)
             plt.close("all")
             
             print(f"plot took {time.time() - time1} seconds")

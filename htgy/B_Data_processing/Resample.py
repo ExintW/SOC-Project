@@ -49,17 +49,41 @@ tree = cKDTree(points)
 
 # ========== 5. Interpolate Numeric Columns ==========
 # Identify numeric columns, excluding the coordinate columns
-num_cols = [c for c in df.select_dtypes(include=[np.number]).columns
-            if c not in ["LON", "LAT"]]
+# ========== 5. Interpolate Numeric Columns with Linear + Nearest‐Neighbor Fallback ==========
+num_cols = [
+    c for c in df.select_dtypes(include=[np.number]).columns
+    if c not in ["LON", "LAT"]
+]
 
-# Use griddata to interpolate numeric columns
 for col in num_cols:
     values = df[col].values
-    # griddata returns a 2D array matching xx, yy
-    interpolated = griddata(points, values, (xx, yy),
-                            method='nearest', fill_value=np.nan)
-    # Flatten and assign to our grid DataFrame
-    grid_df[col] = interpolated.ravel()
+
+    # 5.1) Linear (bilinear on rectilinear grid) interpolation
+    interp_linear = griddata(
+        points, values,
+        (xx, yy),
+        method='linear',
+        fill_value=np.nan
+    )
+
+    # 5.2) Nearest‐neighbor interpolation to cover hull/exterior
+    interp_nearest = griddata(
+        points, values,
+        (xx, yy),
+        method='nearest',
+        fill_value=np.nan
+    )
+
+    # 5.3) Combine: use linear where available, otherwise nearest
+    interp_combined = np.where(
+        np.isnan(interp_linear),
+        interp_nearest,
+        interp_linear
+    )
+
+    # 5.4) Assign back into your grid DataFrame
+    grid_df[col] = interp_combined.ravel()
+
 
 # ========== 6. Resample 'LANDUSE' Using Nearest Neighbor ==========
 if "LANDUSE" in df.columns:
@@ -82,7 +106,7 @@ grid_gdf = grid_gdf[grid_gdf.geometry.within(gdf_loess.union_all())]
 
 
 # ========== 8. Save the Result to CSV ==========
-output_csv = PROCESSED_DIR / "resampled_Loess_Plateau_1km_test.csv"
+output_csv = PROCESSED_DIR / "Resampled_Loess_Plateau_1km.csv"
 grid_gdf.to_csv(output_csv, index=False, encoding='utf-8-sig')
 print(f"✅ Resampled data saved to: {output_csv}")
 
