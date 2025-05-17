@@ -166,6 +166,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     if past:
         dt = -1
     V *= V_FACTOR
+    V = np.clip(V, V_MIN_CLIP, None)
     C_fast_current = MAP_STATS.C_fast_current
     C_slow_current = MAP_STATS.C_slow_current
     river_mask = MAP_STATS.river_mask
@@ -334,10 +335,28 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             else:
                 print(f'ero_soc = {ero_soc[row][col]}')
             print(f'A = {A[row][col]}')
-            print(f'V = {V[row][col]}')
+            print(f'V = {V[row][col] * V_FAST_PROP}')
             if past:
                 print(f'L_fast = {L_fast[row][col]}')
             print(f'humification = {ALPHA * K_fast[row][col] * C_fast_past[row][col]}')
+            print('-----------------------------------------------------------------------')
+            max_idx = np.unravel_index(np.nanargmax(C_slow_past), C_slow_past.shape)
+            row = max_idx[0]
+            col = max_idx[1]
+            print(f'idx = {max_idx}')
+            print(f'K_slow = {K_slow[row][col]}')
+            print(f'C_slow_current = {C_slow_current[row][col]}')
+            print(f'C_slow_past = {C_slow_past[row][col]}')
+            print(f'dep_soc = {dep_soc[row][col]}')
+            if past:
+                print(f'ero_soc = {ero_soc[row][col] * (C_slow_past[row][col] + C_slow_past[row][col])}')
+            else:
+                print(f'ero_soc = {ero_soc[row][col]}')
+            print(f'A = {A[row][col]}')
+            print(f'V = {V[row][col] * (1 - V_FAST_PROP)}')
+            if past:
+                print(f'L_slow = {L_slow[row][col]}')
+            print(f'humification = {ALPHA * K_slow[row][col] * C_slow_past[row][col]}')
         else:
             max_idx = np.unravel_index(np.nanargmax(C_fast_current), C_fast_current.shape)
             row = max_idx[0]
@@ -351,6 +370,20 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             print(f'V = {V[row][col]}')
             print(f'L_fast = {L_fast[row][col]}')
             print(f'humification = {ALPHA * K_fast[row][col] * C_fast_current[row][col]}')
+            print('-----------------------------------------------------------------------')
+            max_idx = np.unravel_index(np.nanargmax(C_fast_current), C_fast_current.shape)
+            row = max_idx[0]
+            col = max_idx[1]
+            print(f'idx = {max_idx}')
+            print(f'K_fast = {K_fast[row][col]}')
+            print(f'C_fast_current = {C_fast_current[row][col]}')
+            print(f'dep_soc = {dep_soc[row][col]}')
+            print(f'ero_soc = {ero_soc[row][col]}')
+            print(f'A = {A[row][col]}')
+            print(f'V = {V[row][col]}')
+            print(f'L_fast = {L_fast[row][col]}')
+            print(f'humification = {ALPHA * K_fast[row][col] * C_fast_current[row][col]}')
+        print('-----------------------------------------------------------------------')
         
     print_all = False
     if print_all:

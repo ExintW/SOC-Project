@@ -149,8 +149,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # print(f"Total elements in R month: {R_month.size}, with max = {np.max(R_month)}, min = {np.min(R_month)}, and mean = {np.mean(R_month)}")
             
             C_factor_2D = calculate_c_factor(LAI_2D, a=a)
-            # print(f"Total elements in C: {C_factor_2D.size}, with max = {np.max(C_factor_2D)}, min = {np.min(C_factor_2D)}, and mean = {np.mean(C_factor_2D)}")
-            # print(f"\nLAI mean = {np.nanmean(LAI_2D)}\n")
+            print(f"Total elements in C: {C_factor_2D.size}, with max = {np.max(C_factor_2D)}, min = {np.min(C_factor_2D)}, and mean = {np.mean(C_factor_2D)}")
+            print(f"\nLAI mean = {np.nanmean(LAI_2D)}\n")
             
             # Calculate monthly K factor
             K_month = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current), INIT_VALUES.LANDUSE)

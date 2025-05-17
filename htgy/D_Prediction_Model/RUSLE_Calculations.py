@@ -168,7 +168,10 @@ def calculate_ls_factor(slope, dem, slope_length=1000):
 def calculate_c_factor(lai, a):
     """Compute C factor from LAI: C = exp(-1.7 * LAI)."""
     # a = -1.8   # -1.7
-    return np.exp(a * lai)
+    # return np.exp(a * lai)
+    
+    # https://doi.org/10.3390/rs15112868
+    return -0.177 * np.log(lai) + 0.184
 
 def calculate_p_factor(landuse, slope):
     """Return P factor based on land use category."""
