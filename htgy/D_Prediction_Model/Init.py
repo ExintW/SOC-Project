@@ -128,7 +128,7 @@ def precompute_low_point():
     dem = INIT_VALUES.DEM  # shape (nrows, ncols)
 
     # parameters
-    area = 1000 * 1000  # m² per 1 km × 1 km cell
+    area = 10*10  # m² per 1 km × 1 km cell
 
     # --- 1. set up a footprint that picks exactly the 8 neighbours (not the center) ---
     footprint = np.array([[1, 1, 1],
