@@ -110,7 +110,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         print(f"Total elements in R Year: {R_annual_temp.size}, with max = {np.max(R_annual_temp)}, min = {np.min(R_annual_temp)}, mean = {np.mean(R_annual_temp)}")
     
         E_month_avg_list = []   # for calculating annual mean for validation
-        
+        C_month_list = []
         if past:
             time_range = range(n_time-1, -1, -1)    # 11 -> 0
         else:
@@ -161,6 +161,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # print(f"Total elements in R month: {R_month.size}, with max = {np.max(R_month)}, min = {np.min(R_month)}, and mean = {np.mean(R_month)}")
             
             C_factor_2D = calculate_c_factor(LAI_2D, a=a)
+            C_month_list.append(np.nanmean(C_factor_2D))
             print(f"Total elements in C: {C_factor_2D.size}, with max = {np.max(C_factor_2D)}, min = {np.min(C_factor_2D)}, and mean = {np.mean(C_factor_2D)}")
             print(f"\nLAI mean = {np.nanmean(LAI_2D)}\n")
             
@@ -407,6 +408,9 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 df_out.to_csv(os.path.join(OUTPUT_DIR, "Data", filename_csv), index=False, float_format="%.6f")
                 print(f"Saved CSV output for Year {year}, Month {month_idx+1} as {filename_csv}")
             
+            
+            
             print(f"This month took {time.time() - time_month} seconds")
             
+        print(f'C factor annual avg = {np.mean(C_month_list)}')
         print(f"\nAnnual mean of E = {np.mean(E_month_avg_list)}\n")

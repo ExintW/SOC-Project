@@ -75,7 +75,7 @@ except Exception as e:
     print(f"Error processing LAI: {e}")
 
 # Write annual stats to CSV
-stats_file = output_dir / "annual_LAI_stats_1950-2000.csv"
+stats_file = output_dir / "annual_LAI_stats_2000-2015.csv"
 with open(stats_file, "w", newline="") as f:
     writer = csv.writer(f)
     writer.writerow(["variable", "year", "min", "max", "mean"])
