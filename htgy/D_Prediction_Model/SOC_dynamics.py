@@ -365,26 +365,25 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             print(f'idx = {max_idx}')
             print(f'K_fast = {K_fast[row][col]}')
             print(f'C_fast_current = {C_fast_current[row][col]}')
-            print(f'K_slow = {K_slow[row][col]}')
-            print(f'C_slow_current = {C_slow_current[row][col]}')
             print(f'dep_soc = {dep_soc[row][col]}')
             print(f'ero_soc = {ero_soc[row][col]}')
             print(f'A = {A[row][col]}')
             print(f'V = {V[row][col]}')
             print(f'humification = {ALPHA * K_fast[row][col] * C_fast_current[row][col]}')
             print('-----------------------------------------------------------------------')
-            max_idx = np.unravel_index(np.nanargmax(C_fast_current), C_fast_current.shape)
-            row = max_idx[0]
-            col = max_idx[1]
-            print(f'idx = {max_idx}')
-            print(f'K_fast = {K_fast[row][col]}')
-            print(f'C_fast_current = {C_fast_current[row][col]}')
+            min_idx = np.unravel_index(np.nanargmax(C_slow_current), C_slow_current.shape)
+            row = min_idx[0]
+            col = min_idx[1]
+            print(f'idx = {min_idx}')
+            print(f'K_slow = {K_slow[row][col]}')
+            print(f'C_slow_current = {C_slow_current[row][col]}')
+            print(f'K_slow = {K_slow[row][col]}')
+            print(f'C_slow_current = {C_slow_current[row][col]}')
             print(f'dep_soc = {dep_soc[row][col]}')
             print(f'ero_soc = {ero_soc[row][col]}')
             print(f'A = {A[row][col]}')
             print(f'V = {V[row][col]}')
-            print(f'L_fast = {L_fast[row][col]}')
-            print(f'humification = {ALPHA * K_fast[row][col] * C_fast_current[row][col]}')
+            print(f'humification = {ALPHA * K_slow[row][col] * C_slow_current[row][col]}')
         print('-----------------------------------------------------------------------')
         
     print_all = False
