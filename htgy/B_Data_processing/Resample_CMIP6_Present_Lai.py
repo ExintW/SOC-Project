@@ -68,7 +68,7 @@ try:
         ds_lai,
         var_name="lai",
         label="LAI",
-        save_interp_fname="resampled_lai_points_1950-2015.nc"
+        save_interp_fname="resampled_lai_points_2000-2014.nc"
     )
     ds_lai.close()
 except Exception as e:

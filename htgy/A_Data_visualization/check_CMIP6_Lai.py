@@ -18,7 +18,8 @@ output_dir.mkdir(parents=True, exist_ok=True)
 
 # Filenames & labels
 files = {
-    "Historical (1950–2015)": "resampled_lai_points_1950-2015.nc",
+    "Historical (1950–2000)": "resampled_lai_points_1950-2000.nc",
+    "Present (2000-2014)":    "resampled_lai_points_2000-2014.nc",
     "ssp126 (2015–2100)":     "resampled_lai_points_2015-2100_126.nc",
     "ssp245 (2015–2100)":     "resampled_lai_points_2015-2100_245.nc",
     "ssp585 (2015–2100)":     "resampled_lai_points_2015-2100_585.nc",
