@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *
 
 # Input file path for CMIP6 LAI
-lai_path = Path(DATA_DIR) / "CMIP6" / "LAI_LoessPlateau_195001-201412.nc"
+lai_path = Path(DATA_DIR) / "CMIP6" / "lai_Lmon_BCC-CSM2-HR_hist-1950_r1i1p1f1_gn_200101-201412.nc"
 
 # Load target 1 km grid points
 csv_pts = Path(PROCESSED_DIR) / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
@@ -75,7 +75,7 @@ except Exception as e:
     print(f"Error processing LAI: {e}")
 
 # Write annual stats to CSV
-stats_file = output_dir / "annual_LAI_stats_1950-2015.csv"
+stats_file = output_dir / "annual_LAI_stats_2000-2015.csv"
 with open(stats_file, "w", newline="") as f:
     writer = csv.writer(f)
     writer.writerow(["variable", "year", "min", "max", "mean"])
