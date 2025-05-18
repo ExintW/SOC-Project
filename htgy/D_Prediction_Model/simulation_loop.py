@@ -52,17 +52,18 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
     # Load monthly climate data (NetCDF)
     if future:
-        nc_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_585.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_585.nc"
         pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_585.nc"
         
     else:
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_1950-2015.nc"
 
     if not os.path.exists(nc_file):
         print(f"NetCDF file not found for year {year}: {nc_file}")
         return
 
-    with nc.Dataset(nc_file) as ds, (nc.Dataset(pr_file) if future else nullcontext()) as ds_pr:
+    with nc.Dataset(nc_file) as ds, nc.Dataset(lai_file) as ds_lai, (nc.Dataset(pr_file) if future else nullcontext()) as ds_pr:
             
         # valid_time = ds.variables['valid_time'][:]  # Expect 12 months
         # n_time = len(valid_time)
@@ -71,10 +72,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         if future:
             # LAI file variables
 
-            lon_nc = ds.variables['lon'][:]  # Adjusted variable name if needed
-            lat_nc = ds.variables['lat'][:]
+            lon_lai = ds.variables['lon'][:]  # Adjusted variable name if needed
+            lat_lai = ds.variables['lat'][:]
             lai_data = ds.variables['lai'][:]      # shape: (time, n_points)
 
+            lon_nc = lon_lai
+            lat_nc = lat_lai
 
             # Precipitation file variables
             lon_nc_pr = ds_pr.variables['lon'][:]
@@ -85,9 +88,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             R_annual_temp = create_grid_from_points(lon_nc_pr, lat_nc_pr, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
         
         else:
+            lon_lai = ds_lai.variables['lon'][:]  # Adjusted variable name if needed
+            lat_lai = ds_lai.variables['lat'][:]
+            lai_data = ds_lai.variables['lai'][:]  # shape: (12, n_points)
+            
             lon_nc = ds.variables['longitude'][:]
             lat_nc = ds.variables['latitude'][:]
-            lai_data = ds.variables['lai_lv'][:]  # shape: (12, n_points)
             tp_data = ds.variables['tp'][:]       # shape: (12, n_points), in meters
             tp_data = tp_data * 30
             tp_data_mm = tp_data * 1000.0
@@ -120,7 +126,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             
             print(f"lai_data shape = {lai_data.shape}")
             lai_1d = lai_data[idx, :]
-            LAI_2D = create_grid_from_points(lon_nc, lat_nc, lai_1d, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            LAI_2D = create_grid_from_points(lon_lai, lat_lai, lai_1d, MAP_STATS.grid_x, MAP_STATS.grid_y)
             LAI_2D = np.nan_to_num(LAI_2D, nan=np.nanmean(LAI_2D))
             
             print(f"LAI_1d regrid took {time.time() - time_month} seconds")
@@ -159,6 +165,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             # Calculate soil loss (t/ha/month) & then per cell
             E_t_ha_month = R_month * K_month * LS_factor * C_factor_2D * P_factor
+            E_t_ha_month[~MAP_STATS.loess_border_mask] = np.nan
             # print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.max(E_t_ha_month)}, min = {np.min(E_t_ha_month)}, and mean = {np.mean(E_t_ha_month)}")
             E_tcell_month = E_t_ha_month * CELL_AREA_HA
             E_month_avg_list.append(np.mean(E_t_ha_month))

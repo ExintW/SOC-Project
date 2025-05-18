@@ -12,19 +12,25 @@ M_soil = 2.6e8  # total soil mass per cell (kg)
 INIT_YEAR = 2007
 PRESENT_YEAR = 2025
 # global_timestep = 0
+
+############################Parameters##############################
+C_INIT_CAP = 12
+
 LAMBDA_FAST = 0       # for damping, set to 0 to disable
 LAMBDA_SLOW = 0       # for damping, set to 0 to disable
 
 ALPHA = 0.10          # for humification -> % minerized C fast that becomes C slow
 
-V_FAST_PROP = 0.65     # for vegetation input proportion
-V_FACTOR = 2          # for vegetation scaling (set to 1 to disable)
+A_MAX = 0.01
+
 V_FAST_PROP = 0.8     # for vegetation input proportion
 V_FACTOR = 1          # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0.133      # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
 
-P_FAST_DIV_FACTOR = 6   # 1 to use original
-P_FAST_DIV_FACTOR = 10   # divide p_fast grid by this, 1 to use original
+P_FAST_DIV_FACTOR = 8   # divide p_fast grid by this, 1 to use original
+
+C_MIN_CAP = 0.1    # set C to this value if reached 0, to avoid dead areas when past
+############################Parameters##############################
 
 class INIT_VALUES:
     SOC = None

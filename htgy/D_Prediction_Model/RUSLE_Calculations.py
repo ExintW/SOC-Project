@@ -171,7 +171,8 @@ def calculate_c_factor(lai, a):
     # return np.exp(a * lai)
     
     # https://doi.org/10.3390/rs15112868
-    return -0.177 * np.log(lai) + 0.184
+    C = -0.177 * np.log(lai) + 0.184
+    return np.clip(C, a_min=1e-6, a_max=None)
 
 def calculate_p_factor(landuse, slope):
     """Return P factor based on land use category."""
@@ -289,4 +290,4 @@ def calculate_k_factor(silt, sand, clay, soc, landuse):
     # Final K factor
     k_factor = 0.1317 * texture_term * oc_factor * SN_term
     # k_factor = texture_term * oc_factor * SN_term
-    return k_factor
+    return np.clip(k_factor, a_min=1e-6, a_max=None)

@@ -206,7 +206,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         C_fast_past[~MAP_STATS.loess_border_mask] = np.nan
         C_slow_past[~MAP_STATS.loess_border_mask] = np.nan
 
-    A = np.clip(A, None, 0.1)
+    A = np.clip(A, None, A_MAX)
     
     total_dep_time = 0.0
     
@@ -330,8 +330,6 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             print(f'C_fast_current = {C_fast_current[row][col]}')
             print(f'C_fast_past = {C_fast_past[row][col]}')
             print(f'K_slow = {K_slow[row][col]}')
-            print(f'C_slow_current = {C_slow_current[row][col]}')
-            print(f'C_slow_past = {C_slow_past[row][col]}')
             print(f'dep_soc = {dep_soc[row][col]}')
             if past:
                 print(f'ero_soc = {ero_soc[row][col] * (C_fast_past[row][col] + C_slow_past[row][col])}')
@@ -416,15 +414,15 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     MAP_STATS.C_slow_prev = C_slow_current.copy()
 
     if not past:
-        C_fast_new = np.maximum((C_fast_current + del_soc_fast), 0)
-        C_slow_new = np.maximum((C_slow_current + del_soc_slow), 0)
+        C_fast_new = np.maximum((C_fast_current + del_soc_fast), C_MIN_CAP)
+        C_slow_new = np.maximum((C_slow_current + del_soc_slow), C_MIN_CAP)
         damp_fast = LAMBDA_FAST * (C_fast_new - C_fast_current)
         damp_slow = LAMBDA_SLOW * (C_slow_new - C_slow_current)
         C_fast_new -= damp_fast
         C_slow_new -= damp_slow
     else:
-        C_fast_new = np.maximum(C_fast_past, 0)
-        C_slow_new = np.maximum(C_slow_past, 0)
+        C_fast_new = np.maximum(C_fast_past, C_MIN_CAP)
+        C_slow_new = np.maximum(C_slow_past, C_MIN_CAP)
         damp_fast = LAMBDA_FAST * (C_fast_new - C_fast_current)
         damp_slow = LAMBDA_SLOW * (C_slow_new - C_slow_current)
         C_fast_new -= damp_fast
