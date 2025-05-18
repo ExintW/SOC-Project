@@ -24,7 +24,7 @@ ALPHA = 0.20          # for humification -> % minerized C fast that becomes C sl
 A_MAX = 0.01
 
 V_FAST_PROP = 0.8     # for vegetation input proportion
-V_FACTOR = 3          # for vegetation scaling (set to 1 to disable)
+V_FACTOR = 1          # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0.1      # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
 
 P_FAST_DIV_FACTOR = 7   # divide p_fast grid by this, 1 to use original

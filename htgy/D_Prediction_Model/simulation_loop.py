@@ -57,13 +57,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
 
     if year <= 2000:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "lai_Lmon_BCC-CSM2-HR_hist-1950_r1i1p1f1_gn_195001-200012.nc"
-    elif year > 2000 and year <= 2014:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "lai_Lmon_BCC-CSM2-HR_hist-1950_r1i1p1f1_gn_200101-201412.nc"
-    if year >= 2015:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_585.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_1950-2000.nc"
+    elif year <= 2014:
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2000-2015.nc"
     else:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_1950-2015.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_585.nc"
+
         
     if not os.path.exists(nc_file):
         print(f"NetCDF file not found for year {year}: {nc_file}")
