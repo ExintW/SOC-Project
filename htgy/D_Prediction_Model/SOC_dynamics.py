@@ -143,8 +143,8 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
             continue
         if large_boundary_mask[row, col] != large_boundary_mask[nr,nc] and not large_outlet_mask[row, col]:
             continue
-        if low_point_cur_stored[row][col] >= low_point_capacity[row][col]:
-            continue
+        # if low_point_cur_stored[row][col] >= low_point_capacity[row][col]:
+        #     continue
         
         diff = DEM[row, col] - DEM[nr, nc]
         if diff > 0.0:
@@ -402,7 +402,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     
     MAP_STATS.C_fast_prev = C_fast_current.copy()
     MAP_STATS.C_slow_prev = C_slow_current.copy()
-
+    
     if not past:
         C_fast_new = np.maximum((C_fast_current + del_soc_fast), C_MIN_CAP)
         C_slow_new = np.maximum((C_slow_current + del_soc_slow), C_MIN_CAP)
@@ -413,13 +413,19 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     else:
         C_fast_new = np.maximum(C_fast_past, C_MIN_CAP)
         C_slow_new = np.maximum(C_slow_past, C_MIN_CAP)
-        damp_fast = LAMBDA_FAST * (C_fast_new - C_fast_current)
         damp_slow = LAMBDA_SLOW * (C_slow_new - C_slow_current)
-        C_fast_new -= damp_fast
+        
+        if np.nanmax(C_fast_new) > FAST_DAMP_START:
+            C_fast_diff = (C_fast_new - C_fast_current)
+            damp_fast = C_fast_diff[C_fast_diff > FAST_DAMP_THRESH] * LAMBDA_FAST
+            C_fast_new[C_fast_diff > FAST_DAMP_THRESH] -= damp_fast
         C_slow_new -= damp_slow
 
-    print(f'avg damping in fast = {np.nanmean(damp_fast)}, max = {np.nanmax(damp_fast)}, min = {np.nanmin(damp_fast)}')
-
+    try:
+        print(f'avg damping in fast = {np.nanmean(damp_fast)}, max = {np.nanmax(damp_fast)}, min = {np.nanmin(damp_fast)}')
+    except:
+        print('no damping this month')
+    
     return C_fast_new, C_slow_new, dep_soc, lost_soc
 
 # def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V):

@@ -205,20 +205,24 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         for year in range(end_year+1, future_year + 1):
             run_simulation_year(year, LS_factor, P_factor, sorted_indices, future=True, a=a, b=b, c=c)
 
-    if end_year != None or future_year != None:
-        # INIT_VALUES.reset()
-        # MAP_STATS.reset()
-        init_global_data_structs(fraction=fraction)
-        clean_nan()
-        # precompute_river_basin_1()
-        MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
-        MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
-        MAP_STATS.C_fast_current[~MAP_STATS.loess_border_mask] = np.nan
-        MAP_STATS.C_slow_current[~MAP_STATS.loess_border_mask] = np.nan
+    # if end_year != None or future_year != None:
+    #     # INIT_VALUES.reset()
+    #     # MAP_STATS.reset()
+    #     init_global_data_structs(fraction=fraction)
+    #     clean_nan()
+    #     # precompute_river_basin_1()
+    #     MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
+    #     MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
+    #     MAP_STATS.C_fast_current[~MAP_STATS.loess_border_mask] = np.nan
+    #     MAP_STATS.C_slow_current[~MAP_STATS.loess_border_mask] = np.nan
 
+    if end_year == None or not RUN_FROM_EQUIL:    # for running from equilibrium
+        end_year = start_year - 1
+        
     if past_year != None:
         if fraction == 1:
-            for year in range(start_year-1, past_year-1, -1):
+            # for year in range(start_year-1, past_year-1, -1):
+            for year in range(end_year, past_year-1, -1):
                 run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=True, a=a, b=b, c=c)
         else:   # run non-reversed past year simulation with given fraction as init condition
             for year in range(past_year, start_year, step_size):
@@ -237,8 +241,8 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year = 2007   # year of init condition
-    end_year = 2010     # last year of present  (set to None to disable present year)
-    past_year = None    # last year of past     (set to None to disable past year)
+    end_year = 2009     # last year of present  (set to None to disable present year)
+    past_year = 2005    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
     
     fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
