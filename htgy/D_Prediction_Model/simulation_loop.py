@@ -93,9 +93,14 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             R_annual_temp = create_grid_from_points(lon_nc_pr, lat_nc_pr, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
         
         else:
-            lon_lai = ds_lai.variables['lon'][:]  # Adjusted variable name if needed
-            lat_lai = ds_lai.variables['lat'][:]
-            lai_data = ds_lai.variables['lai'][:]  # shape: (12, n_points)
+            if USE_CMIP6:
+                lon_lai = ds_lai.variables['lon'][:]  # Adjusted variable name if needed
+                lat_lai = ds_lai.variables['lat'][:]
+                lai_data = ds_lai.variables['lai'][:]  # shape: (12, n_points)
+            else:
+                lon_lai = ds.variables['longitude'][:]  # Adjusted variable name if needed
+                lat_lai = ds.variables['latitude'][:]
+                lai_data = ds.variables['lai_lv'][:]  # shape: (12, n_points)
             
             lon_nc = ds.variables['longitude'][:]
             lat_nc = ds.variables['latitude'][:]

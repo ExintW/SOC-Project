@@ -143,8 +143,8 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
             continue
         if large_boundary_mask[row, col] != large_boundary_mask[nr,nc] and not large_outlet_mask[row, col]:
             continue
-        # if low_point_cur_stored[row][col] >= low_point_capacity[row][col]:
-        #     continue
+        if low_point_capacity[row][col] > 0 and low_point_cur_stored[row][col] >= low_point_capacity[row][col]:
+            continue
         
         diff = DEM[row, col] - DEM[nr, nc]
         if diff > 0.0:
@@ -230,6 +230,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         # K_slow[row][col] = min(K_slow[row][col], 0.1)
         # V[row][col] = min(V[row][col] * 100, 0.4)
         
+        V[row][col] += V_SCALING_FACTOR * C_fast_current[row][col]
+        
         if river_mask[row][col]:
             lost_soc[row][col] += dep_soc[row][col]
             C_fast_current[row][col] = 0.0
@@ -279,6 +281,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             L_fast[row][col] -= ero_soc[row][col]
             L_slow[row][col] -= ero_soc[row][col]
             
+            L_fast[row][col] = max(L_fast[row][col], L_FAST_MIN)
+            
             # C_fast_past[row][col] = C_fast_current[row][col] - (init_fast_proportion[row][col] * V[row][col])
             C_fast_past[row][col] = C_fast_current[row][col] - (V_FAST_PROP * V[row][col])
             C_fast_past[row][col] /= L_fast[row][col] + 1e-9
@@ -319,7 +323,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     MAP_STATS.dam_cur_stored = dam_cur_stored    
     time_end = time.time()
     
-    print_max = True
+    print_max = False
     if print_max:
         if past:
             max_idx = np.unravel_index(np.nanargmax(C_fast_past), C_fast_past.shape)
@@ -377,7 +381,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             print(f'humification = {ALPHA * K_slow[row][col] * C_slow_current[row][col]}')
         print('-----------------------------------------------------------------------')
         
-    print_all = False
+    print_all = True
     if print_all:
         print(f'avg fast_proportion = {np.nanmean(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}, max = {np.nanmax(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}, min = {np.nanmin(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}')
         print(f'avg K_fast = {np.nanmean(K_fast)}, max = {np.nanmax(K_fast)}, min = {np.nanmin(K_fast)}')
@@ -406,10 +410,10 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     if not past:
         C_fast_new = np.maximum((C_fast_current + del_soc_fast), C_MIN_CAP)
         C_slow_new = np.maximum((C_slow_current + del_soc_slow), C_MIN_CAP)
-        damp_fast = LAMBDA_FAST * (C_fast_new - C_fast_current)
-        damp_slow = LAMBDA_SLOW * (C_slow_new - C_slow_current)
-        C_fast_new -= damp_fast
-        C_slow_new -= damp_slow
+        # damp_fast = LAMBDA_FAST * (C_fast_new - C_fast_current)
+        # damp_slow = LAMBDA_SLOW * (C_slow_new - C_slow_current)
+        # C_fast_new -= damp_fast
+        # C_slow_new -= damp_slow
     else:
         C_fast_new = np.maximum(C_fast_past, C_MIN_CAP)
         C_slow_new = np.maximum(C_slow_past, C_MIN_CAP)
