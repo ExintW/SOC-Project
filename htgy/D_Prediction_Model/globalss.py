@@ -31,9 +31,9 @@ A_MAX = 0.1
 L_FAST_MIN = 0.8
 
 V_FAST_PROP = 0.8           # for vegetation input proportion
-V_FACTOR = 2                # for vegetation scaling (set to 1 to disable)
+V_FACTOR = 3                # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
-V_SCALING_FACTOR = 0.2      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC_fast, 0 to disable
+V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC_fast, 0 to disable
 
 P_FAST_DIV_FACTOR = 10      # divide p_fast grid by this, 1 to use original
 

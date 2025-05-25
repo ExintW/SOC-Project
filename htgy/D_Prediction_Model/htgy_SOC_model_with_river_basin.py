@@ -201,9 +201,25 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         for year in range(start_year, end_year + 1, step_size):
             run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
 
+        # stack into an (X, 844, 1263) array
+        total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0)
+        np.savez(
+            os.path.join(OUTPUT_DIR, f"Total SOC year {start_year}-{end_year}.npz"),
+            total_C=total_C_array
+        )
+        print(f"Saved total-C matrix from year {start_year}-{end_year} of shape {total_C_array.shape}")
+
     if future_year != None:
         for year in range(end_year+1, future_year + 1):
             run_simulation_year(year, LS_factor, P_factor, sorted_indices, future=True, a=a, b=b, c=c)
+        # stack into an (X, 844, 1263) array
+        total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0)
+        np.savez(
+            os.path.join(OUTPUT_DIR, f"Total SOC year {end_year}-{future_year}.npz"),
+            total_C=total_C_array
+        )
+        print(f"Saved total-C matrix from year {end_year}-{future_year} of shape {total_C_array.shape}")
+
 
     # if end_year != None or future_year != None:
     #     # INIT_VALUES.reset()
@@ -224,6 +240,13 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
             # for year in range(start_year-1, past_year-1, -1):
             for year in range(end_year, past_year-1, -1):
                 run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=True, a=a, b=b, c=c)
+            # stack into an (X, 844, 1263) array
+            total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0)
+            np.savez(
+                os.path.join(OUTPUT_DIR, f"Total SOC year {past_year}-{end_year}.npz"),
+                total_C=total_C_array
+            )
+            print(f"Saved total-C matrix from year {past_year}-{end_year} of shape {total_C_array.shape}")
         else:   # run non-reversed past year simulation with given fraction as init condition
             for year in range(past_year, start_year, step_size):
                 run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
@@ -241,8 +264,8 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year = 2007   # year of init condition
-    end_year = 2009     # last year of present  (set to None to disable present year)
-    past_year = 2005    # last year of past     (set to None to disable past year)
+    end_year = 2024     # last year of present  (set to None to disable present year)
+    past_year = None    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
     
     fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)

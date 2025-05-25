@@ -1,8 +1,9 @@
 import os
+import sys
 import xarray as xr
 import pandas as pd
 import numpy as np
-import sys
+import matplotlib.pyplot as plt    # ← added for plotting
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *
 
@@ -48,6 +49,7 @@ for year in range(start_year, end_year + 1):
         elif "valid_time" in ds_res.dims: time_dim = "valid_time"
         else:                             time_dim = None
 
+        # --- your existing stats printout ---
         for var in ("lai_lv", "lai_hv", "tp"):
             if var not in ds_res:
                 continue
@@ -67,10 +69,58 @@ for year in range(start_year, end_year + 1):
                 vmin, vmax, vmean = float(da.min()), float(da.max()), float(da.mean())
                 print(f"{year} | {var}: min={vmin:.3f}, max={vmax:.3f}, mean={vmean:.3f}")
 
-        # save out
+        # save out the resampled NetCDF
         out_path = output_dir / f"resampled_{year}.nc"
         ds_res.to_netcdf(out_path)
         print(f"✅ Resampling complete for {year}. Saved to: {out_path}")
+
+        # ──────────────── NEW: Annual‐mean LAI visualizations ────────────────
+        if time_dim:
+            for lai_var in ("lai_lv", "lai_hv"):
+                if lai_var in ds_res:
+                    annual_mean = ds_res[lai_var].mean(dim=time_dim)
+
+                    plt.figure(figsize=(10, 6))
+                    sc = plt.scatter(
+                        lons, lats,
+                        c=annual_mean,
+                        s=10,
+                        edgecolor="none"
+                    )
+                    plt.colorbar(sc, label=f"{lai_var} annual mean ({year})")
+                    plt.xlabel("Longitude")
+                    plt.ylabel("Latitude")
+                    plt.title(f"Annual Mean {lai_var} in {year}")
+                    plt.tight_layout()
+
+                    fig_path = output_dir / f"annual_mean_{lai_var}_{year}.png"
+                    plt.savefig(fig_path)
+                    plt.close()
+                    print(f"📊 Saved annual‐mean map: {fig_path.name}")
+
+            # ───────────── NEW: Annual‐total Precipitation visual ─────────────
+            if "tp" in ds_res:
+                # sum over months to get annual total
+                annual_tp = ds_res["tp"].sum(dim=time_dim)
+
+                plt.figure(figsize=(10, 6))
+                sc = plt.scatter(
+                    lons, lats,
+                    c=annual_tp,
+                    s=10,
+                    edgecolor="none"
+                )
+                plt.colorbar(sc, label=f"Annual total precipitation (tp) in {year}")
+                plt.xlabel("Longitude")
+                plt.ylabel("Latitude")
+                plt.title(f"Annual Total Precipitation in {year}")
+                plt.tight_layout()
+
+                fig_path = output_dir / f"annual_total_tp_{year}.png"
+                plt.savefig(fig_path)
+                plt.close()
+                print(f"📊 Saved annual‐total precipitation map: {fig_path.name}")
+        # ────────────────────────────────────────────────────────────────────────
 
         ds.close()
 
