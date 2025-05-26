@@ -52,28 +52,31 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
     # Load monthly climate data (NetCDF)
     if future:
-        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_585.nc"
+        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_126.nc"
     else:
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
 
     if year <= 2000:
         lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_1950-2000.nc"
+        cmip_start = 1950
     elif year <= 2014:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2000-2015.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2001-2014.nc"
+        cmip_start = 2001
     else:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_585.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_126.nc"
+        cmip_start = 2015
 
-        
+
     if not os.path.exists(nc_file):
         print(f"NetCDF file not found for year {year}: {nc_file}")
         return
 
     with nc.Dataset(nc_file) as ds, nc.Dataset(lai_file) as ds_lai, (nc.Dataset(pr_file) if future else nullcontext()) as ds_pr:
-            
+
         # valid_time = ds.variables['valid_time'][:]  # Expect 12 months
         # n_time = len(valid_time)
         n_time = 12
-        
+
         if future:
             # LAI file variables
 
@@ -88,10 +91,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             lon_nc_pr = ds_pr.variables['lon'][:]
             lat_nc_pr = ds_pr.variables['lat'][:]
             pr_data = ds_pr.variables['pr'][:]         # shape: (time, n_points), in kg m^-2 s^-1
-            tp_data_mm = pr_data * 30 * 86400     
+            tp_data_mm = pr_data * 30 * 86400
             R_annual = calculate_r_factor_annually(tp_data_mm, c=c, b=b)
             R_annual_temp = create_grid_from_points(lon_nc_pr, lat_nc_pr, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
-        
+
         else:
             if USE_CMIP6:
                 lon_lai = ds_lai.variables['lon'][:]  # Adjusted variable name if needed
@@ -101,7 +104,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 lon_lai = ds.variables['longitude'][:]  # Adjusted variable name if needed
                 lat_lai = ds.variables['latitude'][:]
                 lai_data = ds.variables['lai_lv'][:]  # shape: (12, n_points)
-            
+
             lon_nc = ds.variables['longitude'][:]
             lat_nc = ds.variables['latitude'][:]
             tp_data = ds.variables['tp'][:]       # shape: (12, n_points), in meters
@@ -112,28 +115,30 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
         R_annual_temp = np.nan_to_num(R_annual_temp, nan=np.nanmean(R_annual_temp))
         print(f"Total elements in R Year: {R_annual_temp.size}, with max = {np.max(R_annual_temp)}, min = {np.min(R_annual_temp)}, mean = {np.mean(R_annual_temp)}")
-    
+
         E_month_avg_list = []   # for calculating annual mean for validation
         C_month_list = []
         if past:
             time_range = range(n_time-1, -1, -1)    # 11 -> 0
         else:
             time_range = range(n_time)
-            
+
         for month_idx in time_range:
             idx = month_idx
-            if future:
-                netcdf_index = (year - 2015) * n_time + month_idx
-                if netcdf_index < 0 or netcdf_index >= lai_data.shape[0]:
+
+            # CMIP6 / future case: compute flat index relative to cmip_start
+            if USE_CMIP6 or future:
+                idx = (year - cmip_start) * n_time + month_idx
+                # skip months before or after our CMIP6 file
+                if idx < 0 or idx >= lai_data.shape[0]:
                     continue
-                idx = netcdf_index
             # Regrid LAI data
             time_month = time.time()
-            
+
             print(f"\n=======================================================================")
             print(f"                          Year {year} Month {month_idx+1}")
             print(f"=======================================================================\n")
-            
+
             print(f"lai_data shape = {lai_data.shape}")
             lai_1d = lai_data[idx, :]
             LAI_2D = create_grid_from_points(lon_lai, lat_lai, lai_1d, MAP_STATS.grid_x, MAP_STATS.grid_y)
@@ -143,7 +148,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time1 = time.time()
             
             # Regrid precipitation and convert to mm
-            tp_1d_mm = tp_data_mm[idx, :]
+            tp_1d_mm = tp_data_mm[month_idx, :]
             if future:
                 RAIN_2D = create_grid_from_points(lon_nc_pr, lat_nc_pr, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
             else:
@@ -215,10 +220,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # Compute vegetation input
             V = vegetation_input(LAI_2D)
             
-            # mean_vege_gain = np.mean(np.nan_to_num(V, nan=0))
+            mean_vege_gain = np.mean(np.nan_to_num(V, nan=0))
             # max_vege_gain = np.nanmax(V)
             # min_vege_gain = np.nanmin(V)
-            # print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, "
+            print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, ")
             #       f"max: {max_vege_gain:.2f}, min: {min_vege_gain:.2f}")
 
             # deposition_SOC_gain = D_soc*1000/M_soil
@@ -290,6 +295,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
             max_C_total = np.nanmax(C_total)
             min_C_total = np.nanmin(C_total)
+
+            # stash a copy of this month’s total‐C grid
+            if past:
+                MAP_STATS.total_C_matrix.insert(0, C_total.copy())
+            else:
+                MAP_STATS.total_C_matrix.append(C_total.copy())
 
             # New: count and report cells where C_total > 40 and it's an active dam
             high_dam_mask = (C_total > 40) & active_dams

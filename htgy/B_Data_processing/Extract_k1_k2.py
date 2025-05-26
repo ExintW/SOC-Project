@@ -1,81 +1,100 @@
-import rasterio
+import os
+import sys
 import pandas as pd
 import numpy as np
-from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+import rioxarray         # ← install via: pip install rioxarray
+import xarray as xr
 from pathlib import Path
-import sys
-import os
+
+# allow imports from parent dir
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *
 
-# File Paths
-tiff_k1_path = DATA_DIR / "k1_halfDegree.tif"
-tiff_k2_path = DATA_DIR / "k2_halfDegree.tif"
-csv_file_path = PROCESSED_DIR / "Resampled_Loess_Plateau_1km_with_DEM_region_labeled.csv"
+# ─────────── File Paths ───────────
+tiff_k1_path    = DATA_DIR  / "k1_halfDegree.tif"
+tiff_k2_path    = DATA_DIR  / "k2_halfDegree.tif"
+csv_file_path   = PROCESSED_DIR / "Resampled_Loess_Plateau_1km_with_DEM_region_labeled.csv"
 output_csv_path = PROCESSED_DIR / "Resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
+os.makedirs(output_csv_path.parent, exist_ok=True)
 
-# Function to extract raster values at given coordinates
-def extract_raster_values(tiff_path, lon, lat):
-    with rasterio.open(tiff_path) as dataset:
-        # Read raster data and transform
-        raster_data = dataset.read(1)  # Read first band
-        transform = dataset.transform
-        nodata_value = dataset.nodata
+# ─────────── Helper: two‐step interpolation via rioxarray with nodata masking ───────────
+def interp_tiff(path, lons, lats):
+    da = rioxarray.open_rasterio(path)
+    nodata = da.rio.nodata
+    da = da.where(da != nodata)               # mask out sentinel nodata values
+    da = da.squeeze("band", drop=True)
+    da = da.rename({"x": "lon", "y": "lat"})
+    # first linear…
+    da_lin = da.interp(
+        lon = xr.DataArray(lons, dims="points"),
+        lat = xr.DataArray(lats, dims="points"),
+        method = "linear"
+    )
+    # then nearest to fill any NaNs
+    da_nn = da.interp(
+        lon = xr.DataArray(lons, dims="points"),
+        lat = xr.DataArray(lats, dims="points"),
+        method = "nearest"
+    )
+    da_filled = da_lin.fillna(da_nn)
+    return da_filled.values
 
-        # Get raster pixel coordinates
-        rows, cols = np.meshgrid(np.arange(raster_data.shape[0]), np.arange(raster_data.shape[1]), indexing="ij")
-
-        # Convert pixel indices to geographic coordinates
-        raster_lon, raster_lat = rasterio.transform.xy(transform, rows, cols)
-
-        # Flatten arrays for interpolation
-        raster_lon = np.array(raster_lon).flatten()
-        raster_lat = np.array(raster_lat).flatten()
-        raster_values = raster_data.flatten()
-
-        # Handle NoData values by setting them to NaN
-        if nodata_value is not None:
-            mask = raster_values != nodata_value
-            raster_lon, raster_lat, raster_values = raster_lon[mask], raster_lat[mask], raster_values[mask]
-
-        # Interpolate raster values at given lon, lat
-        extracted_values = griddata(
-            (raster_lon, raster_lat), raster_values, (lon, lat), method="linear"
-        )
-
-        # If linear interpolation fails (NaN values remain), fall back to nearest neighbor
-        nan_mask = np.isnan(extracted_values)
-        if np.any(nan_mask):
-            extracted_values[nan_mask] = griddata(
-                (raster_lon, raster_lat), raster_values, (lon[nan_mask], lat[nan_mask]), method="nearest"
-            )
-
-        return extracted_values
-
-# Function to convert SOM daily decomposition rate to SOC monthly decomposition rate
+# ─────────── SOM→SOC conversion (clip negatives to zero) ───────────
 def convert_som_to_soc_monthly(som_k_day):
-    """ Convert SOM daily rate (1/day) to SOC monthly rate (1/month). """               # Apply SOC conversion factor
-    som_k_month = 1 - np.exp(-som_k_day * 30)  # Convert daily to monthly
-    return som_k_month*0.58
+    k_day = np.maximum(som_k_day, 0.0)
+    som_k_month = 1 - np.exp(-k_day * 30)
+    return som_k_month * 0.58
 
-# Read the CSV file
+# ─────────── Read input CSV ───────────
 df = pd.read_csv(csv_file_path)
-
-# Extract longitude and latitude
 lon_csv = df["LON"].values
 lat_csv = df["LAT"].values
 
-# Extract k1 and k2 SOM values (1/day) from TIFFs
-som_k1_day = extract_raster_values(tiff_k1_path, lon_csv, lat_csv)
-som_k2_day = extract_raster_values(tiff_k2_path, lon_csv, lat_csv)
+# ─────────── Interpolate k₁ & k₂ ───────────
+som_k1_day = interp_tiff(tiff_k1_path, lon_csv, lat_csv)
+som_k2_day = interp_tiff(tiff_k2_path, lon_csv, lat_csv)
 
-# Convert SOM to SOC monthly rates
-df["SOC_k1_fast_pool (1/day)"] = som_k1_day*0.58
-df["SOC_k2_slow_pool (1/day)"] = som_k2_day*0.58
+# ─────────── Fill negative SOM rates with mean of positives ───────────
+mean_k1 = np.nanmean(som_k1_day[som_k1_day > 0])
+mean_k2 = np.nanmean(som_k2_day[som_k2_day > 0])
+som_k1_day = np.where(som_k1_day < 0, mean_k1, som_k1_day)
+som_k2_day = np.where(som_k2_day < 0, mean_k2, som_k2_day)
+
+# ─────────── Add new columns ───────────
+df["SOC_k1_fast_pool (1/day)"]   = som_k1_day * 0.58
+df["SOC_k2_slow_pool (1/day)"]   = som_k2_day * 0.58
 df["SOC_k1_fast_pool (1/month)"] = convert_som_to_soc_monthly(som_k1_day)
 df["SOC_k2_slow_pool (1/month)"] = convert_som_to_soc_monthly(som_k2_day)
 
-# Save the updated CSV file
+# ─────────── Save updated CSV ───────────
 df.to_csv(output_csv_path, index=False)
-
 print(f"✅ Updated CSV saved: {output_csv_path}")
+
+# ─────────── Plot spatial maps for k₁ & k₂ ───────────
+plots = [
+    ("SOC_k1_fast_pool (1/month)", "k₁ fast‐pool rate (1/month)", "map_k1_fast_pool.png"),
+    ("SOC_k2_slow_pool (1/month)", "k₂ slow‐pool rate (1/month)", "map_k2_slow_pool.png"),
+]
+
+for col, label, fname in plots:
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sc = ax.scatter(
+        lon_csv, lat_csv,
+        c = df[col],
+        s = 10,
+        edgecolor = "none"
+    )
+    plt.colorbar(sc, ax=ax, label=label)
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.set_title(f"Spatial distribution of {label}")
+    # crop to data extent
+    ax.set_xlim(lon_csv.min(), lon_csv.max())
+    ax.set_ylim(lat_csv.min(), lat_csv.max())
+    ax.margins(0)
+    plt.tight_layout()
+    fig_path = output_csv_path.parent / fname
+    plt.savefig(fig_path)
+    plt.close(fig)
+    print(f"📊 Saved map: {fig_path.name}")

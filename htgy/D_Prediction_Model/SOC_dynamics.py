@@ -143,7 +143,7 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
             continue
         if large_boundary_mask[row, col] != large_boundary_mask[nr,nc] and not large_outlet_mask[row, col]:
             continue
-        if low_point_capacity[row][col] > 0 and low_point_cur_stored[row][col] >= low_point_capacity[row][col]:
+        if low_point_capacity[nr][nc] > 0 and low_point_cur_stored[nr][nc] >= low_point_capacity[nr][nc]:
             continue
         
         diff = DEM[row, col] - DEM[nr, nc]
@@ -247,7 +247,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
                 dep_soc[row][col] = 0.0
                 dep_soil[row][col] = 0.0
 
-        
+
         if past:
             L_fast[row][col] = 1 - K_fast[row][col]
             L_slow[row][col] = 1 - K_slow[row][col]
