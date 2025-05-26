@@ -227,10 +227,10 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
 
         # A[row][col] = min(A[row][col], 0.1)
         # K_fast[row][col] = min(K_fast[row][col], 0.1)
-        # K_slow[row][col] = min(K_slow[row][col], 0.1)
+        K_slow[row][col] = min(K_slow[row][col], K_SLOW_MAX)
         # V[row][col] = min(V[row][col] * 100, 0.4)
         
-        V[row][col] += V_SCALING_FACTOR * C_fast_current[row][col]
+        V[row][col] += V_SCALING_FACTOR * (C_fast_current[row][col] + C_slow_current[row][col])
         
         if river_mask[row][col]:
             lost_soc[row][col] += dep_soc[row][col]
@@ -282,6 +282,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             L_slow[row][col] -= ero_soc[row][col]
             
             L_fast[row][col] = max(L_fast[row][col], L_FAST_MIN)
+            L_slow[row][col] = max(L_slow[row][col], L_SLOW_MIN)
             
             # C_fast_past[row][col] = C_fast_current[row][col] - (init_fast_proportion[row][col] * V[row][col])
             C_fast_past[row][col] = C_fast_current[row][col] - (V_FAST_PROP * V[row][col])
@@ -323,7 +324,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     MAP_STATS.dam_cur_stored = dam_cur_stored    
     time_end = time.time()
     
-    print_max = False
+    print_max = True
     if print_max:
         if past:
             max_idx = np.unravel_index(np.nanargmax(C_fast_past), C_fast_past.shape)
@@ -408,15 +409,15 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     MAP_STATS.C_slow_prev = C_slow_current.copy()
     
     if not past:
-        C_fast_new = np.maximum((C_fast_current + del_soc_fast), C_MIN_CAP)
-        C_slow_new = np.maximum((C_slow_current + del_soc_slow), C_MIN_CAP)
+        C_fast_new = np.clip((C_fast_current + del_soc_fast), C_MIN_CAP, C_FAST_MAX)
+        C_slow_new = np.clip((C_slow_current + del_soc_slow), C_MIN_CAP, C_SLOW_MAX)
         # damp_fast = LAMBDA_FAST * (C_fast_new - C_fast_current)
         # damp_slow = LAMBDA_SLOW * (C_slow_new - C_slow_current)
         # C_fast_new -= damp_fast
         # C_slow_new -= damp_slow
     else:
-        C_fast_new = np.maximum(C_fast_past, C_MIN_CAP)
-        C_slow_new = np.maximum(C_slow_past, C_MIN_CAP)
+        C_fast_new = np.clip(C_fast_past, C_MIN_CAP, C_FAST_MAX)
+        C_slow_new = np.clip(C_slow_past, C_MIN_CAP, C_SLOW_MAX)
         damp_slow = LAMBDA_SLOW * (C_slow_new - C_slow_current)
         
         if np.nanmax(C_fast_new) > FAST_DAMP_START:
