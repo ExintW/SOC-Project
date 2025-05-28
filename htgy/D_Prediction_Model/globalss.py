@@ -12,7 +12,7 @@ M_soil = 2.6e8  # total soil mass per cell (kg)
 INIT_YEAR = 2007
 PRESENT_YEAR = 2025
 # global_timestep = 0
-USE_CMIP6 = True
+USE_CMIP6 = True            # Use CMIP6 lai for present and past simulations (Uses ERA5 if False)
 
 ############################Parameters##############################
 C_INIT_CAP = 12
@@ -24,20 +24,25 @@ LAMBDA_FAST = 0.99          # for damping, set to 0 to disable
 FAST_DAMP_THRESH = 1e9      # 0.4  # if diff > this value, then do damping (0 to damp all, inf to disable damp)
 LAMBDA_SLOW = 0             # for damping, set to 0 to disable
 
-ALPHA = 0.10                # for humification -> % minerized C fast that becomes C slow  (0 to disable)
+ALPHA = 0.20                # for humification -> % minerized C fast that becomes C slow  (0 to disable)
 
 A_MAX = 0.1
 
-L_FAST_MIN = 0.8
+L_FAST_MIN = 0
+L_SLOW_MIN = 0.965
 
-V_FAST_PROP = 0.8           # for vegetation input proportion
-V_FACTOR = 3                # for vegetation scaling (set to 1 to disable)
+K_SLOW_MAX = 0.08
+
+V_FAST_PROP = 0.7           # for vegetation input proportion
+V_FACTOR = 1                # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
-V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC_fast, 0 to disable
+V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC, 0 to disable
 
-P_FAST_DIV_FACTOR = 10      # divide p_fast grid by this, 1 to use original
+P_FAST_DIV_FACTOR = 6      # divide p_fast grid by this, 1 to use original
 
 C_MIN_CAP = 0.01            # Min of C, to avoid dead areas when past
+C_FAST_MAX = 2
+C_SLOW_MAX = 40
 ############################Parameters##############################
 
 class INIT_VALUES:
