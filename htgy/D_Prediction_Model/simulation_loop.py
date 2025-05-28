@@ -66,12 +66,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_126.nc"
         cmip_start = 2015
 
+    if future != True:
+        if not os.path.exists(nc_file):
+            print(f"NetCDF file not found for year {year}: {nc_file}")
+            return
 
-    if not os.path.exists(nc_file):
-        print(f"NetCDF file not found for year {year}: {nc_file}")
-        return
-
-    with nc.Dataset(nc_file) as ds, nc.Dataset(lai_file) as ds_lai, (nc.Dataset(pr_file) if future else nullcontext()) as ds_pr:
+    with (nc.Dataset(nc_file) if not future else nullcontext()) as ds, nc.Dataset(lai_file) as ds_lai, (nc.Dataset(pr_file) if future else nullcontext()) as ds_pr:
 
         # valid_time = ds.variables['valid_time'][:]  # Expect 12 months
         # n_time = len(valid_time)
@@ -80,9 +80,9 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         if future:
             # LAI file variables
 
-            lon_lai = ds.variables['lon'][:]  # Adjusted variable name if needed
-            lat_lai = ds.variables['lat'][:]
-            lai_data = ds.variables['lai'][:]      # shape: (time, n_points)
+            lon_lai = ds_lai.variables['lon'][:]  # Adjusted variable name if needed
+            lat_lai = ds_lai.variables['lat'][:]
+            lai_data = ds_lai.variables['lai'][:]  # shape: (12, n_points)
 
             lon_nc = lon_lai
             lat_nc = lat_lai
@@ -92,6 +92,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             lat_nc_pr = ds_pr.variables['lat'][:]
             pr_data = ds_pr.variables['pr'][:]         # shape: (time, n_points), in kg m^-2 s^-1
             tp_data_mm = pr_data * 30 * 86400
+
             R_annual = calculate_r_factor_annually(tp_data_mm, c=c, b=b)
             R_annual_temp = create_grid_from_points(lon_nc_pr, lat_nc_pr, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
 
@@ -110,6 +111,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             tp_data = ds.variables['tp'][:]       # shape: (12, n_points), in meters
             tp_data = tp_data * 30
             tp_data_mm = tp_data * 1000.0
+            print(future)
             R_annual = calculate_r_factor_annually(tp_data_mm, c=c, b=b)
             R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
 
@@ -148,10 +150,11 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time1 = time.time()
             
             # Regrid precipitation and convert to mm
-            tp_1d_mm = tp_data_mm[month_idx, :]
             if future:
+                tp_1d_mm = tp_data_mm[idx, :]
                 RAIN_2D = create_grid_from_points(lon_nc_pr, lat_nc_pr, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
             else:
+                tp_1d_mm = tp_data_mm[month_idx, :]
                 RAIN_2D = create_grid_from_points(lon_nc, lat_nc, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
             RAIN_2D = np.nan_to_num(RAIN_2D, nan=np.nanmean(RAIN_2D))
             

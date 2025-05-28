@@ -172,7 +172,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     fig, ax = plt.subplots()
-    cax = ax.imshow(INIT_VALUES.C_fast + INIT_VALUES.C_slow, cmap="viridis",
+    cax = ax.imshow(INIT_VALUES.C_fast + INIT_VALUES.C_slow, cmap="viridis", vmin=0,vmax=14,
                     extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(),
                             MAP_STATS.grid_y.max()],
                     origin='upper')
@@ -210,15 +210,19 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         print(f"Saved total-C matrix from year {start_year}-{end_year} of shape {total_C_array.shape}")
 
     if future_year != None:
-        for year in range(end_year+1, future_year + 1):
+        print(start_year)
+        print(end_year)
+        print(past_year)
+        print(future_year)
+        for year in range(start_year, future_year + 1):
             run_simulation_year(year, LS_factor, P_factor, sorted_indices, future=True, a=a, b=b, c=c)
         # stack into an (X, 844, 1263) array
         total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0)
         np.savez(
-            os.path.join(OUTPUT_DIR, f"Total SOC year {end_year}-{future_year}.npz"),
+            os.path.join(OUTPUT_DIR, f"Total SOC year {start_year}-{future_year}.npz"),
             total_C=total_C_array
         )
-        print(f"Saved total-C matrix from year {end_year}-{future_year} of shape {total_C_array.shape}")
+        print(f"Saved total-C matrix from year {start_year}-{future_year} of shape {total_C_array.shape}")
 
 
     # if end_year != None or future_year != None:
@@ -233,7 +237,8 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     #     MAP_STATS.C_slow_current[~MAP_STATS.loess_border_mask] = np.nan
 
     if end_year == None or not RUN_FROM_EQUIL:    # for running from equilibrium
-        end_year = start_year - 1
+        if future_year == None:
+            end_year = start_year - 1
         
     if past_year != None:
         if fraction == 1:
@@ -263,10 +268,10 @@ if __name__ == "__main__":
     b = 1.78
     c = 5.5
     
-    start_year = 2007   # year of init condition
-    end_year = 2024     # last year of present  (set to None to disable present year)
+    start_year =  2025  # year of init condition, default is 2007, set to 2025 for future
+    end_year = None     # last year of present  (set to None to disable present year)
     past_year = None    # last year of past     (set to None to disable past year)
-    future_year = None  # last year of future   (set to None to disable future year)
+    future_year = 2100  # last year of future   (set to None to disable future year)
     
     fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     
