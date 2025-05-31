@@ -229,7 +229,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         # K_fast[row][col] = min(K_fast[row][col], 0.1)
         K_slow[row][col] = min(K_slow[row][col], K_SLOW_MAX)
         # V[row][col] = min(V[row][col] * 100, 0.4)
-        
+        dep_soc[row][col] = min(dep_soc[row][col], D_MAX)
         V[row][col] += V_SCALING_FACTOR * (C_fast_current[row][col] + C_slow_current[row][col])
         
         if river_mask[row][col]:
@@ -324,7 +324,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     MAP_STATS.dam_cur_stored = dam_cur_stored    
     time_end = time.time()
     
-    print_max = True
+    print_max = False
     if print_max:
         if past:
             max_idx = np.unravel_index(np.nanargmax(C_fast_past), C_fast_past.shape)
