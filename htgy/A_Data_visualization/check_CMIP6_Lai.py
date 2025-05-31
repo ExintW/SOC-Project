@@ -22,6 +22,7 @@ files = {
     "Present (2000-2014)":    "resampled_lai_points_2000-2014.nc",
     "ssp126 (2015–2100)":     "resampled_lai_points_2015-2100_126.nc",
     "ssp245 (2015–2100)":     "resampled_lai_points_2015-2100_245.nc",
+    "ssp370 (2015–2100)":     "resampled_lai_points_2015-2100_370.nc",
     "ssp585 (2015–2100)":     "resampled_lai_points_2015-2100_585.nc",
 }
 

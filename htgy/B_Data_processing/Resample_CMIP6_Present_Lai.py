@@ -76,7 +76,7 @@ except Exception as e:
     print(f"Error processing LAI: {e}")
 
 # Write annual stats to CSV
-stats_file = output_dir / "annual_LAI_stats_2000-2014.csv"
+stats_file = output_dir / "annual_LAI_stats_2001-2014.csv"
 with open(stats_file, "w", newline="") as f:
     writer = csv.writer(f)
     writer.writerow(["variable", "year", "min", "max", "mean"])
@@ -117,7 +117,7 @@ sc = plt.scatter(
     s=10,
     edgecolor="none"
 )
-plt.colorbar(sc, label="Mean LAI (2000-2014)")
+plt.colorbar(sc, label="Mean LAI (2001-2014)")
 plt.xlabel("Longitude")
 plt.ylabel("Latitude")
 plt.title("Spatial Distribution of Mean LAI")

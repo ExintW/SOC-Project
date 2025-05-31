@@ -1,6 +1,8 @@
 import numpy as np
 import numba as nb
 from globalss import *
+import pandas as pd
+import xarray as xr
 
 def find_nearest_index(array, value):
     """Return index of element in array closest to value."""
@@ -88,3 +90,22 @@ def resample_LS_to_1km_grid(ls_30m, factor=33):
     start_w = (w - tw) // 2
 
     return ls_1km[start_h:start_h + th, start_w:start_w + tw]
+
+def export_total_C_netcdf(total_C_array, time_start, lat, lon, out_path):
+    """
+    Wrap a 3-D numpy array (time × lat × lon) into an xarray Dataset
+    with a monthly time axis, and write to NetCDF.
+    """
+    n_steps = total_C_array.shape[0]
+    time_index = pd.date_range(start=f"{time_start}-01-01",
+                               periods=n_steps,
+                               freq="MS")
+    da = xr.DataArray(
+        total_C_array,
+        dims=("time", "lat", "lon"),
+        coords={"time": time_index, "lat": lat, "lon": lon},
+        name="total_C"
+    )
+    ds = da.to_dataset()
+    ds.to_netcdf(out_path)
+    print(f"– Wrote NetCDF to {out_path}")

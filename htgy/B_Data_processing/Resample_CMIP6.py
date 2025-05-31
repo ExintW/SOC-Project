@@ -11,8 +11,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *
 
 # Input file paths for CMIP6 LAI and PR
-lai_path = Path(DATA_DIR) / "CMIP6" / "lai_Lmon_BCC-CSM2-MR_ssp585_r1i1p1f1_gn_201501-210012.nc"
-pr_path  = Path(DATA_DIR) / "CMIP6" / "pr_Amon_BCC-CSM2-MR_ssp585_r1i1p1f1_gn_201501-210012.nc"
+lai_path = Path(DATA_DIR) / "CMIP6" / "lai_Lmon_BCC-CSM2-MR_ssp370_r1i1p1f1_gn_201501-210012.nc"
+pr_path  = Path(DATA_DIR) / "CMIP6" / "pr_Amon_BCC-CSM2-MR_ssp370_r1i1p1f1_gn_201501-210012.nc"
 
 # Load target 1 km grid points
 csv_pts = Path(PROCESSED_DIR) / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
@@ -70,7 +70,7 @@ try:
     ds_lai = xr.open_dataset(lai_path)
     print(">>> Processing LAI")
     lai_rows = interp_and_collect(
-        ds_lai, "lai", "LAI", "resampled_lai_points_2015-2100_585.nc"
+        ds_lai, "lai", "LAI", "resampled_lai_points_2015-2100_370.nc"
     )
     ds_lai.close()
 except Exception as e:
@@ -82,7 +82,7 @@ try:
     pr_var = "pr" if "pr" in ds_pr.data_vars else list(ds_pr.data_vars)[0]
     print("\n>>> Processing PR")
     pr_rows = interp_and_collect(
-        ds_pr, pr_var, "PR", "resampled_pr_points_2015-2100_585.nc"
+        ds_pr, pr_var, "PR", "resampled_pr_points_2015-2100_370.nc"
     )
     ds_pr.close()
 except Exception as e:
@@ -96,4 +96,45 @@ with open(stats_file, "w", newline="") as f:
     for row in lai_rows + pr_rows:
         writer.writerow(row)
 print(f"→ Annual stats saved to {stats_file.name}")
+
+# ────────────────────────────────────────────────────────────────────────────
+# 4) Visualization: spatial map of mean LAI and PR (2015–2100, SSP5-8.5)
+# ────────────────────────────────────────────────────────────────────────────
+
+import matplotlib.pyplot as plt   # make sure this is at the top of your file
+
+for var_label, fname, var_name, cb_label in [
+    ("LAI", "resampled_lai_points_2015-2100_370.nc", "lai", "Mean LAI"),
+    ("PR",  "resampled_pr_points_2015-2100_370.nc",  "pr",  "Mean Precipitation (kg/m²/s)")
+]:
+    # 1) open the interpolated file
+    ds_vis = xr.open_dataset(output_dir / fname)
+
+    # 2) compute the long‐term mean
+    mean_da = ds_vis[var_name].mean(dim="time")
+
+    # 3) grab lon/lat coords
+    if "longitude" in ds_vis.coords:
+        lon_var, lat_var = "longitude", "latitude"
+    else:
+        lon_var, lat_var = "lon", "lat"
+    lons_vis = ds_vis[lon_var].values
+    lats_vis = ds_vis[lat_var].values
+
+    # 4) scatter‐plot
+    plt.figure(figsize=(10, 6))
+    sc = plt.scatter(
+        lons_vis, lats_vis,
+        c=mean_da,
+        s=10,
+        edgecolor="none"
+    )
+    plt.colorbar(sc, label=cb_label)
+    plt.xlabel("Longitude")
+    plt.ylabel("Latitude")
+    plt.title(f"Spatial Mean {var_label} (2015–2100)")
+    plt.tight_layout()
+    plt.show()
+
+    ds_vis.close()
 
