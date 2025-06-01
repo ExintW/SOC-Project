@@ -299,7 +299,13 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             # for humification
             C_slow_past[row][col] -= (ALPHA * C_fast_past[row][col] * K_fast[row][col]) / (L_slow[row][col] + 1e-9)
             C_slow_past[row][col] = max(C_slow_past[row][col], 0)
-
+            
+            if USE_TIKHONOV:
+                C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (REG_CONST * MAP_STATS.C_fast_prev[row][col])
+                C_fast_past[row][col] /= (L_fast[row][col] ** 2) + REG_CONST
+                C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (REG_CONST * MAP_STATS.C_slow_prev[row][col])
+                C_slow_past[row][col] /= (L_slow[row][col] ** 2) + REG_CONST
+            
         if not past:
             # del_soc_fast[row][col] += init_fast_proportion[row][col] * (dep_soc[row][col] - ero_soc[row][col] + V[row][col]) - (K_fast[row][col] * C_fast_current[row][col])
             # del_soc_slow[row][col] += init_slow_proportion[row][col] * (dep_soc[row][col] - ero_soc[row][col] + V[row][col]) - (K_slow[row][col] * C_slow_current[row][col])
@@ -430,6 +436,9 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         print(f'avg damping in fast = {np.nanmean(damp_fast)}, max = {np.nanmax(damp_fast)}, min = {np.nanmin(damp_fast)}')
     except:
         print('no damping this month')
+        
+    MAP_STATS.C_fast_prev = C_fast_current.copy()
+    MAP_STATS.C_slow_prev = C_slow_current.copy()
     
     return C_fast_new, C_slow_new, dep_soc, lost_soc
 
