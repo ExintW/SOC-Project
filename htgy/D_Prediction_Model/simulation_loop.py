@@ -295,7 +295,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # print(f"C slow nan: {np.isnan(MAP_STATS.C_slow_current).sum()}")
             
             C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
-            mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
+            #mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
+            mean_C_total = np.nanmean(C_total)
             max_C_total = np.nanmax(C_total)
             min_C_total = np.nanmin(C_total)
 

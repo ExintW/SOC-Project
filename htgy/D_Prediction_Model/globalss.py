@@ -35,8 +35,8 @@ LAMBDA_SLOW = 0             # for damping, set to 0 to disable
 
 ALPHA = 0.20                # for humification -> % minerized C fast that becomes C slow  (0 to disable)
 
-A_MAX = 0 # 0.1
-D_MAX = 0
+A_MAX = 1e9 # 0.1
+D_MAX = 1e9
 
 L_FAST_MIN = 0 # 0.7
 L_SLOW_MIN = 0 # 0.95
@@ -48,9 +48,9 @@ V_FACTOR = 3                # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0 # 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
 V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC, 0 to disable
 
-P_FAST_DIV_FACTOR = 6      # divide p_fast grid by this, 1 to use original
+P_FAST_DIV_FACTOR = 10      # divide p_fast grid by this, 1 to use original
 
-C_MIN_CAP = 0.01            # Min of C, to avoid dead areas when past
+C_MIN_CAP = 0.001            # Min of C, to avoid dead areas when past
 C_FAST_MAX = 1e9 # 2
 C_SLOW_MAX = 1e9 # 10
 ######################################################################
