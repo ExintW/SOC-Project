@@ -14,15 +14,17 @@ PRESENT_YEAR = 2025
 # global_timestep = 0
 USE_CMIP6 = True            # Use CMIP6 lai for present and past simulations (Uses ERA5 if False)
 
-############################UNet Hyperparameters##############################
+############################ UNet Hyperparameters ##############################
 BATCH_SIZE = 4
 NUM_EPOCHS = 20
 LEARNING_RATE = 1e-4
 PRINT_FREQ = 10
-##############################################################################
 
-############################Parameters##############################
+############################ Parameters ##############################
 C_INIT_CAP = 12
+
+USE_TIKHONOV = True
+REG_CONST = 3
 
 RUN_FROM_EQUIL = True       # if True, past will start from end_year
 
@@ -39,19 +41,19 @@ D_MAX = 0
 L_FAST_MIN = 0 # 0.7
 L_SLOW_MIN = 0 # 0.95
 
-K_SLOW_MAX = 0.08
+K_SLOW_MAX = 1e9 # 0.08
 
 V_FAST_PROP = 0.8           # for vegetation input proportion
-V_FACTOR = 1                # for vegetation scaling (set to 1 to disable)
-V_MIN_CLIP = 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
+V_FACTOR = 3                # for vegetation scaling (set to 1 to disable)
+V_MIN_CLIP = 0 # 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
 V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC, 0 to disable
 
-P_FAST_DIV_FACTOR = 6      # divide p_fast grid by this, 1 to use original
+P_FAST_DIV_FACTOR = 10      # divide p_fast grid by this, 1 to use original
 
 C_MIN_CAP = 0.01            # Min of C, to avoid dead areas when past
 C_FAST_MAX = 1e9 # 2
 C_SLOW_MAX = 1e9 # 10
-############################Parameters##############################
+######################################################################
 
 class INIT_VALUES:
     SOC = None
@@ -100,6 +102,9 @@ class MAP_STATS:
     
     C_fast_current = None
     C_slow_current = None
+    
+    C_fast_prev = None
+    C_slow_prev = None
     
     @classmethod
     def reset(cls):
