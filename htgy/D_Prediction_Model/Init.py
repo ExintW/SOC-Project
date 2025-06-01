@@ -125,6 +125,9 @@ def init_global_data_structs(fraction=1):
     # 3) Create a output matrix for total SOC
     # =============================================================================
     MAP_STATS.total_C_matrix = []
+    MAP_STATS.C_fast_matrix = []
+    MAP_STATS.C_slow_matrix = []
+    MAP_STATS.active_dam_matrix = []
     
     print(f"Initial p_fast_grid mean = {np.nanmean(MAP_STATS.p_fast_grid)}, max = {np.nanmax(MAP_STATS.p_fast_grid)}, min = {np.nanmin(MAP_STATS.p_fast_grid)}")
 

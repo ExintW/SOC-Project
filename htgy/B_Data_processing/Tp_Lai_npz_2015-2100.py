@@ -13,11 +13,12 @@ from globals import PROCESSED_DIR
 # Paths
 CSV_FILE  = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
 CMIP6_DIR = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled"
-LAI_FILE  = CMIP6_DIR / "resampled_lai_points_2015-2100_585.nc"
-PR_FILE   = CMIP6_DIR / "resampled_pr_points_2015-2100_585.nc"
+LAI_FILE  = CMIP6_DIR / "resampled_lai_points_2015-2100_245.nc"
+PR_FILE   = CMIP6_DIR / "resampled_pr_points_2015-2100_245.nc"
 
-V_NPZ     = PROCESSED_DIR / "V_585_2015-2100.npz"
-PR_NPZ    = PROCESSED_DIR / "PR_585_2015-2100.npz"
+V_fast_NPZ     = PROCESSED_DIR / "V_fast_245_2015-2100.npz"
+V_slow_NPZ     = PROCESSED_DIR / "V_slow_245_2015-2100.npz"
+PR_NPZ    = PROCESSED_DIR / "PR_245_2015-2100.npz"
 
 # Build grid axes from your points CSV
 df_pts    = pd.read_csv(CSV_FILE)
@@ -26,15 +27,20 @@ lon_unique = np.sort(df_pts["LON"].unique())       # ascending  → col 0 = west
 nlat, nlon = lat_unique.size, lon_unique.size
 
 # Vegetation‐input transform
-def vegetation_input(LAI_array):
+def vegetation_input_fast(LAI_array):
     LAI_safe = np.maximum(LAI_array, 1e-6)
-    return 0.11434652 * np.log(LAI_safe) + 0.08709953
+    return (0.11434652 * np.log(LAI_safe) + 0.08709953)*0.2
+
+def vegetation_input_slow(LAI_array):
+    LAI_safe = np.maximum(LAI_array, 1e-6)
+    return (0.11434652 * np.log(LAI_safe) + 0.08709953)*0.8
 
 # ——— Process LAI → V —————————————————————————————————————————————————————
 with xr.open_dataset(LAI_FILE) as ds_lai:
     lai_vals = ds_lai["lai"].values.astype("float32")  # (time, points)
 n_months = lai_vals.shape[0]
-V = np.empty((n_months, nlat, nlon), dtype="float32")
+V_fast = np.empty((n_months, nlat, nlon), dtype="float32")
+V_slow = np.empty((n_months, nlat, nlon), dtype="float32")
 
 for m in range(n_months):
     tmp = pd.DataFrame({
@@ -47,14 +53,20 @@ for m in range(n_months):
            .reindex(index=lat_unique, columns=lon_unique)
            .values
     )
-    V[m] = vegetation_input(grid)
+    V_fast[m] = vegetation_input_fast(grid)
+    V_slow[m] = vegetation_input_slow(grid)
 
 # Save V
 np.savez_compressed(
-    V_NPZ,
-    V=V
+    V_fast_NPZ,
+    v_fast=V_fast
 )
-print(f"✅ Saved V matrix with shape {V.shape} to {V_NPZ}")
+print(f"✅ Saved V_fast matrix with shape {V_fast.shape} to {V_fast_NPZ}")
+np.savez_compressed(
+    V_slow_NPZ,
+    v_slow=V_slow
+)
+print(f"✅ Saved V_fast matrix with shape {V_slow.shape} to {V_slow_NPZ}")
 
 # ——— Process PR —————————————————————————————————————————————————————————
 with xr.open_dataset(PR_FILE) as ds_pr:
@@ -78,7 +90,7 @@ for m in range(pr_vals.shape[0]):
 # Save PR
 np.savez_compressed(
     PR_NPZ,
-    PR=PR
+    Precip=PR
 )
 print(f"✅ Saved PR matrix with shape {PR.shape} to {PR_NPZ}")
 
