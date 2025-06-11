@@ -21,7 +21,7 @@ LEARNING_RATE = 1e-4
 PRINT_FREQ = 10
 
 ############################ Parameters ##############################
-C_INIT_CAP = 12
+C_INIT_CAP = 100
 
 USE_TIKHONOV = True
 REG_CONST = 3
@@ -35,7 +35,7 @@ LAMBDA_SLOW = 0             # for damping, set to 0 to disable
 
 ALPHA = 0.20                # for humification -> % minerized C fast that becomes C slow  (0 to disable)
 
-A_MAX = 1e9 # 0.1
+A_MAX = 0.1 # 0.1
 D_MAX = 1e9
 
 L_FAST_MIN = 0 # 0.7
@@ -44,7 +44,7 @@ L_SLOW_MIN = 0 # 0.95
 K_SLOW_MAX = 1e9 # 0.08
 
 V_FAST_PROP = 0.8           # for vegetation input proportion
-V_FACTOR = 3                # for vegetation scaling (set to 1 to disable)
+V_FACTOR = 6                # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0 # 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
 V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC, 0 to disable
 

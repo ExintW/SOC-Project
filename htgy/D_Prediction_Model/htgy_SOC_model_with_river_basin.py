@@ -82,7 +82,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     if future_year != None:
         # Path to the snapshot for December of the present period
-        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present" / "SOC_terms_2024_12_River.parquet"
+        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 2" / "SOC_terms_2024_12_River.parquet"
         if future_initial_file.exists():
             df_init = pd.read_parquet(future_initial_file)
             # reshape to original grid shape
@@ -174,7 +174,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     fig, ax = plt.subplots()
-    cax = ax.imshow(INIT_VALUES.C_fast + INIT_VALUES.C_slow, cmap="viridis", vmin=0,vmax=14,
+    cax = ax.imshow(INIT_VALUES.C_fast + INIT_VALUES.C_slow, cmap="viridis", vmin=0,vmax=60,
                     extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(),
                             MAP_STATS.grid_y.max()],
                     origin='upper')
@@ -242,10 +242,6 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         )
 
     if future_year != None:
-        print(start_year)
-        print(end_year)
-        print(past_year)
-        print(future_year)
         for year in range(start_year, future_year + 1):
             run_simulation_year(year, LS_factor, P_factor, sorted_indices, future=True, a=a, b=b, c=c)
         # stack into an (X, 844, 1263) array

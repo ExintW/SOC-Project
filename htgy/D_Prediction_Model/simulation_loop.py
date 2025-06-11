@@ -185,7 +185,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # Calculate soil loss (t/ha/month) & then per cell
             E_t_ha_month = R_month * K_month * LS_factor * C_factor_2D * P_factor
             E_t_ha_month[~MAP_STATS.loess_border_mask] = np.nan
-            # print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.max(E_t_ha_month)}, min = {np.min(E_t_ha_month)}, and mean = {np.mean(E_t_ha_month)}")
+            print(f"E_t_ha_month: mean = {np.nanmean(E_t_ha_month)} max = {np.nanmax(E_t_ha_month)}, min = {np.nanmin(E_t_ha_month)}")
             E_tcell_month = E_t_ha_month * CELL_AREA_HA
             E_month_avg_list.append(np.mean(E_t_ha_month))
 
@@ -327,7 +327,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time1 = time.time()
             # Save figure output
             fig, ax = plt.subplots()
-            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=14,
+            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=60,
                             extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
                             origin='upper')
             # overlay the border (no fill, just outline)

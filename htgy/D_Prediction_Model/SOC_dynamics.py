@@ -22,7 +22,7 @@ def vegetation_input(LAI):
     # floor at a tiny positive value so log never sees zero or negatives
     """
     LAI_safe = np.maximum(LAI, 1e-6)
-    return 0.11434652 * np.log(LAI_safe) + 0.08709953
+    return 0.13 * np.log(LAI_safe) + 0.145
 
 # def soc_dynamic_model(C_fast, C_slow,
 #                       soc_loss_g_kg_month, D_soil, D_soc, V,
