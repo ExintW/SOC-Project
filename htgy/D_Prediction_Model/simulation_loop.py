@@ -116,7 +116,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
 
         R_annual_temp = np.nan_to_num(R_annual_temp, nan=np.nanmean(R_annual_temp))
-        print(f"Total elements in R Year: {R_annual_temp.size}, with max = {np.max(R_annual_temp)}, min = {np.min(R_annual_temp)}, mean = {np.mean(R_annual_temp)}")
+        R_annual_temp[~MAP_STATS.loess_border_mask] = np.nan
+        print(f"Total elements in R Year: {R_annual_temp.size}, with max = {np.nanmax(R_annual_temp)}, min = {np.nanmin(R_annual_temp)}, mean = {np.nanmean(R_annual_temp)}")
 
         E_month_avg_list = []   # for calculating annual mean for validation
         C_month_list = []
@@ -166,28 +167,31 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             R_month = get_montly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
             R_month = create_grid_from_points(lon_nc, lat_nc, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
             R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
+            R_month[~MAP_STATS.loess_border_mask] = np.nan
             
             print(f"R_month regrid took {time.time() - time2} seconds")
             print(f"before R_month took {time.time() - time_month} seconds\n")
 
-            # print(f"Total elements in R month: {R_month.size}, with max = {np.max(R_month)}, min = {np.min(R_month)}, and mean = {np.mean(R_month)}")
+            print(f"Total elements in R month: {R_month.size}, with max = {np.nanmax(R_month)}, min = {np.nanmin(R_month)}, and mean = {np.nanmean(R_month)}")
             
             C_factor_2D = calculate_c_factor(LAI_2D, a=a)
+            C_factor_2D[~MAP_STATS.loess_border_mask] = np.nan
             C_month_list.append(np.nanmean(C_factor_2D))
-            print(f"Total elements in C: {C_factor_2D.size}, with max = {np.max(C_factor_2D)}, min = {np.min(C_factor_2D)}, and mean = {np.mean(C_factor_2D)}")
+            print(f"Total elements in C: {C_factor_2D.size}, with max = {np.nanmax(C_factor_2D)}, min = {np.nanmin(C_factor_2D)}, and mean = {np.nanmean(C_factor_2D)}")
             print(f"\nLAI mean = {np.nanmean(LAI_2D)}\n")
             
             # Calculate monthly K factor
             K_month = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current), INIT_VALUES.LANDUSE)
             K_month = np.nan_to_num(K_month, nan=np.nanmean(K_month))
-            # print(f"Total elements in K: {K_month.size}, with max = {np.max(K_month)}, min = {np.min(K_month)}, and mean = {np.mean(K_month)}")
+            K_month[~MAP_STATS.loess_border_mask] = np.nan
+            print(f"Total elements in K: {K_month.size}, with max = {np.nanmax(K_month)}, min = {np.nanmin(K_month)}, and mean = {np.nanmean(K_month)}")
 
             # Calculate soil loss (t/ha/month) & then per cell
             E_t_ha_month = R_month * K_month * LS_factor * C_factor_2D * P_factor
             E_t_ha_month[~MAP_STATS.loess_border_mask] = np.nan
-            # print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.max(E_t_ha_month)}, min = {np.min(E_t_ha_month)}, and mean = {np.mean(E_t_ha_month)}")
+            print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.nanmax(E_t_ha_month)}, min = {np.nanmin(E_t_ha_month)}, and mean = {np.nanmean(E_t_ha_month)}")
             E_tcell_month = E_t_ha_month * CELL_AREA_HA
-            E_month_avg_list.append(np.mean(E_t_ha_month))
+            E_month_avg_list.append(np.nanmean(E_t_ha_month))
 
             # Compute SOC mass eroded (kg/cell/month)
             S = E_tcell_month * (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
@@ -208,13 +212,13 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             # # Debug: Print SOC summary
             # Lost_soc_concentration = lost_soc*1000/M_soil
-            # mean_river_lost = np.mean(np.nan_to_num(Lost_soc_concentration, nan=0))
+            # mean_river_lost = np.nanmean(np.nan_to_num(Lost_soc_concentration, nan=0))
             # max_river_lost = np.nanmax(Lost_soc_concentration)
             # min_river_lost = np.nanmin(Lost_soc_concentration)
             # print(f"Year {year} Month {month_idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
             #     f"max: {max_river_lost:.2f}, min: {min_river_lost:.2f}")
 
-            # mean_erosion_lost = np.mean(np.nan_to_num(SOC_loss_g_kg_month, nan=0))
+            # mean_erosion_lost = np.nanmean(np.nan_to_num(SOC_loss_g_kg_month, nan=0))
             # max_erosion_lost = np.nanmax(SOC_loss_g_kg_month)
             # min_erosion_lost = np.nanmin(SOC_loss_g_kg_month)
             # print(f"Year {year} Month {month_idx + 1}: Erosion_Lost_SOC - mean: {mean_erosion_lost:.2f}, "
@@ -223,40 +227,40 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # Compute vegetation input
             V = vegetation_input(LAI_2D)
             
-            mean_vege_gain = np.mean(np.nan_to_num(V, nan=0))
+            mean_vege_gain = np.nanmean(np.nan_to_num(V, nan=0))
             # max_vege_gain = np.nanmax(V)
             # min_vege_gain = np.nanmin(V)
             print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, ")
             #       f"max: {max_vege_gain:.2f}, min: {min_vege_gain:.2f}")
 
             # deposition_SOC_gain = D_soc*1000/M_soil
-            # mean_deposition_gain = np.mean(np.nan_to_num(deposition_SOC_gain, nan=0))
+            # mean_deposition_gain = np.nanmean(np.nan_to_num(deposition_SOC_gain, nan=0))
             # max_deposition_gain = np.nanmax(deposition_SOC_gain)
             # min_deposition_gain = np.nanmin(deposition_SOC_gain)
             # print(f"Year {year} Month {month_idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
             #       f"max: {max_deposition_gain:.2f}, min: {min_deposition_gain:.2f}")
 
-            # mean_K_fast = np.mean(np.nan_to_num(INIT_VALUES.K_fast, nan=0))
+            # mean_K_fast = np.nanmean(np.nan_to_num(INIT_VALUES.K_fast, nan=0))
             # max_K_fast = np.nanmax(INIT_VALUES.K_fast)
             # min_K_fast = np.nanmin(INIT_VALUES.K_fast)
             # print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_fast:.6f}, "
             #       f"max: {max_K_fast:.6f}, min: {min_K_fast:.6f}")
 
-            # mean_K_slow = np.mean(np.nan_to_num(INIT_VALUES.K_slow, nan=0))
+            # mean_K_slow = np.nanmean(np.nan_to_num(INIT_VALUES.K_slow, nan=0))
             # max_K_slow = np.nanmax(INIT_VALUES.K_slow)
             # min_K_slow = np.nanmin(INIT_VALUES.K_slow)
             # print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_slow:.6f}, "
             #       f"max: {max_K_slow:.6f}, min: {min_K_slow:.6f}")
 
             # reaction_fast_loss = INIT_VALUES.K_fast * MAP_STATS.C_fast_current
-            # mean_reaction_fast_loss = np.mean(np.nan_to_num(reaction_fast_loss, nan=0))
+            # mean_reaction_fast_loss = np.nanmean(np.nan_to_num(reaction_fast_loss, nan=0))
             # max_reaction_fast_loss = np.nanmax(reaction_fast_loss)
             # min_reaction_fast_loss = np.nanmin(reaction_fast_loss)
             # print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Fast_Loss - mean: {mean_reaction_fast_loss:.2f}, "
             #       f"max: {max_reaction_fast_loss:.2f}, min: {min_reaction_fast_loss:.2f}")
 
             # reaction_slow_loss = INIT_VALUES.K_slow * MAP_STATS.C_slow_current
-            # mean_reaction_slow_loss = np.mean(np.nan_to_num(reaction_slow_loss, nan=0))
+            # mean_reaction_slow_loss = np.nanmean(np.nan_to_num(reaction_slow_loss, nan=0))
             # max_reaction_slow_loss = np.nanmax(reaction_slow_loss)
             # min_reaction_slow_loss = np.nanmin(reaction_slow_loss)
             # print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Slow_Loss - mean: {mean_reaction_slow_loss:.2f}, "
@@ -289,13 +293,19 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             #         lost_soc=lost_soc
             #     )
 
-            MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, past)
+            soc_time = time.time()
+            MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, past)
+            print(f'SOC took {time.time() - soc_time}')
+            
+            if year == EQUIL_YEAR and not past:
+                MAP_STATS.C_fast_equil_list.append(MAP_STATS.C_fast_current)
+                MAP_STATS.C_slow_equil_list.append(MAP_STATS.C_slow_current)
             
             # print(f"C fast nan: {np.isnan(MAP_STATS.C_fast_current).sum()}")
             # print(f"C slow nan: {np.isnan(MAP_STATS.C_slow_current).sum()}")
             
             C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
-            mean_C_total = np.mean(np.nan_to_num(C_total, nan=0))
+            mean_C_total = np.nanmean(np.nan_to_num(C_total, nan=0))
             max_C_total = np.nanmax(C_total)
             min_C_total = np.nanmin(C_total)
 
@@ -430,5 +440,5 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             
             print(f"This month took {time.time() - time_month} seconds")
             
-        print(f'C factor annual avg = {np.mean(C_month_list)}')
-        print(f"\nAnnual mean of E = {np.mean(E_month_avg_list)}\n")
+        print(f'C factor annual avg = {np.nanmean(C_month_list)}')
+        print(f"\nAnnual mean of E = {np.nanmean(E_month_avg_list)}\n")

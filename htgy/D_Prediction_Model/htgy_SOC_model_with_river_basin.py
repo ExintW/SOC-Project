@@ -113,17 +113,20 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     K_factor = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, INIT_VALUES.SOC, INIT_VALUES.LANDUSE)     # constant K factor (not used)
     K_factor = np.nan_to_num(K_factor, nan=np.nanmean(K_factor))
     # K_factor = np.full_like(C, 0.03)
+    K_factor[~MAP_STATS.loess_border_mask] = np.nan
     LS_factor = calculate_ls_factor(INIT_VALUES.SLOPE, INIT_VALUES.DEM)
     LS_factor = resample_LS_to_1km_grid(LS_factor)
-    print(f"Total elements in LS: {LS_factor.size}, with max = {np.max(LS_factor)}, min = {np.min(LS_factor)}, and mean = {np.mean(LS_factor)}")
+    LS_factor[~MAP_STATS.loess_border_mask] = np.nan
+    print(f"Total elements in LS: {LS_factor.size}, with max = {np.nanmax(LS_factor)}, min = {np.nanmin(LS_factor)}, and mean = {np.nanmean(LS_factor)}")
     P_factor = np.array([
         [calculate_p_factor(INIT_VALUES.LANDUSE[i, j], INIT_VALUES.SLOPE[i, j]) for j in range(INIT_VALUES.LANDUSE.shape[1])]
         for i in range(INIT_VALUES.LANDUSE.shape[0])
     ])
-    print(f"Total elements in P: {P_factor.size}, with max = {np.max(P_factor)}, min = {np.min(P_factor)}, and mean = {np.mean(P_factor)}")
+    P_factor[~MAP_STATS.loess_border_mask] = np.nan
+    print(f"Total elements in P: {P_factor.size}, with max = {np.nanmax(P_factor)}, min = {np.nanmin(P_factor)}, and mean = {np.nanmean(P_factor)}")
 
     # =============================================================================
-    # PRECOMPUTE SORTED INDICES FOR NUMBA ACCELERATION (TO AVOID IN-NUMBA SORTING)
+    # PRECOMPUTE SORTED INDICES FOR SOC SIMULATION
     # =============================================================================
     rows, cols = INIT_VALUES.DEM.shape
     flat_dem = INIT_VALUES.DEM.flatten()
@@ -202,22 +205,23 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     if end_year != None:
         for year in range(start_year, end_year + 1, step_size):
             run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
-
-        # stack into an (X, 844, 1263) array
-        total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0)
-        np.savez(
-            os.path.join(OUTPUT_DIR, f"Total SOC year {start_year}-{end_year}.npz"),
-            total_C=total_C_array
-        )
-        print(f"Saved total-C matrix from year {start_year}-{end_year} of shape {total_C_array.shape}")
-        nc_path = OUTPUT_DIR / f"Total_C_{start_year}-{end_year}_monthly.nc"
-        export_total_C_netcdf(
-            total_C_array,
-            time_start=start_year,
-            lat=MAP_STATS.grid_y,
-            lon=MAP_STATS.grid_x,
-            out_path=nc_path
-        )
+        
+        if SAVE_NC:
+            # stack into an (X, 844, 1263) array
+            total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0)
+            np.savez(
+                os.path.join(OUTPUT_DIR, f"Total SOC year {start_year}-{end_year}.npz"),
+                total_C=total_C_array
+            )
+            print(f"Saved total-C matrix from year {start_year}-{end_year} of shape {total_C_array.shape}")
+            nc_path = OUTPUT_DIR / f"Total_C_{start_year}-{end_year}_monthly.nc"
+            export_total_C_netcdf(
+                total_C_array,
+                time_start=start_year,
+                lat=MAP_STATS.grid_y,
+                lon=MAP_STATS.grid_x,
+                out_path=nc_path
+            )
 
     if future_year != None:
         print(start_year)
@@ -269,6 +273,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
                 os.path.join(OUTPUT_DIR, f"Total SOC year {past_year}-{end_year}.npz"),
                 total_C=total_C_array
             )
+            a
             print(f"Saved total-C matrix from year {past_year}-{end_year} of shape {total_C_array.shape}")
             nc_path = OUTPUT_DIR / f"Total_C_{past_year}-{start_year}_monthly.nc"
             export_total_C_netcdf(
@@ -295,7 +300,7 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year =  2007  # year of init condition, default is 2007, set to 2025 for future
-    end_year = 2009     # last year of present  (set to None to disable present year)
+    end_year = EQUIL_YEAR     # last year of present  (set to None to disable present year)
     past_year = 1950    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
     

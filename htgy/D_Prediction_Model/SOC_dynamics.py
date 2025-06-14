@@ -161,7 +161,7 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
         dep_soil[nr, nc] += E_tcell[row, col] * w
       
 
-def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, past=False):
+def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month, past=False):
     dt = 1
     if past:
         dt = -1
@@ -191,6 +191,10 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     ero_soil  = np.zeros(shape, np.float64)
     ero_soc   = np.zeros(shape, np.float64)
     lost_soc = np.zeros(shape, dtype=np.float64)      # keep track of river losses
+    
+    max_A = np.nanmax(A)
+    max_k_fast = np.nanmax(K_fast)
+    max_k_slow = np.nanmax(K_slow)
 
     if not past:
         del_soc_fast  = np.zeros(shape, dtype=np.float64) # Change in SOC
@@ -301,10 +305,21 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             C_slow_past[row][col] = max(C_slow_past[row][col], 0)
             
             if USE_TIKHONOV:
-                C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (REG_CONST * MAP_STATS.C_fast_prev[row][col])
-                C_fast_past[row][col] /= (L_fast[row][col] ** 2) + REG_CONST
-                C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (REG_CONST * MAP_STATS.C_slow_prev[row][col])
-                C_slow_past[row][col] /= (L_slow[row][col] ** 2) + REG_CONST
+                if USE_SPATIAL_REG:
+                    if USE_K_FOR_SPATIAL:
+                        reg_const_fast = REG_CONST_BASE * (1 + REG_ALPHA * (K_fast[row][col] / (max_k_fast + 1e-9)))
+                        reg_const_slow = REG_CONST_BASE * (1 + REG_ALPHA * (K_slow[row][col] / (max_k_slow + 1e-9)))
+                    else:
+                        reg_const_fast = REG_CONST_BASE * (1 + REG_ALPHA * (A[row][col] / (max_A + 1e-9)))
+                        reg_const_slow = REG_CONST_BASE * (1 + REG_ALPHA * (A[row][col] / (max_A + 1e-9)))
+                    
+                else:
+                    reg_const_fast = REG_CONST
+                    reg_const_slow = REG_CONST
+                C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (reg_const_fast * MAP_STATS.C_fast_equil_list[month][row][col])
+                C_fast_past[row][col] /= (L_fast[row][col] ** 2) + reg_const_fast
+                C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (reg_const_slow * MAP_STATS.C_slow_equil_list[month][row][col])
+                C_slow_past[row][col] /= (L_slow[row][col] ** 2) + reg_const_slow
             
         if not past:
             # del_soc_fast[row][col] += init_fast_proportion[row][col] * (dep_soc[row][col] - ero_soc[row][col] + V[row][col]) - (K_fast[row][col] * C_fast_current[row][col])
@@ -411,9 +426,6 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     print(f"total time: {time_end - time_start}")
     print(f"dep time: {total_dep_time}")
     
-    MAP_STATS.C_fast_prev = C_fast_current.copy()
-    MAP_STATS.C_slow_prev = C_slow_current.copy()
-    
     if not past:
         C_fast_new = np.clip((C_fast_current + del_soc_fast), C_MIN_CAP, C_FAST_MAX)
         C_slow_new = np.clip((C_slow_current + del_soc_slow), C_MIN_CAP, C_SLOW_MAX)
@@ -437,8 +449,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     except:
         print('no damping this month')
         
-    MAP_STATS.C_fast_prev = C_fast_current.copy()
-    MAP_STATS.C_slow_prev = C_slow_current.copy()
+    # MAP_STATS.C_fast_prev = C_fast_current.copy()
+    # MAP_STATS.C_slow_prev = C_slow_current.copy()
     
     return C_fast_new, C_slow_new, dep_soc, lost_soc
 
