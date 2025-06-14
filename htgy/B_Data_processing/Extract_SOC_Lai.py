@@ -20,7 +20,7 @@ nc_folder = DATA_DIR / "ERA5"  # Folder containing the NetCDF files (resampled_X
 input_csv = DATA_DIR / "Vege_Input_Data.csv"
 
 # CSV with 2007 SOC from Loess Plateau (used for 2007 SOC interpolation)
-loess_csv_path = DATA_DIR / "resampled_Loess_Plateau_1km.csv"
+loess_csv_path = PROCESSED_DIR / "resampled_Loess_Plateau_1km.csv"
 
 # Shapefile with the Loess Plateau border
 border_shp = DATA_DIR / "Loess_Plateau_vector_border.shp"

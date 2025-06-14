@@ -14,9 +14,9 @@ from globals import PROCESSED_DIR
 CSV_FILE      = PROCESSED_DIR / "resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
 RESAMPLED_DIR = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled"
 # this will be a raw memmap on disk:
-MEMMAP_FILE   = PROCESSED_DIR / "tp_1950-2014.dat"
+MEMMAP_FILE   = PROCESSED_DIR / "tp_1950-2024.dat"
 # optional compressed bundle:
-NPZ_FILE      = PROCESSED_DIR / "tp_1950-2014.npz"
+NPZ_FILE      = PROCESSED_DIR / "tp_1950-2024.npz"
 
 # get your list of resampled_*.nc (should be 100 years → ~100 files)
 nc_files = sorted(RESAMPLED_DIR.glob("resampled_*.nc"))
@@ -71,7 +71,7 @@ print(f"✅  Wrote memmap to {MEMMAP_FILE} (shape = {tp_mm.shape})")
 # Note: this will still *read* from disk in chunks, not balloon into RAM.
 np.savez_compressed(
     NPZ_FILE,
-    tp  = tp_mm
+    precip  = tp_mm
 )
 print(f"✅  Also wrote compressed archive to {NPZ_FILE}")
 

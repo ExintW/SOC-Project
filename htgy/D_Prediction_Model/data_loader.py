@@ -23,7 +23,12 @@ class SOCDataset(Dataset):
         
         # Static variableds (H, W)
         self.dem = static_data['dem']
+        self.loess_border_mask = static_data['loess_border_mask']
         self.river_mask = static_data['river_mask']
+        self.small_boundary_mask = static_data['small_boundary_mask']
+        self.large_boundary_mask = static_data['large_boundary_mask']
+        self.small_outlet_mask = static_data['small_outlet_mask']
+        self.large_outlet_mask = static_data['large_outlet_mask']
         
         self.T, self.H, self.W = self.soc_fast.shape
         
@@ -47,7 +52,12 @@ class SOCDataset(Dataset):
         x = np.concatenate([
             x,
             self.dem[None, ...],         # shape: (1, H, W)
+            self.loess_border_mask[None, ...],  # shape: (1, H, W)
             self.river_mask[None, ...],  # shape: (1, H, W)
+            self.small_boundary_mask[None, ...],  # shape: (1, H, W)
+            self.large_boundary_mask[None, ...],  # shape: (1, H, W)
+            self.small_outlet_mask[None, ...],  # shape: (1, H, W)
+            self.large_outlet_mask[None, ...],  # shape: (1, H, W)
         ], axis=0)  # Final shape: (8, H, W)
         
         # Ground truth: SOC at time t-1 (i.e., idx)

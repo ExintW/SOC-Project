@@ -52,7 +52,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
     # Load monthly climate data (NetCDF)
     if future:
-        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_126.nc"
+        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_245.nc"
     else:
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
 
@@ -63,7 +63,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2001-2014.nc"
         cmip_start = 2001
     else:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_126.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_245.nc"
         cmip_start = 2015
 
     if future != True:
@@ -312,8 +312,15 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # stash a copy of this month’s total‐C grid
             if past:
                 MAP_STATS.total_C_matrix.insert(0, C_total.copy())
+                MAP_STATS.C_fast_matrix.insert(0, MAP_STATS.C_fast_current.copy())
+                MAP_STATS.C_slow_matrix.insert(0, MAP_STATS.C_slow_current.copy())
+                MAP_STATS.active_dam_matrix.insert(0, active_dams.copy())
             else:
                 MAP_STATS.total_C_matrix.append(C_total.copy())
+                MAP_STATS.C_fast_matrix.append(MAP_STATS.C_fast_current.copy())
+                MAP_STATS.C_slow_matrix.append(MAP_STATS.C_fast_current.copy())
+                MAP_STATS.active_dam_matrix.append(active_dams.copy())
+
 
             # New: count and report cells where C_total > 40 and it's an active dam
             high_dam_mask = (C_total > 40) & active_dams
@@ -329,7 +336,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time1 = time.time()
             # Save figure output
             fig, ax = plt.subplots()
-            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=14,
+            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=60,
                             extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
                             origin='upper')
             # overlay the border (no fill, just outline)

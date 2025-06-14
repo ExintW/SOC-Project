@@ -19,7 +19,7 @@ dataset = SOCDataset(
 )
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-model = UNet(in_channels=8, out_channels=2).to(DEVICE)
+model = UNet(in_channels=13, out_channels=2).to(DEVICE)
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
 # ------------------------ Loss Function ------------------------

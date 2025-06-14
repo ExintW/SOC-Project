@@ -94,7 +94,11 @@ if "LANDUSE" in df.columns:
 else:
     print("Warning: 'LANDUSE' column not found in CSV.")
 
-# ========== 7. Convert to GeoDataFrame and Clip to Loess Plateau ==========
+# ========== 7. Convert ORGA from weight percentage SOM to SOC in g/kg ==========
+if "ORGA" in grid_df.columns:
+    grid_df["ORGA"] = grid_df["ORGA"] * 10 * 0.58
+
+# ========== 8. Convert to GeoDataFrame and Clip to Loess Plateau ==========
 grid_gdf = gpd.GeoDataFrame(
     grid_df,
     geometry=gpd.points_from_xy(grid_df["LON"], grid_df["LAT"]),
@@ -105,12 +109,12 @@ grid_gdf = gpd.GeoDataFrame(
 grid_gdf = grid_gdf[grid_gdf.geometry.within(gdf_loess.union_all())]
 
 
-# ========== 8. Save the Result to CSV ==========
+# ========== 9. Save the Result to CSV ==========
 output_csv = PROCESSED_DIR / "Resampled_Loess_Plateau_1km.csv"
 grid_gdf.to_csv(output_csv, index=False, encoding='utf-8-sig')
 print(f"✅ Resampled data saved to: {output_csv}")
 
-# ========== 9. Optional: Visualization ==========
+# ========== 10. Optional: Visualization ==========
 fig, ax = plt.subplots(figsize=(10, 8))
 gdf_loess.plot(ax=ax, edgecolor="black", facecolor="lightgray", alpha=0.5, label='Loess Plateau Boundary')
 grid_gdf.plot(ax=ax, color='red', markersize=1, alpha=0.5, label='Resampled Grid Points')
