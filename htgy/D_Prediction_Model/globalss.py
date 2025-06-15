@@ -27,12 +27,12 @@ C_INIT_CAP = 1e9 # 12
 USE_TIKHONOV = True         # If this is True, RUN_FROM_EQUIL also has to be True
 REG_CONST = 0.275           # Not using this if spatial reg is true
 USE_SPATIAL_REG = True      
-REG_CONST_BASE = 0.248      # 0.2 # 0.25
+REG_CONST_BASE = 0.25      # 0.2 # 0.25
 REG_ALPHA = 30              # 1 # 10
 USE_K_FOR_SPATIAL = False   # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
 
 RUN_FROM_EQUIL = True       # if True, past will start from end_year
-EQUIL_YEAR = 2009           # Make sure to set end_year to this if run from equil
+EQUIL_YEAR = 2014           # Make sure to set end_year to this if run from equil
 
 FAST_DAMP_START = 0.5       # only damp if any of C_fast_current is > this value
 LAMBDA_FAST = 0.99          # for damping, set to 0 to disable

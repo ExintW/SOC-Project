@@ -294,7 +294,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             #     )
 
             soc_time = time.time()
-            MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, past)
+            MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, past)
             print(f'SOC took {time.time() - soc_time}')
             
             if year == EQUIL_YEAR and not past:
@@ -384,8 +384,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             erosion_slow_list = ( sign * SOC_loss_g_kg_month * (1 - pf)     ).ravel('C').tolist()
 
             # Deposition（沉积输入，符号与 erosion 相反）
-            deposition_fast_list = (-sign * dep_soc * pf          ).ravel('C').tolist()
-            deposition_slow_list = (-sign * dep_soc * (1 - pf)    ).ravel('C').tolist()
+            deposition_fast_list = (-sign * dep_soc_fast).ravel('C').tolist()
+            deposition_slow_list = (-sign * dep_soc_slow).ravel('C').tolist()
 
             # Vegetation（植被输入）
             vegetation_fast_list = (V * pf         ).ravel('C').tolist()
