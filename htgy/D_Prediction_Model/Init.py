@@ -105,6 +105,7 @@ def init_global_data_structs(fraction=1):
     INIT_VALUES.SOC = create_grid(df, soc_col)  # SOC concentration (g/kg)
     INIT_VALUES.SOC_valid = INIT_VALUES.SOC.copy() # for validation
     INIT_VALUES.SOC *= fraction                 # for past simulation
+    INIT_VALUES.SOC *= 10 * 0.58
     INIT_VALUES.SOC = np.clip(INIT_VALUES.SOC, None, C_INIT_CAP)    # Clip values above 12
     INIT_VALUES.DEM = create_grid(df, dem_col)
     INIT_VALUES.SAND = create_grid(df, "SAND")

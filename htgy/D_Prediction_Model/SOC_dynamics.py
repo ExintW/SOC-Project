@@ -122,8 +122,8 @@ def vegetation_input(LAI):
 #     )
 #     return C_fast_new, C_slow_new
 
-def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
-                            DEM, C_total, low_point_cur_stored, low_point_capacity,
+def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc_fast, dep_soc_slow,
+                            DEM, C_fast, C_slow, low_point_cur_stored, low_point_capacity,
                             small_boundary_mask, small_outlet_mask, large_boundary_mask,
                             large_outlet_mask, loess_border_mask,):
     row, col = point
@@ -157,11 +157,12 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc,
     
     for nr, nc, slope in neighbours:
         w = slope / total_slope
-        dep_soc[nr, nc]  += A[row, col] * C_total * w
+        dep_soc_fast[nr, nc]  += A[row, col] * C_fast * w
+        dep_soc_slow[nr, nc]  += A[row, col] * C_slow * w
         dep_soil[nr, nc] += E_tcell[row, col] * w
       
 
-def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, past=False):
+def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month, past=False):
     dt = 1
     if past:
         dt = -1
@@ -187,10 +188,15 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
 
     shape = DEM.shape
     dep_soil = np.zeros(shape, np.float64)
-    dep_soc   = np.zeros(shape, np.float64)
+    dep_soc_fast   = np.zeros(shape, np.float64)
+    dep_soc_slow   = np.zeros(shape, np.float64)
     ero_soil  = np.zeros(shape, np.float64)
     ero_soc   = np.zeros(shape, np.float64)
     lost_soc = np.zeros(shape, dtype=np.float64)      # keep track of river losses
+    
+    max_A = np.nanmax(A)
+    max_k_fast = np.nanmax(K_fast)
+    max_k_slow = np.nanmax(K_slow)
 
     if not past:
         del_soc_fast  = np.zeros(shape, dtype=np.float64) # Change in SOC
@@ -229,11 +235,11 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         # K_fast[row][col] = min(K_fast[row][col], 0.1)
         K_slow[row][col] = min(K_slow[row][col], K_SLOW_MAX)
         # V[row][col] = min(V[row][col] * 100, 0.4)
-        dep_soc[row][col] = min(dep_soc[row][col], D_MAX)
+        # dep_soc[row][col] = min(dep_soc[row][col], D_MAX)
         V[row][col] += V_SCALING_FACTOR * (C_fast_current[row][col] + C_slow_current[row][col])
         
         if river_mask[row][col]:
-            lost_soc[row][col] += dep_soc[row][col]
+            lost_soc[row][col] += dep_soc_fast[row][col] + dep_soc_slow[row][col]
             C_fast_current[row][col] = 0.0
             C_slow_current[row][col] = 0.0
             continue
@@ -244,7 +250,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             if low_point_cur_stored[row][col] <= low_point_capacity[row][col]:
                 low_point_cur_stored[row][col] += dep_soil[row][col]
             else:
-                dep_soc[row][col] = 0.0
+                dep_soc_fast[row][col] = 0.0
+                dep_soc_slow[row][col] = 0.0
                 dep_soil[row][col] = 0.0
 
 
@@ -291,9 +298,10 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             C_slow_past[row][col] = C_slow_current[row][col] - (1 - V_FAST_PROP) * V[row][col]
             C_slow_past[row][col] /= L_slow[row][col] + 1e-9
 
-            if dep_soc[row][col] > 0.0:
-                C_fast_past[row][col] -= (init_fast_proportion[row][col] * dep_soc[row][col]) / (L_fast[row][col] + 1e-9)
-                C_slow_past[row][col] -= (init_slow_proportion[row][col] * dep_soc[row][col]) / (L_slow[row][col] + 1e-9)
+            if dep_soc_fast[row][col] > 0.0:
+                C_fast_past[row][col] -= dep_soc_fast[row][col] / (L_fast[row][col] + 1e-9)
+            if dep_soc_slow[row][col] > 0.0:
+                C_slow_past[row][col] -= dep_soc_slow[row][col] / (L_slow[row][col] + 1e-9)
 
             C_fast_past[row][col] = max(C_fast_past[row][col], 0)
             # for humification
@@ -301,25 +309,39 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             C_slow_past[row][col] = max(C_slow_past[row][col], 0)
             
             if USE_TIKHONOV:
-                C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (REG_CONST * MAP_STATS.C_fast_prev[row][col])
-                C_fast_past[row][col] /= (L_fast[row][col] ** 2) + REG_CONST
-                C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (REG_CONST * MAP_STATS.C_slow_prev[row][col])
-                C_slow_past[row][col] /= (L_slow[row][col] ** 2) + REG_CONST
+                if USE_SPATIAL_REG:
+                    if USE_K_FOR_SPATIAL:
+                        reg_const_fast = REG_CONST_BASE * (1 + REG_ALPHA * (K_fast[row][col] / (max_k_fast + 1e-9)))
+                        reg_const_slow = REG_CONST_BASE * (1 + REG_ALPHA * (K_slow[row][col] / (max_k_slow + 1e-9)))
+                    else:
+                        reg_const_fast = REG_CONST_BASE * (1 + REG_ALPHA * (A[row][col] / (max_A + 1e-9)))
+                        reg_const_slow = REG_CONST_BASE * (1 + REG_ALPHA * (A[row][col] / (max_A + 1e-9)))
+                    
+                else:
+                    reg_const_fast = REG_CONST
+                    reg_const_slow = REG_CONST
+                C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (reg_const_fast * MAP_STATS.C_fast_equil_list[month][row][col])
+                C_fast_past[row][col] /= (L_fast[row][col] ** 2) + reg_const_fast
+                C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (reg_const_slow * MAP_STATS.C_slow_equil_list[month][row][col])
+                C_slow_past[row][col] /= (L_slow[row][col] ** 2) + reg_const_slow
             
         if not past:
             # del_soc_fast[row][col] += init_fast_proportion[row][col] * (dep_soc[row][col] - ero_soc[row][col] + V[row][col]) - (K_fast[row][col] * C_fast_current[row][col])
             # del_soc_slow[row][col] += init_slow_proportion[row][col] * (dep_soc[row][col] - ero_soc[row][col] + V[row][col]) - (K_slow[row][col] * C_slow_current[row][col])
-            del_soc_fast[row][col] += init_fast_proportion[row][col] * dep_soc[row][col] - cur_fast_proportion * ero_soc[row][col] - (K_fast[row][col] * C_fast_current[row][col]) + V_FAST_PROP * V[row][col]
-            del_soc_slow[row][col] += init_slow_proportion[row][col] * dep_soc[row][col] - cur_slow_proportion * ero_soc[row][col] - (K_slow[row][col] * C_slow_current[row][col]) + (1 - V_FAST_PROP) * V[row][col] + ALPHA * K_fast[row][col] * C_fast_current[row][col]
+            del_soc_fast[row][col] += dep_soc_fast[row][col] - cur_fast_proportion * ero_soc[row][col] - (K_fast[row][col] * C_fast_current[row][col]) + V_FAST_PROP * V[row][col]
+            del_soc_slow[row][col] += dep_soc_slow[row][col] - cur_slow_proportion * ero_soc[row][col] - (K_slow[row][col] * C_slow_current[row][col]) + (1 - V_FAST_PROP) * V[row][col] + ALPHA * K_fast[row][col] * C_fast_current[row][col]
         
         if dam_proportion > 0:
             time1 = time.time()
             if past:
-                C_total = C_fast_past[row][col] + C_slow_past[row][col]
+                C_fast = C_fast_past[row][col]
+                C_slow = C_slow_past[row][col]
             else:
-                C_total = C_fast_current[row][col] + C_slow_current[row][col]
-            get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc, DEM,
-                                    C_total * dam_proportion, low_point_cur_stored, low_point_capacity,
+                C_fast = C_fast_current[row][col]
+                C_slow = C_slow_current[row][col]
+            get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc_fast, dep_soc_slow, DEM,
+                                    C_fast * dam_proportion, C_slow * dam_proportion,
+                                    low_point_cur_stored, low_point_capacity,
                                     small_boundary_mask, small_outlet_mask,
                                     large_boundary_mask, large_outlet_mask,
                                     loess_border_mask)
@@ -341,7 +363,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             print(f'C_fast_current = {C_fast_current[row][col]}')
             print(f'C_fast_past = {C_fast_past[row][col]}')
             print(f'K_slow = {K_slow[row][col]}')
-            print(f'dep_soc = {dep_soc[row][col]}')
+            print(f'dep_soc_fast = {dep_soc_fast[row][col]}')
+            print(f'dep_soc_slow = {dep_soc_slow[row][col]}')
             print(f'ero_soc = {ero_soc[row][col] * (C_fast_past[row][col])}')
             print(f'A = {A[row][col]}')
             print(f'V = {V[row][col] * V_FAST_PROP}')
@@ -355,7 +378,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             print(f'K_slow = {K_slow[row][col]}')
             print(f'C_slow_current = {C_slow_current[row][col]}')
             print(f'C_slow_past = {C_slow_past[row][col]}')
-            print(f'dep_soc = {dep_soc[row][col]}')
+            print(f'dep_soc_fast = {dep_soc_fast[row][col]}')
+            print(f'dep_soc_slow = {dep_soc_slow[row][col]}')
             print(f'ero_soc = {ero_soc[row][col] * (C_slow_past[row][col])}')
             print(f'A = {A[row][col]}')
             print(f'V = {V[row][col] * (1 - V_FAST_PROP)}')
@@ -369,7 +393,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             print(f'idx = {max_idx}')
             print(f'K_fast = {K_fast[row][col]}')
             print(f'C_fast_current = {C_fast_current[row][col]}')
-            print(f'dep_soc = {init_fast_proportion[row][col] * dep_soc[row][col]}')
+            print(f'dep_soc_fast = {dep_soc_fast[row][col]}')
             print(f'ero_soc = {cur_fast_proportion * ero_soc[row][col]}')
             print(f'A = {A[row][col]}')
             print(f'V = {V_FAST_PROP * V[row][col]}')
@@ -381,7 +405,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             print(f'idx = {min_idx}')
             print(f'K_slow = {K_slow[row][col]}')
             print(f'C_slow_current = {C_slow_current[row][col]}')
-            print(f'dep_soc = {init_slow_proportion[row][col] * dep_soc[row][col]}')
+            print(f'dep_soc_slow = {dep_soc_slow[row][col]}')
             print(f'ero_soc = {cur_slow_proportion * ero_soc[row][col]}')
             print(f'A = {A[row][col]}')
             print(f'V = {(1 - V_FAST_PROP) * V[row][col]}')
@@ -395,7 +419,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         print(f'avg K_slow = {np.nanmean(K_slow)}, max = {np.nanmax(K_slow)}, min = {np.nanmin(K_slow)}')
         print(f'avg C_fast_current = {np.nanmean(C_fast_current)}, max = {np.nanmax(C_fast_current)}, min = {np.nanmin(C_fast_current)}')
         print(f'avg C_slow_current = {np.nanmean(C_slow_current)}, max = {np.nanmax(C_slow_current)}, min = {np.nanmin(C_slow_current)}')
-        print(f'avg dep_soc = {np.nanmean(dep_soc)}, max = {np.nanmax(dep_soc)}, min = {np.nanmin(dep_soc)}')
+        print(f'avg dep_soc_fast = {np.nanmean(dep_soc_fast)}, max = {np.nanmax(dep_soc_fast)}, min = {np.nanmin(dep_soc_fast)}')
+        print(f'avg dep_soc_slow = {np.nanmean(dep_soc_slow)}, max = {np.nanmax(dep_soc_slow)}, min = {np.nanmin(dep_soc_slow)}')
         if past:
             print(f'avg ero_soc = {np.nanmean(ero_soc * (C_fast_current + C_slow_current))}, max = {np.nanmax(ero_soc * (C_fast_current + C_slow_current))}, min = {np.nanmin(ero_soc * (C_fast_current + C_slow_current))}')
         else:
@@ -410,9 +435,6 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
 
     print(f"total time: {time_end - time_start}")
     print(f"dep time: {total_dep_time}")
-    
-    MAP_STATS.C_fast_prev = C_fast_current.copy()
-    MAP_STATS.C_slow_prev = C_slow_current.copy()
     
     if not past:
         C_fast_new = np.clip((C_fast_current + del_soc_fast), C_MIN_CAP, C_FAST_MAX)
@@ -437,10 +459,10 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     except:
         print('no damping this month')
         
-    MAP_STATS.C_fast_prev = C_fast_current.copy()
-    MAP_STATS.C_slow_prev = C_slow_current.copy()
+    # MAP_STATS.C_fast_prev = C_fast_current.copy()
+    # MAP_STATS.C_slow_prev = C_slow_current.copy()
     
-    return C_fast_new, C_slow_new, dep_soc, lost_soc
+    return C_fast_new, C_slow_new, dep_soc_fast, dep_soc_slow, lost_soc
 
 # def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V):
 #     C_fast_current = MAP_STATS.C_fast_current

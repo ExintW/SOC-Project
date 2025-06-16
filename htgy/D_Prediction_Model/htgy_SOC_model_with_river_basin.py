@@ -82,7 +82,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     if future_year != None:
         # Path to the snapshot for December of the present period
-        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 3" / "SOC_terms_2024_12_River.parquet"
+        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 2" / "SOC_terms_2024_12_River.parquet"
         if future_initial_file.exists():
             df_init = pd.read_parquet(future_initial_file)
             # reshape to original grid shape
@@ -113,17 +113,20 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     K_factor = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, INIT_VALUES.SOC, INIT_VALUES.LANDUSE)     # constant K factor (not used)
     K_factor = np.nan_to_num(K_factor, nan=np.nanmean(K_factor))
     # K_factor = np.full_like(C, 0.03)
+    K_factor[~MAP_STATS.loess_border_mask] = np.nan
     LS_factor = calculate_ls_factor(INIT_VALUES.SLOPE, INIT_VALUES.DEM)
     LS_factor = resample_LS_to_1km_grid(LS_factor)
-    print(f"Total elements in LS: {LS_factor.size}, with max = {np.max(LS_factor)}, min = {np.min(LS_factor)}, and mean = {np.mean(LS_factor)}")
+    LS_factor[~MAP_STATS.loess_border_mask] = np.nan
+    print(f"Total elements in LS: {LS_factor.size}, with max = {np.nanmax(LS_factor)}, min = {np.nanmin(LS_factor)}, and mean = {np.nanmean(LS_factor)}")
     P_factor = np.array([
         [calculate_p_factor(INIT_VALUES.LANDUSE[i, j], INIT_VALUES.SLOPE[i, j]) for j in range(INIT_VALUES.LANDUSE.shape[1])]
         for i in range(INIT_VALUES.LANDUSE.shape[0])
     ])
-    print(f"Total elements in P: {P_factor.size}, with max = {np.max(P_factor)}, min = {np.min(P_factor)}, and mean = {np.mean(P_factor)}")
+    P_factor[~MAP_STATS.loess_border_mask] = np.nan
+    print(f"Total elements in P: {P_factor.size}, with max = {np.nanmax(P_factor)}, min = {np.nanmin(P_factor)}, and mean = {np.nanmean(P_factor)}")
 
     # =============================================================================
-    # PRECOMPUTE SORTED INDICES FOR NUMBA ACCELERATION (TO AVOID IN-NUMBA SORTING)
+    # PRECOMPUTE SORTED INDICES FOR SOC SIMULATION
     # =============================================================================
     rows, cols = INIT_VALUES.DEM.shape
     flat_dem = INIT_VALUES.DEM.flatten()
@@ -202,44 +205,44 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     if end_year != None:
         for year in range(start_year, end_year + 1, step_size):
             run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
-
-        # stack into an (X, 844, 1263) array
-        Fast_C_array = np.stack(MAP_STATS.C_fast_matrix, axis=0)
-        Slow_C_array = np.stack(MAP_STATS.C_slow_matrix, axis=0)
-        total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0)
-        active_dam_arr = np.stack(MAP_STATS.active_dam_matrix, axis=0)
-        np.savez(
-            os.path.join(OUTPUT_DIR, f"Fast SOC year {start_year}-{end_year}.npz"),
-            soc_fast=Fast_C_array
-        )
-        np.savez(
-            os.path.join(OUTPUT_DIR, f"Slow SOC year {start_year}-{end_year}.npz"),
-            soc_slow=Slow_C_array
-        )
-        print(f"Saved slow-C matrix from year {start_year}-{end_year} of shape {Slow_C_array.shape}")
-        print(f"Saved fast-C matrix from year {start_year}-{end_year} of shape {Fast_C_array.shape}")
-        # ─── SAVE active_dam_matrix as .npz ───────────────────────────────────
-        np.savez(
-            os.path.join(OUTPUT_DIR, f"Active_dams_{start_year}-{end_year}.npz"),
-            check_dams=active_dam_arr
-        )
-        print(f"Saved active-dam matrix from year {start_year}-{end_year} of shape {active_dam_arr.shape}")
-        # ─── SAVE static DEM (no time axis) ────────────────────────────────────
-        dem_array = INIT_VALUES.DEM.copy()
-        np.savez(
-            os.path.join(OUTPUT_DIR, "DEM.npz"),
-            dem=dem_array
-        )
-        print(f"Saved DEM of shape {dem_array.shape} to DEM.npz")
-        # ───────────────────────────────────────────────────────────────────────
-        nc_path = OUTPUT_DIR / f"Total_C_{start_year}-{end_year}_monthly.nc"
-        export_total_C_netcdf(
-            total_C_array,
-            time_start=start_year,
-            lat=MAP_STATS.grid_y,
-            lon=MAP_STATS.grid_x,
-            out_path=nc_path
-        )
+        if SAVE_NC:
+            # stack into an (X, 844, 1263) array
+            Fast_C_array = np.stack(MAP_STATS.C_fast_matrix, axis=0)
+            Slow_C_array = np.stack(MAP_STATS.C_slow_matrix, axis=0)
+            total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0)
+            active_dam_arr = np.stack(MAP_STATS.active_dam_matrix, axis=0)
+            np.savez(
+                os.path.join(OUTPUT_DIR, f"Fast SOC year {start_year}-{end_year}.npz"),
+                soc_fast=Fast_C_array
+            )
+            np.savez(
+                os.path.join(OUTPUT_DIR, f"Slow SOC year {start_year}-{end_year}.npz"),
+                soc_slow=Slow_C_array
+            )
+            print(f"Saved slow-C matrix from year {start_year}-{end_year} of shape {Slow_C_array.shape}")
+            print(f"Saved fast-C matrix from year {start_year}-{end_year} of shape {Fast_C_array.shape}")
+            # ─── SAVE active_dam_matrix as .npz ───────────────────────────────────
+            np.savez(
+                os.path.join(OUTPUT_DIR, f"Active_dams_{start_year}-{end_year}.npz"),
+                check_dams=active_dam_arr
+            )
+            print(f"Saved active-dam matrix from year {start_year}-{end_year} of shape {active_dam_arr.shape}")
+            # ─── SAVE static DEM (no time axis) ────────────────────────────────────
+            dem_array = INIT_VALUES.DEM.copy()
+            np.savez(
+                os.path.join(OUTPUT_DIR, "DEM.npz"),
+                dem=dem_array
+            )
+            print(f"Saved DEM of shape {dem_array.shape} to DEM.npz")
+            # ───────────────────────────────────────────────────────────────────────
+            nc_path = OUTPUT_DIR / f"Total_C_{start_year}-{end_year}_monthly.nc"
+            export_total_C_netcdf(
+                total_C_array,
+                time_start=start_year,
+                lat=MAP_STATS.grid_y,
+                lon=MAP_STATS.grid_x,
+                out_path=nc_path
+            )
 
     if future_year != None:
         for year in range(start_year, future_year + 1):
