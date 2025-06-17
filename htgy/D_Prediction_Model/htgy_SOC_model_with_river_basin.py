@@ -82,7 +82,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     if future_year != None:
         # Path to the snapshot for December of the present period
-        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 2" / "SOC_terms_2024_12_River.parquet"
+        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 3" / "SOC_terms_2024_12_River.parquet"
         if future_initial_file.exists():
             df_init = pd.read_parquet(future_initial_file)
             # reshape to original grid shape
@@ -361,10 +361,10 @@ if __name__ == "__main__":
     b = 1.78
     c = 5.5
     
-    start_year =  2025  # year of init condition, default is 2007, set to 2025 for future
-    end_year = None    # last year of present  (set to None to disable present year)
+    start_year =  2007  # year of init condition, default is 2007, set to 2025 for future
+    end_year = 2025    # last year of present  (set to None to disable present year)
     past_year = None    # last year of past     (set to None to disable past year)
-    future_year = 2100  # last year of future   (set to None to disable future year)
+    future_year = None  # last year of future   (set to None to disable future year)
     
     fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     

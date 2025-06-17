@@ -24,14 +24,14 @@ PRINT_FREQ = 10
 ############################ Parameters ##############################
 C_INIT_CAP = 80
 
-USE_TIKHONOV = True         # If this is True, RUN_FROM_EQUIL also has to be True
+USE_TIKHONOV = False         # If this is True, RUN_FROM_EQUIL also has to be True
 REG_CONST = 0.275           # Not using this if spatial reg is true
-USE_SPATIAL_REG = True
+USE_SPATIAL_REG = False
 REG_CONST_BASE = 0.25      # 0.2 # 0.25
 REG_ALPHA = 30              # 1 # 10
 USE_K_FOR_SPATIAL = False   # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
 
-RUN_FROM_EQUIL = True       # if True, past will start from end_year
+RUN_FROM_EQUIL = False       # if True, past will start from end_year
 EQUIL_YEAR = 2014           # Make sure to set end_year to this if run from equil
 
 FAST_DAMP_START = 0.5       # only damp if any of C_fast_current is > this value
@@ -41,7 +41,7 @@ LAMBDA_SLOW = 0             # for damping,   set to 0 to disable
 
 ALPHA = 0.20                # for humification -> % minerized C fast that becomes C slow  (0 to disable)
 
-A_MAX = 0.1 # 0.1
+A_MAX = 1e9 # 0.1
 D_MAX = 1e9
 
 L_FAST_MIN = 0 # 0.7
@@ -50,7 +50,7 @@ L_SLOW_MIN = 0 # 0.95
 K_SLOW_MAX = 1e9 # 0.08
 
 V_FAST_PROP = 0.8           # for vegetation input proportion
-V_FACTOR = 7                # for vegetation scaling (set to 1 to disable)
+V_FACTOR = 8                # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0 # 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
 V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC, 0 to disable
 
