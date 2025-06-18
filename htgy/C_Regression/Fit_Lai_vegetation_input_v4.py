@@ -53,8 +53,8 @@ df_cleaned = df_cleaned[(df_cleaned[soc_col] >= -100) & (df_cleaned[soc_col] <= 
 # --------------------------------------------------
 # Define your two lines: y <= m_upper*x + b_upper and y >= m_lower*x + b_lower
 # Replace these slope/intercept values with the ones you drew:
-m_upper, b_upper =  0.13, 0.13333   # upper boundary line
-m_lower, b_lower = 0.13,  -0.06666   # lower boundary line
+m_upper, b_upper =  0.14, 0.06   # upper boundary line
+m_lower, b_lower = 0.14,  -0.06   # lower boundary line
 
 # Build mask of points BETWEEN those two lines
 x_vals = df_cleaned[lai_col].to_numpy()
