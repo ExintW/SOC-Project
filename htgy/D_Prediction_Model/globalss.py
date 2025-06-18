@@ -28,7 +28,7 @@ C_INIT_FACTOR = 1
 USE_TIKHONOV = False         # If this is True, RUN_FROM_EQUIL also has to be True
 REG_CONST = 0.275           # Not using this if spatial reg is true
 USE_SPATIAL_REG = True      
-REG_CONST_BASE = 0.01      # 0.2 # 0.25
+REG_CONST_BASE = 0.03      # 0.2 # 0.25
 REG_ALPHA = 20              # 1 # 10
 USE_K_FOR_SPATIAL = True   # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
 
@@ -63,6 +63,42 @@ C_MIN_CAP = 0.001            # Min of C, to avoid dead areas when past
 C_FAST_MAX = 1e9 # 2
 C_SLOW_MAX = 1e9 # 10
 ######################################################################
+
+def get_param_log():
+        return f"""\
+############################ Parameters ##############################
+C_INIT_CAP = {C_INIT_CAP}
+C_INIT_FACTOR = {C_INIT_FACTOR}
+USE_TIKHONOV = {USE_TIKHONOV}
+REG_CONST = {REG_CONST}
+USE_SPATIAL_REG = {USE_SPATIAL_REG}
+REG_CONST_BASE = {REG_CONST_BASE}
+REG_ALPHA = {REG_ALPHA}
+USE_K_FOR_SPATIAL = {USE_K_FOR_SPATIAL}
+RUN_FROM_EQUIL = {RUN_FROM_EQUIL}
+EQUIL_YEAR = {EQUIL_YEAR}
+USE_1980_EQUIL = {USE_1980_EQUIL}
+ALWAYS_USE_1980 = {ALWAYS_USE_1980}
+FAST_DAMP_START = {FAST_DAMP_START}
+LAMBDA_FAST = {LAMBDA_FAST}
+FAST_DAMP_THRESH = {FAST_DAMP_THRESH}
+LAMBDA_SLOW = {LAMBDA_SLOW}
+ALPHA = {ALPHA}
+A_MAX = {A_MAX}
+D_MAX = {D_MAX}
+L_FAST_MIN = {L_FAST_MIN}
+L_SLOW_MIN = {L_SLOW_MIN}
+K_SLOW_MAX = {K_SLOW_MAX}
+V_FAST_PROP = {V_FAST_PROP}
+V_FACTOR = {V_FACTOR}
+V_MIN_CLIP = {V_MIN_CLIP}
+V_SCALING_FACTOR = {V_SCALING_FACTOR}
+P_FAST_DIV_FACTOR = {P_FAST_DIV_FACTOR}
+C_MIN_CAP = {C_MIN_CAP}
+C_FAST_MAX = {C_FAST_MAX}
+C_SLOW_MAX = {C_SLOW_MAX}
+######################################################################
+"""
 
 class INIT_VALUES:
     SOC = None

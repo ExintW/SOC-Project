@@ -363,7 +363,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     MAP_STATS.dam_cur_stored = dam_cur_stored    
     time_end = time.time()
     
-    print_max = False
+    print_max = True
     if print_max:
         if past:
             max_idx = np.unravel_index(np.nanargmax(C_fast_past), C_fast_past.shape)
@@ -423,7 +423,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             print(f'humification = {ALPHA * K_slow[row][col] * C_slow_current[row][col]}')
         print('-----------------------------------------------------------------------')
         
-    print_all = True
+    print_all = False
     if print_all:
         print(f'avg fast_proportion = {np.nanmean(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}, max = {np.nanmax(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}, min = {np.nanmin(C_fast_current / (C_slow_current + C_fast_current + 1e-9))}')
         print(f'avg K_fast = {np.nanmean(K_fast)}, max = {np.nanmax(K_fast)}, min = {np.nanmin(K_fast)}')
