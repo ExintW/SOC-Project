@@ -93,7 +93,17 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             pr_data = ds_pr.variables['pr'][:]         # shape: (time, n_points), in kg m^-2 s^-1
             tp_data_mm = pr_data * 30 * 86400
 
-            R_annual = calculate_r_factor_annually(tp_data_mm, c=c, b=b)
+            # figure out which 12‐month block corresponds to `year`
+            start_idx = (year - cmip_start) * n_time
+            end_idx = start_idx + n_time
+
+            if start_idx < 0 or end_idx > tp_data_mm.shape[0]:
+                raise ValueError(f"No CMIP6 data for year {year} (idx {start_idx}:{end_idx})")
+
+                # slice out the 12 months, no summing
+            annual_tp_data_mm = tp_data_mm[start_idx:end_idx, :]  # shape = (12, n_points)
+
+            R_annual = calculate_r_factor_annually(annual_tp_data_mm, c=c, b=b)
             R_annual_temp = create_grid_from_points(lon_nc_pr, lat_nc_pr, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
 
         else:
@@ -111,7 +121,6 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             tp_data = ds.variables['tp'][:]       # shape: (12, n_points), in meters
             tp_data = tp_data * 30
             tp_data_mm = tp_data * 1000.0
-            print(future)
             R_annual = calculate_r_factor_annually(tp_data_mm, c=c, b=b)
             R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
 
@@ -164,7 +173,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             # Compute RUSLE factors
             # R_month = calculate_r_factor_monthly(RAIN_2D)
-            R_month = get_montly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
+            if future:
+                R_month = get_montly_r_factor(R_annual, tp_1d_mm, annual_tp_data_mm)
+            else:
+                R_month = get_montly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
             R_month = create_grid_from_points(lon_nc, lat_nc, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
             R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
             R_month[~MAP_STATS.loess_border_mask] = np.nan
@@ -305,7 +317,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             # print(f"C slow nan: {np.isnan(MAP_STATS.C_slow_current).sum()}")
             
             C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
-            mean_C_total = np.nanmean(np.nan_to_num(C_total, nan=0))
+            mean_C_total = np.nanmean(C_total)
             max_C_total = np.nanmax(C_total)
             min_C_total = np.nanmin(C_total)
 
