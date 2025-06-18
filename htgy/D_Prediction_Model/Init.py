@@ -105,7 +105,7 @@ def init_global_data_structs(fraction=1):
     INIT_VALUES.SOC = create_grid(df, soc_col)  # SOC concentration (g/kg)
     INIT_VALUES.SOC_valid = INIT_VALUES.SOC.copy() # for validation
     INIT_VALUES.SOC *= fraction                 # for past simulation
-    #INIT_VALUES.SOC *= 10 * 0.58
+    INIT_VALUES.SOC *= C_INIT_FACTOR
     INIT_VALUES.SOC = np.clip(INIT_VALUES.SOC, None, C_INIT_CAP)    # Clip values above 12
     INIT_VALUES.DEM = create_grid(df, dem_col)
     INIT_VALUES.SAND = create_grid(df, "SAND")
@@ -121,6 +121,16 @@ def init_global_data_structs(fraction=1):
     # 2) PARTITION SOC INTO FAST & SLOW POOLS
     # =============================================================================
     INIT_VALUES.C_fast, INIT_VALUES.C_slow, MAP_STATS.p_fast_grid = allocate_fast_slow_soc()
+    with np.load(PROCESSED_DIR / 'soc_resampled_1980_matrix.npz') as data:
+        INIT_VALUES.SOC_1980_FAST = data['soc_mean_matrix']
+        INIT_VALUES.SOC_1980_FAST = np.flipud(INIT_VALUES.SOC_1980_FAST)
+        INIT_VALUES.SOC_1980_FAST = np.nan_to_num(INIT_VALUES.SOC_1980_FAST, nan=np.nanmean(INIT_VALUES.SOC_1980_FAST))
+        INIT_VALUES.SOC_1980_FAST *= MAP_STATS.p_fast_grid
+        INIT_VALUES.SOC_1980_SLOW = data['soc_mean_matrix']
+        INIT_VALUES.SOC_1980_SLOW = np.flipud(INIT_VALUES.SOC_1980_SLOW)
+        INIT_VALUES.SOC_1980_SLOW = np.nan_to_num(INIT_VALUES.SOC_1980_SLOW, nan=np.nanmean(INIT_VALUES.SOC_1980_SLOW))
+        INIT_VALUES.SOC_1980_SLOW *= (1 - MAP_STATS.p_fast_grid)
+    
 
     # =============================================================================
     # 3) Create a output matrix for total SOC
@@ -203,7 +213,9 @@ def clean_nan():
     INIT_VALUES.K_fast[~MAP_STATS.loess_border_mask] = np.nan
     INIT_VALUES.K_slow[~MAP_STATS.loess_border_mask] = np.nan
     INIT_VALUES.C_fast[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.SOC_1980_FAST[~MAP_STATS.loess_border_mask] = np.nan
     INIT_VALUES.C_slow[~MAP_STATS.loess_border_mask] = np.nan
+    INIT_VALUES.SOC_1980_SLOW[~MAP_STATS.loess_border_mask] = np.nan
     MAP_STATS.p_fast_grid[~MAP_STATS.loess_border_mask] = np.nan
     
     # Fill missing values in some arrays.

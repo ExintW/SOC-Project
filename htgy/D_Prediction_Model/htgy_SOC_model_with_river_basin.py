@@ -368,7 +368,7 @@ if __name__ == "__main__":
     
     fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     
-    log = True     # save output to a log file
+    log = True     # save output to a log filewaa
     
     if log:
         with open(OUTPUT_DIR / "out.log", "w") as f:

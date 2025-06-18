@@ -306,7 +306,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             #     )
 
             soc_time = time.time()
-            MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, past)
+            MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, year, past)
             print(f'SOC took {time.time() - soc_time}')
             
             if year == EQUIL_YEAR and not past:

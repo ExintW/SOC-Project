@@ -162,7 +162,7 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc_fast, dep_soc_s
         dep_soil[nr, nc] += E_tcell[row, col] * w
       
 
-def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month, past=False):
+def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month, year, past=False):
     dt = 1
     if past:
         dt = -1
@@ -320,9 +320,20 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
                 else:
                     reg_const_fast = REG_CONST
                     reg_const_slow = REG_CONST
-                C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (reg_const_fast * MAP_STATS.C_fast_equil_list[month][row][col])
+                if USE_1980_EQUIL:
+                    if abs(year - 1980) < abs(year - EQUIL_YEAR) or ALWAYS_USE_1980:
+                        C_equil_fast = INIT_VALUES.SOC_1980_FAST[row][col]
+                        C_equil_slow = INIT_VALUES.SOC_1980_SLOW[row][col]
+                    else:
+                        C_equil_fast = MAP_STATS.C_fast_equil_list[month][row][col]
+                        C_equil_slow = MAP_STATS.C_slow_equil_list[month][row][col]
+                else:
+                        C_equil_fast = MAP_STATS.C_fast_equil_list[month][row][col]
+                        C_equil_slow = MAP_STATS.C_slow_equil_list[month][row][col]
+                        
+                C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (reg_const_fast * C_equil_fast)
                 C_fast_past[row][col] /= (L_fast[row][col] ** 2) + reg_const_fast
-                C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (reg_const_slow * MAP_STATS.C_slow_equil_list[month][row][col])
+                C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (reg_const_slow * C_equil_slow)
                 C_slow_past[row][col] /= (L_slow[row][col] ** 2) + reg_const_slow
             
         if not past:
