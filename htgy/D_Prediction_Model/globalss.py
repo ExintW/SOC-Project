@@ -23,16 +23,19 @@ PRINT_FREQ = 10
 
 ############################ Parameters ##############################
 C_INIT_CAP = 1e9 # 12 
+C_INIT_FACTOR = 1
 
 USE_TIKHONOV = True         # If this is True, RUN_FROM_EQUIL also has to be True
 REG_CONST = 0.275           # Not using this if spatial reg is true
 USE_SPATIAL_REG = True      
-REG_CONST_BASE = 0.25      # 0.2 # 0.25
-REG_ALPHA = 30              # 1 # 10
-USE_K_FOR_SPATIAL = False   # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
+REG_CONST_BASE = 0.01      # 0.2 # 0.25
+REG_ALPHA = 20              # 1 # 10
+USE_K_FOR_SPATIAL = True   # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
 
 RUN_FROM_EQUIL = True       # if True, past will start from end_year
-EQUIL_YEAR = 2014           # Make sure to set end_year to this if run from equil
+EQUIL_YEAR = 2009           # Make sure to set end_year to this if run from equil
+USE_1980_EQUIL = True       # if True, past will use 1980 soc as prior knowledge if cur year is closer to 1980
+ALWAYS_USE_1980 = True      # if True, always use 1980 as prior knowledge
 
 FAST_DAMP_START = 0.5       # only damp if any of C_fast_current is > this value
 LAMBDA_FAST = 0.99          # for damping, set to 0 to disable
@@ -50,7 +53,7 @@ L_SLOW_MIN = 0 # 0.95
 K_SLOW_MAX = 1e9 # 0.08
 
 V_FAST_PROP = 0.8           # for vegetation input proportion
-V_FACTOR = 6                # for vegetation scaling (set to 1 to disable)
+V_FACTOR = 7                # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0 # 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
 V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC, 0 to disable
 
@@ -75,6 +78,8 @@ class INIT_VALUES:
     K_slow = None
     C_fast = None
     C_slow = None
+    SOC_1980_FAST = None
+    SOC_1980_SLOW = None
     
     @classmethod
     def reset(cls):
