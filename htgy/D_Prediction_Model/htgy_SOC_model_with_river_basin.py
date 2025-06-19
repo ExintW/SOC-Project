@@ -44,6 +44,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+from datetime import datetime
 
 import geopandas as gpd
 from shapely.geometry import Point
@@ -368,10 +369,13 @@ if __name__ == "__main__":
     
     fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     
-    log = True     # save output to a log filewaa
+    log = True     # save output to a log file
     
     if log:
         with open(OUTPUT_DIR / "out.log", "w") as f:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            f.write(f"Log generated at: {timestamp}\n\n")
+            f.write(get_param_log() + "\n")
             original_stdout = sys.stdout
             sys.stdout = f
             try:
