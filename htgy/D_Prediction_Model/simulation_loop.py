@@ -211,7 +211,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 E_t_ha_month, (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
             )
             
-            A = convert_soil_to_soc_loss(E_tcell_month)
+            A = convert_soil_to_soc_loss(E_t_ha_month)
             
             # # Call the Numba-accelerated routing function
             # D_soil, D_soc, inflow_soil, inflow_soc, lost_soc = distribute_soil_and_soc_with_dams_numba(

@@ -25,36 +25,49 @@ PRINT_FREQ = 10
 C_INIT_CAP = 80
 C_INIT_FACTOR = 1
 
-USE_TIKHONOV = False         # If this is True, RUN_FROM_EQUIL also has to be True
-REG_CONST = 0.275           # Not using this if spatial reg is true
+#------------------------Regularization------------------------#
+USE_TIKHONOV = True             # If this is True, RUN_FROM_EQUIL or ALWAYS_USE_1980 also has to be True
+REG_CONST = 0.275               # Not using this if spatial reg is true
 USE_SPATIAL_REG = True      
-REG_CONST_BASE = 0.03      # 0.2 # 0.25
-REG_ALPHA = 20              # 1 # 10
-USE_K_FOR_SPATIAL = True   # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
+REG_CONST_BASE = 0.1            # 0.2 # 0.25
+REG_ALPHA = 10                  # Adjust the impact of K or A on REG
+USE_K_FOR_SPATIAL = True        # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
+ADD_V_IN_SPATIAL = True         # Add more REG in low V areas
+REG_BETA = 5                    # Adjust the impact of V on REG
 
-RUN_FROM_EQUIL = True       # if True, past will start from end_year
-EQUIL_YEAR = 2009           # Make sure to set end_year to this if run from equil
-USE_1980_EQUIL = True       # if True, past will use 1980 soc as prior knowledge if cur year is closer to 1980
-ALWAYS_USE_1980 = True      # if True, always use 1980 as prior knowledge
+REG_FREQ = 3                    # Apply regularization every REG_FREQ months
 
-FAST_DAMP_START = 0.5       # only damp if any of C_fast_current is > this value
+# Prior Knowledge related
+RUN_FROM_EQUIL = True           # if True, past will start from end_year=EQUIL_YEAR
+EQUIL_YEAR = 2009               # Make sure to set end_year to this if run from equil
+USE_1980_EQUIL = True           # if True, past will use 1980 soc as prior knowledge if cur year is closer to 1980
+ALWAYS_USE_1980 = True          # if True, always use 1980 as prior knowledge (USE_1980_EQUIL needs to be True)
+# The following options should be mutually exclusive
+USE_1980_EQUIL_AVG = False      # Use the avg of 1980 and equil year as prior
+USE_PRIOR_PREV_AVG = False      # Use the avg of prior year (EQUIL or 1980) and previous timestep as prior
+USE_1980_EQUIL_PREV_AVG = True  # Use the avg of 1980, equil year, and previous month as prior
+#---------------------------------------------------------------#
+
+#------------------------Damping------------------------#
+FAST_DAMP_START = 1e9 # 0.5       # only damp if any of C_fast_current is > this value
 LAMBDA_FAST = 0.99          # for damping, set to 0 to disable
 FAST_DAMP_THRESH = 1e9      # 0.4  # if diff > this value, then do damping (0 to damp all, inf to disable damp)
 LAMBDA_SLOW = 0             # for damping,   set to 0 to disable
+#-------------------------------------------------------#
 
 ALPHA = 0.20                # for humification -> % minerized C fast that becomes C slow  (0 to disable)
 
-A_MAX = 1e9 # 0.1
+A_MAX = 0.1
 D_MAX = 1e9
 
-L_FAST_MIN = 0 # 0.7
-L_SLOW_MIN = 0 # 0.95
+L_FAST_MIN = 0.1 # 0.7
+L_SLOW_MIN = 0.1 # 0.95
 
 K_SLOW_MAX = 1e9 # 0.08
 
 V_FAST_PROP = 0.8           # for vegetation input proportion
 V_FACTOR = 8                # for vegetation scaling (set to 1 to disable)
-V_MIN_CLIP = 0 # 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
+V_MIN_CLIP = 0.1 # 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
 V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC, 0 to disable
 
 P_FAST_DIV_FACTOR = 10      # divide p_fast grid by this, 1 to use original
@@ -75,6 +88,8 @@ USE_SPATIAL_REG = {USE_SPATIAL_REG}
 REG_CONST_BASE = {REG_CONST_BASE}
 REG_ALPHA = {REG_ALPHA}
 USE_K_FOR_SPATIAL = {USE_K_FOR_SPATIAL}
+ADD_V_IN_SPATIAL = {ADD_V_IN_SPATIAL}
+REG_BETA = {REG_BETA}
 RUN_FROM_EQUIL = {RUN_FROM_EQUIL}
 EQUIL_YEAR = {EQUIL_YEAR}
 USE_1980_EQUIL = {USE_1980_EQUIL}
@@ -155,6 +170,8 @@ class MAP_STATS:
 
     C_fast_equil_list = []
     C_slow_equil_list = []
+    
+    REG_counter = REG_FREQ
 
     @classmethod
     def reset(cls):

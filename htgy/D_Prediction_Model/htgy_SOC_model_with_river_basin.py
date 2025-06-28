@@ -77,7 +77,6 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # CSV READING & GRID SETUP & SOC PARTITION
     # =============================================================================
     init_global_data_structs()
-
     # =============================================================================
     # LOAD FUTURE-INITIAL SOC FROM PARQUET
     # =============================================================================
