@@ -321,7 +321,6 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             
             if USE_TIKHONOV and MAP_STATS.REG_counter == 1:
                 MAP_STATS.REG_counter = REG_FREQ
-                print(f"Applying Regularization...")
                 if USE_SPATIAL_REG:
                     if USE_K_FOR_SPATIAL:
                         reg_const_fast = REG_CONST_BASE * (1 + REG_ALPHA * (K_fast[row][col] / (max_k_fast + 1e-9)))

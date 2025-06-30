@@ -55,7 +55,6 @@ import sys
 from numba import njit, prange
 import numba
 import glob
-import pandas as pd
 import xarray as xr
 
 sys.path.append(os.path.dirname(__file__))

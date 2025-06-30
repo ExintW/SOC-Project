@@ -3,6 +3,8 @@ import sys
 from globalss import *
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *
+import matplotlib.pyplot as plt
+import time
 
 import torch
 import torch.nn as nn
@@ -10,7 +12,31 @@ from torch.utils.data import DataLoader
 from data_loader import SOCDataset
 from UNet_Model import UNet
 
+log_file = open(OUTPUT_DIR / 'UNet_log.txt', 'w')
+
+def log_print(*args, **kwargs):
+    print(*args, **kwargs)
+    print(*args, **kwargs, file=log_file)
+
+def check_soc_dataset(dynamic_path, static_path):
+    dynamic_data = np.load(dynamic_path)
+    static_data = np.load(static_path)
+    
+    log_print("Dynamic data keys:", list(dynamic_data.keys()))
+    log_print("Static data keys:", list(static_data.keys()))
+    
+    for key in ['soc_fast', 'soc_slow', 'v_fast', 'v_slow', 'precip', 'check_dams']:
+        log_print(f"{key} shape:", dynamic_data[key].shape)
+    
+    for key in ['dem', 'loess_border_mask', 'river_mask', 'small_boundary_mask',
+                'large_boundary_mask', 'small_outlet_mask', 'large_outlet_mask']:
+        log_print(f"{key} shape:", static_data[key].shape)
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if DEVICE.type == 'cuda':
+    log_print("Using CUDA:", torch.cuda.get_device_name(DEVICE))
+else:
+    log_print("Using CPU")
 SAVE_MODEL_PATH = OUTPUT_DIR / "unet_model.pt"
 
 dataset = SOCDataset(
@@ -18,6 +44,9 @@ dataset = SOCDataset(
     static_path=PROCESSED_DIR / "static_data.npz"
 )
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+
+log_print(f"Data loading completed")
+# check_soc_dataset(PROCESSED_DIR / "dynamic_data.npz", PROCESSED_DIR / "static_data.npz")
 
 model = UNet(in_channels=13, out_channels=2).to(DEVICE)
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
@@ -37,11 +66,21 @@ def masked_mse(pred, target, river_mask):
     return loss.sum() / valid_mask.sum().clamp(min=1)
 
 # ------------------------ Training Loop ------------------------
+loss_history = []
+start_time = time.time()
+log_print(f"Start Training...")
 model.train()
 for epoch in range(NUM_EPOCHS):
+    epoch_start = time.time()
     total_loss = 0.0
     
     for step, (x, y ) in enumerate(dataloader):
+        step_start = time.time()
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            log_print("NaN or Inf detected in input x")
+        if torch.isnan(y).any() or torch.isinf(y).any():
+            log_print("NaN or Inf detected in target y")
+
         x = x.to(DEVICE)    # [B, 8, H, W]
         y = y.to(DEVICE)    # [B, 2, H, W]
         
@@ -53,19 +92,39 @@ for epoch in range(NUM_EPOCHS):
         pred = model(x)
         loss = masked_mse(pred, y, river_mask)
         
+        if torch.isnan(loss) or torch.isinf(loss):
+            log_print("NaN or Inf detected in loss at Step", step+1)
+            break
+            a
         # Backprop
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         
+        for name, param in model.named_parameters():
+            if param.grad is not None and (torch.isnan(param.grad).any() or torch.isinf(param.grad).any()):
+                log_print(f"NaN or Inf detected in gradient of {name}")
+        
         total_loss += loss.item()
         
         if (step + 1) % PRINT_FREQ == 0:
-            print(f"Epoch {epoch+1} | Step {step+1}/{len(dataloader)} | Loss: {loss.item():.6f}")
+            log_print(f"Epoch {epoch+1} | Step {step+1}/{len(dataloader)} | Loss: {loss.item():.6f} | Time: {time.time() - step_start:.2f}s")
             
     avg_loss = total_loss / len(dataloader)
-    print(f"Epoch [{epoch+1}/{NUM_EPOCHS}, Avg Loss: {avg_loss:.6f}]")
+    loss_history.append(avg_loss)
+    log_print(f"Epoch [{epoch+1}/{NUM_EPOCHS}, Avg Loss: {avg_loss:.6f}] | Completed in {time.time() - epoch_start:.2f}s")
+
+log_print(f"Total Training Time: {time.time() - start_time:.2f} sec")
+
+# ------------------------ Plot Loss ------------------------
+plt.plot(range(1, NUM_EPOCHS + 1), loss_history)
+plt.xlabel('Epoch')
+plt.ylabel('Average Loss')
+plt.title('Training Loss Curve')
+plt.grid()
+plt.savefig(OUTPUT_DIR / "UNet_Loss_Curve.png")
+plt.close()
 
 # ------------------------ Save Model -----------------------
 torch.save(model.state_dict(), SAVE_MODEL_PATH)
-print(f"Model saved to {SAVE_MODEL_PATH}")
+log_print(f"Model saved to {SAVE_MODEL_PATH}")

@@ -66,4 +66,7 @@ class SOCDataset(Dataset):
             self.soc_slow[idx],
         ], axis=0)  # shape: (2, H, W)
         
-        return torch.from_numpy(x).float(), torch.from_numpy(y).float()
+        x = torch.nan_to_num(torch.from_numpy(x).float(), nan=0.0, posinf=0.0, neginf=0.0)
+        y = torch.nan_to_num(torch.from_numpy(y).float(), nan=0.0, posinf=0.0, neginf=0.0)
+        
+        return x, y

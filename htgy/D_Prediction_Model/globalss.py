@@ -19,7 +19,7 @@ USE_CMIP6 = True            # Use CMIP6 lai for present and past simulations (Us
 BATCH_SIZE = 4
 NUM_EPOCHS = 20
 LEARNING_RATE = 1e-4
-PRINT_FREQ = 10
+PRINT_FREQ = 1
 
 ############################ Parameters ##############################
 C_INIT_CAP = 80
@@ -29,11 +29,11 @@ C_INIT_FACTOR = 1
 USE_TIKHONOV = True             # If this is True, RUN_FROM_EQUIL or ALWAYS_USE_1980 also has to be True
 REG_CONST = 0.275               # Not using this if spatial reg is true
 USE_SPATIAL_REG = True      
-REG_CONST_BASE = 0.1            # 0.2 # 0.25
+REG_CONST_BASE = 0.2            # 0.2 # 0.25
 REG_ALPHA = 10                  # Adjust the impact of K or A on REG
 USE_K_FOR_SPATIAL = True        # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
 ADD_V_IN_SPATIAL = True         # Add more REG in low V areas
-REG_BETA = 5                    # Adjust the impact of V on REG
+REG_BETA = 15                    # Adjust the impact of V on REG
 
 REG_FREQ = 3                    # Apply regularization every REG_FREQ months
 
@@ -44,8 +44,8 @@ USE_1980_EQUIL = True           # if True, past will use 1980 soc as prior knowl
 ALWAYS_USE_1980 = True          # if True, always use 1980 as prior knowledge (USE_1980_EQUIL needs to be True)
 # The following options should be mutually exclusive
 USE_1980_EQUIL_AVG = False      # Use the avg of 1980 and equil year as prior
-USE_PRIOR_PREV_AVG = False      # Use the avg of prior year (EQUIL or 1980) and previous timestep as prior
-USE_1980_EQUIL_PREV_AVG = True  # Use the avg of 1980, equil year, and previous month as prior
+USE_PRIOR_PREV_AVG = True      # Use the avg of prior year (EQUIL or 1980) and previous timestep as prior
+USE_1980_EQUIL_PREV_AVG = False  # Use the avg of 1980, equil year, and previous month as prior
 #---------------------------------------------------------------#
 
 #------------------------Damping------------------------#
