@@ -111,20 +111,22 @@ for epoch in range(NUM_EPOCHS):
             log_print(f"Epoch {epoch+1} | Step {step+1}/{len(dataloader)} | Loss: {loss.item():.6f} | Time: {time.time() - step_start:.2f}s")
             
     avg_loss = total_loss / len(dataloader)
-    loss_history.append(avg_loss)
+    loss_history.append(avg_loss)aaaa
+    # ------------------------ Plot Loss ------------------------
+    plt.plot(range(1, epoch + 2), loss_history)
+    plt.xlabel('Epoch')
+    plt.ylabel('Average Loss')
+    plt.title('Training Loss Curve')
+    plt.grid()
+    plt.savefig(OUTPUT_DIR / "UNet_Loss_Curve.png")
+    plt.close()
+
+    # ------------------------ Save Model -----------------------
+    torch.save(model.state_dict(), SAVE_MODEL_PATH)
+    log_print(f"Model saved to {SAVE_MODEL_PATH}")
+    
     log_print(f"Epoch [{epoch+1}/{NUM_EPOCHS}, Avg Loss: {avg_loss:.6f}] | Completed in {time.time() - epoch_start:.2f}s")
 
 log_print(f"Total Training Time: {time.time() - start_time:.2f} sec")
 
-# ------------------------ Plot Loss ------------------------
-plt.plot(range(1, NUM_EPOCHS + 1), loss_history)
-plt.xlabel('Epoch')
-plt.ylabel('Average Loss')
-plt.title('Training Loss Curve')
-plt.grid()
-plt.savefig(OUTPUT_DIR / "UNet_Loss_Curve.png")
-plt.close()
 
-# ------------------------ Save Model -----------------------
-torch.save(model.state_dict(), SAVE_MODEL_PATH)
-log_print(f"Model saved to {SAVE_MODEL_PATH}")
