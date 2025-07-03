@@ -111,7 +111,7 @@ for epoch in range(NUM_EPOCHS):
             log_print(f"Epoch {epoch+1} | Step {step+1}/{len(dataloader)} | Loss: {loss.item():.6f} | Time: {time.time() - step_start:.2f}s")
             
     avg_loss = total_loss / len(dataloader)
-    loss_history.append(avg_loss)aaaa
+    loss_history.append(avg_loss)
     # ------------------------ Plot Loss ------------------------
     plt.plot(range(1, epoch + 2), loss_history)
     plt.xlabel('Epoch')

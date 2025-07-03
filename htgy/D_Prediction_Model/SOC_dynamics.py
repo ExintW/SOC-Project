@@ -3,6 +3,8 @@ from globals import *
 import math
 import time
 from numba import njit
+import torch
+from UNet_Model import UNet
 
 _NEIGHBOR_OFFSETS = ((-1, -1), (-1, 0), (-1, 1),
                     ( 0, -1),          ( 0, 1),
@@ -162,7 +164,7 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc_fast, dep_soc_s
         dep_soil[nr, nc] += E_tcell[row, col] * w
       
 
-def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month, year, past=False):
+def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month, year, past=False, UNet_MODEL=None):
     dt = 1
     if past:
         dt = -1
@@ -182,6 +184,47 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     large_boundary_mask = MAP_STATS.large_boundary_mask
     large_outlet_mask = MAP_STATS.large_outlet_mask
     loess_border_mask = MAP_STATS.loess_border_mask
+    
+    if past and USE_UNET:
+        # 构造输入张量 [1, C, H, W]
+        # 动态变量：soc_fast、soc_slow、v_fast、v_slow、precip、check_dams
+        # 静态变量：dem、loess_border_mask、river_mask、小边界、大边界、小出口、大出口
+        V_fast = V_FAST_PROP * V
+        V_slow = (1 - V_FAST_PROP) * V
+        cf = np.nan_to_num(MAP_STATS.C_fast_current, nan=0.0)
+        cs = np.nan_to_num(MAP_STATS.C_slow_current, nan=0.0)
+        vf = np.nan_to_num(V_fast, nan=0.0)
+        vs = np.nan_to_num(V_slow, nan=0.0)
+        a = np.nan_to_num(A, nan=0.0)
+        dem = np.nan_to_num(INIT_VALUES.DEM, nan=0.0)
+        x = np.stack([
+            cf,                # fast pool
+            cs,                # slow pool
+            vf,            # v_fast
+            vs,            # v_slow 或替换为实际 v_slow
+            a,                 # precip
+            active_dams,       # check_dams，如有数据请替换
+        ], axis=0)
+        x = np.concatenate([
+            x,
+            dem[None],
+            MAP_STATS.loess_border_mask[None],
+            MAP_STATS.river_mask[None],
+            MAP_STATS.small_boundary_mask[None],
+            MAP_STATS.large_boundary_mask[None],
+            MAP_STATS.small_outlet_mask[None],
+            MAP_STATS.large_outlet_mask[None]
+        ], axis=0)
+
+        DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        x_tensor = torch.from_numpy(x).float().unsqueeze(0).to(DEVICE)
+        with torch.no_grad():
+            pred = UNet_MODEL(x_tensor)
+        pred_np = pred.squeeze(0).cpu().numpy()
+        C_fast_new, C_slow_new = pred_np[0], pred_np[1]
+        C_fast_new[~MAP_STATS.loess_border_mask] = np.nan
+        C_slow_new[~MAP_STATS.loess_border_mask] = np.nan
+        return C_fast_new, C_slow_new, np.zeros(DEM.shape, np.float64), np.zeros(DEM.shape, np.float64), np.zeros(DEM.shape, np.float64)
 
     init_fast_proportion = MAP_STATS.p_fast_grid
     init_slow_proportion = 1 - MAP_STATS.p_fast_grid

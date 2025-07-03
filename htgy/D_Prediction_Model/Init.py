@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from scipy.ndimage import minimum_filter
 from globalss import *
+import torch
+from UNet_Model import UNet
 
 # Append parent directory to path to access 'globals' if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -116,6 +118,14 @@ def init_global_data_structs(fraction=1):
     INIT_VALUES.SLOPE = create_grid(df, slope_col)
     INIT_VALUES.K_fast = create_grid(df, k1_col)
     INIT_VALUES.K_slow = create_grid(df, k2_col)
+    
+    if USE_UNET:
+        SAVE_MODEL_PATH = OUTPUT_DIR / "unet_model.pt"
+        DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        UNet_MODEL = UNet(in_channels=13, out_channels=2).to(DEVICE)
+        UNet_MODEL.load_state_dict(torch.load(SAVE_MODEL_PATH, map_location=DEVICE))
+        UNet_MODEL.eval()
+        INIT_VALUES.UNet_Model = UNet_MODEL
     
     # =============================================================================
     # 2) PARTITION SOC INTO FAST & SLOW POOLS

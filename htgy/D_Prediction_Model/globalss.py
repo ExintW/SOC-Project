@@ -21,6 +21,8 @@ NUM_EPOCHS = 5
 LEARNING_RATE = 1e-4
 PRINT_FREQ = 10
 
+USE_UNET = True
+
 ############################ Parameters ##############################
 C_INIT_CAP = 80
 C_INIT_FACTOR = 1
@@ -131,6 +133,7 @@ class INIT_VALUES:
     C_slow = None
     SOC_1980_FAST = None
     SOC_1980_SLOW = None
+    UNet_Model = None
     
     @classmethod
     def reset(cls):
