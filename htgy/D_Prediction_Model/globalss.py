@@ -2,7 +2,7 @@ import numpy as np
 
 USE_PARQUET = True  # Save output df as parquet instead of csv
 CLEAN_OUTDIR = True
-SAVE_NC = False
+SAVE_NC = True
 
 desired_crs = "EPSG:4326"
 #desired_crs = "EPSG:3857"
@@ -53,7 +53,7 @@ L_SLOW_MIN = 0 # 0.95
 K_SLOW_MAX = 1e9 # 0.08
 
 V_FAST_PROP = 0.8           # for vegetation input proportion
-V_FACTOR = 7                # for vegetation scaling (set to 1 to disable)
+V_FACTOR = 8                # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0 # 0.01           # original: mean = 0.067, max = 0.207, min = 0.0079 (None to disable)
 V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = V + V_SCALING_FACTOR * SOC, 0 to disable
 

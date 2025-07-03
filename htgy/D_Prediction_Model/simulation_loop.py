@@ -52,7 +52,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
     # Load monthly climate data (NetCDF)
     if future:
-        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_245.nc"
+        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_585.nc"
     else:
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
 
@@ -63,7 +63,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2001-2014.nc"
         cmip_start = 2001
     else:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_245.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_585.nc"
         cmip_start = 2015
 
     if future != True:
@@ -348,7 +348,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time1 = time.time()
             # Save figure output
             fig, ax = plt.subplots()
-            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=60,
+            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=30,
                             extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
                             origin='upper')
             # overlay the border (no fill, just outline)
