@@ -134,6 +134,9 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             time_range = range(n_time-1, -1, -1)    # 11 -> 0
         else:
             time_range = range(n_time)
+            
+        if USE_UNET and past:
+            UNet_Model = INIT_VALUES.UNet_Model
 
         for month_idx in time_range:
             idx = month_idx
@@ -279,34 +282,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             #       f"max: {max_reaction_slow_loss:.2f}, min: {min_reaction_slow_loss:.2f}")
 
             # print(f"Year {year} Month {month_idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
-            
-            # if past:
-            #     dt = -1
-            # else:
-            #     dt = 1
-                
-            # # Update SOC pool
-            # if past:
-            #     MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model_past(
-            #         MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
-            #         SOC_loss_g_kg_month, D_soil, D_soc, V,
-            #         INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
-            #         dt=dt,
-            #         M_soil=M_soil,
-            #         lost_soc=lost_soc
-            #     )
-            # else:
-            #     MAP_STATS.C_fast_current, MAP_STATS.C_slow_current = soc_dynamic_model(
-            #         MAP_STATS.C_fast_current, MAP_STATS.C_slow_current,
-            #         SOC_loss_g_kg_month, D_soil, D_soc, V,
-            #         INIT_VALUES.K_fast, INIT_VALUES.K_slow, MAP_STATS.p_fast_grid,
-            #         dt=dt,
-            #         M_soil=M_soil,
-            #         lost_soc=lost_soc
-            #     )
 
             soc_time = time.time()
-            MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, year, past)
+            if past and USE_UNET:
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, year, past, UNet_MODEL=UNet_Model)
+            else:
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, year, past)
             print(f'SOC took {time.time() - soc_time}')
             
             if year == EQUIL_YEAR and not past:

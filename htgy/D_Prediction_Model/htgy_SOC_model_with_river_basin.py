@@ -77,7 +77,6 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # CSV READING & GRID SETUP & SOC PARTITION
     # =============================================================================
     init_global_data_structs()
-
     # =============================================================================
     # LOAD FUTURE-INITIAL SOC FROM PARQUET
     # =============================================================================
@@ -362,14 +361,14 @@ if __name__ == "__main__":
     b = 1.78
     c = 5.5
     
-    start_year =  2025  # year of init condition, default is 2007, set to 2025 for future
-    end_year = None    # last year of present  (set to None to disable present year)
+    start_year =  2007  # year of init condition, default is 2007, set to 2025 for future
+    end_year = 2024    # last year of present  (set to None to disable present year)
     past_year = None    # last year of past     (set to None to disable past year)
-    future_year = 2100  # last year of future   (set to None to disable future year)
+    future_year = None  # last year of future   (set to None to disable future year)
+
+    fraction = 1                # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     
-    fraction = 1      # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
-    
-    log = True     # save output to a log file
+    log = True                  # save output to a log file
     
     if log:
         with open(OUTPUT_DIR / "out.log", "w") as f:
