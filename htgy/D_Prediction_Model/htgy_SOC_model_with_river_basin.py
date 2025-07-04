@@ -347,7 +347,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         else:   # run non-reversed past year simulation with given fraction as init condition
             for year in range(past_year, start_year, step_size):
                 run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
-
+ 
     print(f"Simulation complete. Total simulation time: {time.perf_counter() - t_sim_start:.2f} seconds.")
     print("Final SOC distribution is in C_fast_current + C_slow_current.")
     
@@ -361,7 +361,7 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year =  2007          # year of init condition, default is 2007, set to 2025 for future
-    end_year = None       # last year of present  (set to None to disable present year)
+    end_year = EQUIL_YEAR       # last year of present  (set to None to disable present year)
     past_year = 1950            # last year of past     (set to None to disable past year)
     future_year = None          # last year of future   (set to None to disable future year)
     
