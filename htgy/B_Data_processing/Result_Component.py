@@ -30,7 +30,7 @@ def annual_summary(year: int, scenario: str = SCENARIO):
       - mets:  pd.Series of the seven percentage metrics (in %)
     """
     # Base directory for the chosen scenario
-    base_dir = OUTPUT_DIR / "Data" / "SOC_Future 3" / scenario
+    base_dir = OUTPUT_DIR / "Data" / "SOC_Future 4" / scenario
 
     # We'll collect all monthly DataFrames and monthly dam/low-point ratios
     monthly_dfs = []
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     out = pd.DataFrame({
         "Metric":              df_means["Metric"].reindex(range(n)),
         "Value (g/kg/month)":  vals,
-        "Value (Pg)":          vals_pg,
+        "Value (Pg/month)":          vals_pg,
         "":                    [""] * n,
         "PctMetric":           df_mets["PctMetric"].reindex(range(n)),
         "PctValue (%)":        df_mets["PctValue (%)"].reindex(range(n)),

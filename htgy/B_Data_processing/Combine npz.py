@@ -26,11 +26,11 @@ from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
 # — Dynamic data components:
 fast_soc_paths = [
     OUTPUT_DIR / "Fast SOC year 2007-2024.npz",
-    OUTPUT_DIR / "Fast SOC year 2025-2100.npz"
+    OUTPUT_DIR / "Fast SOC year 2025-2100 245.npz"
 ]
 slow_soc_paths = [
     OUTPUT_DIR / "Slow SOC year 2007-2024.npz",
-    OUTPUT_DIR / "Slow SOC year 2025-2100.npz"
+    OUTPUT_DIR / "Slow SOC year 2025-2100 245.npz"
 ]
 v_fast_paths = [
     PROCESSED_DIR / "V_fast_1950-2000.npz",

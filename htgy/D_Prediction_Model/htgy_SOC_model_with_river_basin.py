@@ -55,6 +55,7 @@ import sys
 from numba import njit, prange
 import numba
 import glob
+import pandas as pd
 import xarray as xr
 
 sys.path.append(os.path.dirname(__file__))
@@ -81,7 +82,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     if future_year != None:
         # Path to the snapshot for December of the present period
-        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 4" / "SOC_terms_2024_12_River.parquet"
+        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 5" / "SOC_terms_2024_12_River.parquet"
         if future_initial_file.exists():
             df_init = pd.read_parquet(future_initial_file)
             # reshape to original grid shape
@@ -176,7 +177,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     fig, ax = plt.subplots()
-    cax = ax.imshow(INIT_VALUES.C_fast + INIT_VALUES.C_slow, cmap="viridis", vmin=0,vmax=60,
+    cax = ax.imshow(INIT_VALUES.C_fast + INIT_VALUES.C_slow, cmap="viridis", vmin=0,vmax=30,
                     extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(),
                             MAP_STATS.grid_y.max()],
                     origin='upper')

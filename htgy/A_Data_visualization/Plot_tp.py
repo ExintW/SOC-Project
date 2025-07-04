@@ -56,6 +56,7 @@ def compute_cmip6_tp(scenario_tag, year_start=2025, year_end=2100):
 if __name__ == "__main__":
     # 1) historical ERA5
     hist_years, hist_tp = compute_era5_tp(1950, 2024)
+    last_year, last_tp = hist_years[-1], hist_tp[-1]
 
     # 2) CMIP6 scenarios
     scenarios = {
@@ -67,15 +68,20 @@ if __name__ == "__main__":
     cmip_data = {}
     for tag, name in scenarios.items():
         yrs, tp_vals = compute_cmip6_tp(tag, 2025, 2100)
+        # prepend the 2024 historical point for continuity into 2025
+        yrs    = [last_year] + yrs
+        tp_vals= [last_tp]   + tp_vals
         cmip_data[name] = (yrs, tp_vals)
 
     # 3) Plot
     plt.figure(figsize=(10, 6))
-    # (optional) show historical
-    plt.plot(hist_years, hist_tp, color='black', linewidth=2, label='1950–2024 (ERA5)')
 
+    # plot each scenario (now continuous across 2024→2025)
     for name, (yrs, tp_vals) in cmip_data.items():
-        plt.plot(yrs, tp_vals, linewidth=1.5, label=name)
+        plt.plot(yrs, tp_vals, linewidth=1, label=name)
+
+    # overlay the thick black ERA5 curve
+    plt.plot(hist_years, hist_tp, color='black', linewidth=1, label='1950–2024 (ERA5)')
 
     plt.xlabel('Year')
     plt.ylabel('Annual Total Precipitation (mm)')
