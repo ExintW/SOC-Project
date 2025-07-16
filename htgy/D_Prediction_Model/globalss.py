@@ -19,7 +19,7 @@ USE_CMIP6 = True            # Use CMIP6 lai for present and past simulations (Us
 BATCH_SIZE = 4
 NUM_EPOCHS = 20
 LEARNING_RATE = 1e-4
-PRINT_FREQ = 10
+PRINT_FREQ = 1
 
 USE_UNET = False
 
@@ -31,13 +31,13 @@ C_INIT_FACTOR = 1
 USE_TIKHONOV = True             # If this is True, RUN_FROM_EQUIL or ALWAYS_USE_1980 also has to be True
 REG_CONST = 0.275               # Not using this if spatial reg is true
 USE_SPATIAL_REG = True      
-REG_CONST_BASE = 0.2            # 0.2 # 0.25
-REG_ALPHA = 10                  # Adjust the impact of K or A on REG
+REG_CONST_BASE = 0.15            # 0.2 # 0.25
+REG_ALPHA = 15                  # Adjust the impact of K or A on REG
 USE_K_FOR_SPATIAL = True        # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
 ADD_V_IN_SPATIAL = True         # Add more REG in low V areas
-REG_BETA = 15                    # Adjust the impact of V on REG
+REG_BETA = 20                    # Adjust the impact of V on REG
 
-REG_FREQ = 3                    # Apply regularization every REG_FREQ months
+REG_FREQ = 4                    # Apply regularization every REG_FREQ months
 
 # Prior Knowledge related
 RUN_FROM_EQUIL = True           # if True, past will start from end_year=EQUIL_YEAR
@@ -75,7 +75,7 @@ V_SCALING_FACTOR = 0      # for additional V gain that is scaling with SOC: V = 
 P_FAST_DIV_FACTOR = 10      # divide p_fast grid by this, 1 to use original
 
 C_MIN_CAP = 0.001            # Min of C, to avoid dead areas when past
-C_FAST_MAX = 1e9 # 2
+C_FAST_MAX = 7 # 2
 C_SLOW_MAX = 1e9 # 10
 ######################################################################
 
