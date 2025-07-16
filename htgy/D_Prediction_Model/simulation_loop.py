@@ -52,7 +52,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
     # Load monthly climate data (NetCDF)
     if future:
-        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_585.nc"
+        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_245.nc"
     else:
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
 
@@ -63,7 +63,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2001-2014.nc"
         cmip_start = 2001
     else:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_585.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_245.nc"
         cmip_start = 2015
 
     if future != True:
@@ -311,7 +311,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             else:
                 MAP_STATS.total_C_matrix.append(C_total.copy())
                 MAP_STATS.C_fast_matrix.append(MAP_STATS.C_fast_current.copy())
-                MAP_STATS.C_slow_matrix.append(MAP_STATS.C_fast_current.copy())
+                MAP_STATS.C_slow_matrix.append(MAP_STATS.C_slow_current.copy())
                 MAP_STATS.active_dam_matrix.append(active_dams.copy())
 
 

@@ -17,11 +17,11 @@ USE_CMIP6 = True            # Use CMIP6 lai for present and past simulations (Us
 
 ############################ UNet Hyperparameters ##############################
 BATCH_SIZE = 4
-NUM_EPOCHS = 5
+NUM_EPOCHS = 20
 LEARNING_RATE = 1e-4
 PRINT_FREQ = 10
 
-USE_UNET = True
+USE_UNET = False
 
 ############################ Parameters ##############################
 C_INIT_CAP = 80
