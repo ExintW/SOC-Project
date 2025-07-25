@@ -62,7 +62,7 @@ sys.path.append(os.path.dirname(__file__))
 
 from RUSLE_Calculations import *
 from globalss import *
-from Init import init_global_data_structs, clean_nan, precompute_low_point
+from Init import init_global_data_structs, clean_nan, precompute_low_point, get_1980_LAI
 from River_Basin import * 
 from utils import *
 from simulation_loop import run_simulation_year
@@ -71,6 +71,8 @@ from shapely.geometry import LineString, MultiLineString
 # Append parent directory to path to access 'globals' if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
+
+from A_Data_visualization.png_to_mp4 import generate_mp4
 
 def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1):
     # =============================================================================
@@ -100,13 +102,25 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # CLEAN UP GLOBAL DATA: SET NAN TO MEAN AND VALUES OUTSIDE OF BORDER TO NAN
     # =============================================================================
     clean_nan()
-
+    
+    # =============================================================================
+    # USE GAUSSIAN BLUR TO 1980 IF ENABLED
+    # =============================================================================
+    if USE_GAUSSIAN_BLUR:
+        INIT_VALUES.SOC_1980_FAST = gaussian_blur_with_nan(INIT_VALUES.SOC_1980_FAST, sigma=SIGMA)
+        INIT_VALUES.SOC_1980_SLOW = gaussian_blur_with_nan(INIT_VALUES.SOC_1980_SLOW, sigma=SIGMA)
     # =============================================================================
     # COMPUTE CONSTANT LOW POINT MASK AND LOW POINT CAPACITY
     # =============================================================================
     MAP_STATS.low_mask, MAP_STATS.Low_Point_Capacity, MAP_STATS.Low_Point_DEM_Dif = precompute_low_point()
     print(f"Low point DEM difference: max = {np.nanmax(MAP_STATS.Low_Point_DEM_Dif):.2f}, min = {np.nanmin(MAP_STATS.Low_Point_DEM_Dif):.2f}, and mean = {np.nanmean(MAP_STATS.Low_Point_DEM_Dif):.2f}")
     
+    # =============================================================================
+    # Get 1980 LAI for Regularization
+    # =============================================================================
+    if USE_1980_LAI_TREND:
+        get_1980_LAI()
+        
     # =============================================================================
     # COMPUTE CONSTANT RUSLE FACTORS
     # =============================================================================
@@ -284,6 +298,9 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
             lon=MAP_STATS.grid_x,
             out_path=nc_path
         )
+        if past_year is None:
+            print(f"Generating mp4...")
+            generate_mp4(start_year=start_year, end_year=future_year)
 
 
     # if end_year != None or future_year != None:
@@ -345,10 +362,15 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
                 lon=MAP_STATS.grid_x,
                 out_path=nc_path
             )
+            print(f"Generating mp4...")
+            if future_year is None:
+                generate_mp4(start_year=past_year, end_year=end_year)
+            else:
+                generate_mp4(start_year=past_year, end_year=future_year)
         else:   # run non-reversed past year simulation with given fraction as init condition
             for year in range(past_year, start_year, step_size):
                 run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
- 
+    
     print(f"Simulation complete. Total simulation time: {time.perf_counter() - t_sim_start:.2f} seconds.")
     print("Final SOC distribution is in C_fast_current + C_slow_current.")
     

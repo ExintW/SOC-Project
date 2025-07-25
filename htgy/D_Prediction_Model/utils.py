@@ -1,12 +1,58 @@
+import os
+import sys
 import numpy as np
 import numba as nb
 from globalss import *
 import pandas as pd
 import xarray as xr
+import matplotlib.pyplot as plt
+from shapely.geometry import LineString, MultiLineString
+import matplotlib.ticker as mticker
+import scipy.ndimage as ndimage
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
 
 def find_nearest_index(array, value):
     """Return index of element in array closest to value."""
     return (np.abs(array - value)).argmin()
+
+def gaussian_blur_with_nan(data, sigma=1):
+    mask = ~np.isnan(data)
+    data_filled = np.where(mask, data, 0)
+
+    blurred_data = ndimage.gaussian_filter(data_filled, sigma=sigma)
+    blurred_mask = ndimage.gaussian_filter(mask.astype(float), sigma=sigma)
+
+    with np.errstate(invalid='ignore'):
+        result = blurred_data / blurred_mask
+    result[~MAP_STATS.loess_border_mask] = np.nan
+    return result
+
+def plot_SOC(soc, year, month_idx):
+    fig, ax = plt.subplots()
+    cax = ax.imshow(soc, cmap="viridis", vmin=0,vmax=30,
+                    extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
+                    origin='upper')
+    # overlay the border (no fill, just outline)
+    border = MAP_STATS.loess_border_geom.boundary
+
+    if isinstance(border, LineString):
+        x, y = border.xy
+        ax.plot(x, y, color="black", linewidth=0.4)
+    elif isinstance(border, MultiLineString):
+        for seg in border.geoms:
+            x, y = seg.xy
+            ax.plot(x, y, color="black", linewidth=0.4)
+    cbar = fig.colorbar(cax, label="SOC (g/kg)")
+    ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx+1}")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
+    ax.ticklabel_format(style='plain', axis='x')
+    filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
+    plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig), dpi=600)
+    plt.close("all")
 
 # =============================================================================
 # CONVERT SOIL LOSS TO SOC LOSS (g/kg/month)

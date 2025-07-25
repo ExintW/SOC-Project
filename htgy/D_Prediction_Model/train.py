@@ -30,11 +30,12 @@ def main():
         log_print("Static data keys:", list(static_data.keys()))
         
         for key in ['soc_fast', 'soc_slow', 'v_fast', 'v_slow', 'precip', 'check_dams']:
-            log_print(f"{key} shape:", dynamic_data[key].shape)
+            log_print(f"{key} shape:", dynamic_data[key].shape, f", avg = {np.nanmean(dynamic_data[key][0])}, max = {np.nanmax(dynamic_data[key][0])}, min = {np.nanmin(dynamic_data[key][0])}")
         
         for key in ['dem', 'loess_border_mask', 'river_mask', 'small_boundary_mask',
                     'large_boundary_mask', 'small_outlet_mask', 'large_outlet_mask']:
             log_print(f"{key} shape:", static_data[key].shape)
+    # check_soc_dataset(PROCESSED_DIR / "dynamic_data.npz", PROCESSED_DIR / "static_data.npz")
         
     if DEVICE.type == 'cuda':
         log_print("Using CUDA:", torch.cuda.get_device_name(DEVICE))
