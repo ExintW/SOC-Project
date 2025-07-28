@@ -35,8 +35,8 @@ def main():
         for key in ['dem', 'loess_border_mask', 'river_mask', 'small_boundary_mask',
                     'large_boundary_mask', 'small_outlet_mask', 'large_outlet_mask']:
             log_print(f"{key} shape:", static_data[key].shape)
-    check_soc_dataset(PROCESSED_DIR / "dynamic_data.npz", PROCESSED_DIR / "static_data.npz")
-    sys.exit()
+    #check_soc_dataset(PROCESSED_DIR / "dynamic_data.npz", PROCESSED_DIR / "static_data.npz")
+    #sys.exit()
         
     if DEVICE.type == 'cuda':
         log_print("Using CUDA:", torch.cuda.get_device_name(DEVICE))
@@ -140,7 +140,7 @@ def main():
         log_print(f"Checkpoint saved at epoch {epoch+1}")
         
         # ------------------------ Plot Loss ------------------------
-        plt.plot(range(1, epoch + 2), loss_history)
+        plt.plot(range(1, len(loss_history) + 1), loss_history)
         plt.xlabel('Epoch')
         plt.ylabel('Average Loss')
         plt.title('Training Loss Curve')
@@ -149,14 +149,14 @@ def main():
         plt.close()
 
         # ------------------------ Save Model -----------------------
-        torch.save(model.state_dict(), SAVE_MODEL_PATH)
+        #torch.save(model.state_dict(), SAVE_MODEL_PATH)
         log_print(f"Model saved to {SAVE_MODEL_PATH}")
         
         log_print(f"Epoch [{epoch+1}/{NUM_EPOCHS}, Avg Loss: {avg_loss:.6f}] | Completed in {time.time() - epoch_start:.2f}s")
 
         log_print(f"Total Training Time: {time.time() - total_start:.2f} sec")
 
-        log_file.close()
+    log_file.close()
     
 if __name__ == "__main__":
     # Windows 下必须调用

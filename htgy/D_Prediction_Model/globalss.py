@@ -17,7 +17,7 @@ USE_CMIP6 = True            # Use CMIP6 lai for present and past simulations (Us
 
 ############################ UNet Hyperparameters ##############################
 BATCH_SIZE = 4
-NUM_EPOCHS = 20
+NUM_EPOCHS = 12
 LEARNING_RATE = 1e-4
 PRINT_FREQ = 1
 
@@ -59,7 +59,7 @@ LAMBDA_SLOW = 0             # for damping,   set to 0 to disable
 
 ALPHA = 0.20                # for humification -> % minerized C fast that becomes C slow  (0 to disable)
 
-A_MAX = 0.1
+A_MAX = 1
 D_MAX = 1e9
 
 L_FAST_MIN = 0.1 # 0.7

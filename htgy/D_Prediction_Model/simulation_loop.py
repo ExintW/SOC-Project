@@ -11,6 +11,8 @@ import time
 from shapely.geometry import LineString, MultiLineString
 import pyarrow
 from contextlib import nullcontext
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from globalss import *
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -52,7 +54,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
     # Load monthly climate data (NetCDF)
     if future:
-        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_245.nc"
+        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_126.nc"
     else:
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
 
@@ -63,7 +65,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2001-2014.nc"
         cmip_start = 2001
     else:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_245.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_126.nc"
         cmip_start = 2015
 
     if future != True:
@@ -328,13 +330,24 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             time1 = time.time()
             # Save figure output
-            fig, ax = plt.subplots()
-            cax = ax.imshow(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, cmap="viridis", vmin=0,vmax=30,
-                            extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
-                            origin='upper')
-            # overlay the border (no fill, just outline)
-            border = MAP_STATS.loess_border_geom.boundary
+            from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+            # ─── FIGURE OUTPUT ─────────────────────────────────────────────────────────────
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            # 1) Plot SOC
+            im = ax.imshow(
+                MAP_STATS.C_fast_current + MAP_STATS.C_slow_current,
+                cmap="viridis", vmin=0, vmax=30,
+                extent=[
+                    MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(),
+                    MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()
+                ],
+                origin="upper"
+            )
+
+            # 2) Overlay the border (no fill, just outline)
+            border = MAP_STATS.loess_border_geom.boundary
             if isinstance(border, LineString):
                 x, y = border.xy
                 ax.plot(x, y, color="black", linewidth=0.4)
@@ -342,16 +355,29 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 for seg in border.geoms:
                     x, y = seg.xy
                     ax.plot(x, y, color="black", linewidth=0.4)
-            cbar = fig.colorbar(cax, label="SOC (g/kg)")
-            ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx+1}")
+
+            # 3) Append a colorbar axis the same height as the map, with padding
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="4%", pad="4%")
+            cbar = fig.colorbar(im, cax=cax)
+            cbar.set_label("SOC (g/kg)")
+
+            # 4) Labels and formatting
+            ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx + 1}")
             ax.set_xlabel("Longitude")
             ax.set_ylabel("Latitude")
             ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
-            ax.ticklabel_format(style='plain', axis='x')
-            filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
-            plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig), dpi=600)
-            plt.close("all")
-            
+            ax.ticklabel_format(style="plain", axis="x")
+
+            # 5) Save and close
+            filename_fig = f"SOC_{year}_{month_idx + 1:02d}_River.png"
+            plt.savefig(
+                os.path.join(OUTPUT_DIR, "Figure", filename_fig),
+                dpi=600,
+                bbox_inches="tight"
+            )
+            plt.close(fig)
+
             print(f"plot took {time.time() - time1} seconds")
             
             time1 = time.time()
@@ -381,8 +407,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             deposition_slow_list = (-sign * dep_soc_slow).ravel('C').tolist()
 
             # Vegetation（植被输入）
-            vegetation_fast_list = (V * pf         ).ravel('C').tolist()
-            vegetation_slow_list = (V * (1 - pf)   ).ravel('C').tolist()
+            vegetation_fast_list = (V * V_FAST_PROP      ).ravel('C').tolist()
+            vegetation_slow_list = (V * (1 - V_FAST_PROP)).ravel('C').tolist()
 
             # Reaction（微生物矿化）
             reaction_fast_list = (-INIT_VALUES.K_fast * MAP_STATS.C_fast_current ).ravel('C').tolist()
