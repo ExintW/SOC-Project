@@ -19,35 +19,46 @@ USE_CMIP6 = True            # Use CMIP6 lai for present and past simulations (Us
 BATCH_SIZE = 4
 NUM_EPOCHS = 12
 LEARNING_RATE = 1e-4
-PRINT_FREQ = 1
+PRINT_FREQ = 10
 
 USE_UNET = False
+
+MODEL_NAME = 'unet_model_07-16.pt'
 
 ############################ Parameters ##############################
 C_INIT_CAP = 80
 C_INIT_FACTOR = 1
 
+SOC_1980_FACTOR = 1
+EQUIL_DECREASE_FACTOR = 1    # Every timestep equil multiply by this factor if using equil year
+
 #------------------------Regularization------------------------#
 USE_TIKHONOV = True             # If this is True, RUN_FROM_EQUIL or ALWAYS_USE_1980 also has to be True
 REG_CONST = 0.275               # Not using this if spatial reg is true
 USE_SPATIAL_REG = True      
-REG_CONST_BASE = 0.15            # 0.2 # 0.25
-REG_ALPHA = 15                  # Adjust the impact of K or A on REG
+REG_CONST_BASE = 0.125            # 0.2 # 0.25
+REG_ALPHA = 5                  # Adjust the impact of K or A on REG
 USE_K_FOR_SPATIAL = True        # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
 ADD_V_IN_SPATIAL = True         # Add more REG in low V areas
-REG_BETA = 20                    # Adjust the impact of V on REG
+REG_BETA = 5                    # Adjust the impact of V on REG
 
-REG_FREQ = 4                    # Apply regularization every REG_FREQ months
+REG_FREQ = 5                    # Apply regularization every REG_FREQ months
 
 # Prior Knowledge related
 RUN_FROM_EQUIL = True           # if True, past will start from end_year=EQUIL_YEAR
 EQUIL_YEAR = 2009               # Make sure to set end_year to this if run from equil
 USE_1980_EQUIL = True           # if True, past will use 1980 soc as prior knowledge if cur year is closer to 1980
-ALWAYS_USE_1980 = True          # if True, always use 1980 as prior knowledge (USE_1980_EQUIL needs to be True)
+ALWAYS_USE_1980 = False          # if True, always use 1980 as prior knowledge (USE_1980_EQUIL needs to be True)
+USE_1980_LAI_TREND = True       # Let 1980 Prior match the trend of LAI
+
+USE_GAUSSIAN_BLUR = True        # Use gaussian blur on 1980 soc
+SIGMA = 10                       # Strength of the gaussian blur
+
 # The following options should be mutually exclusive
 USE_1980_EQUIL_AVG = False      # Use the avg of 1980 and equil year as prior
-USE_PRIOR_PREV_AVG = True      # Use the avg of prior year (EQUIL or 1980) and previous timestep as prior
+USE_PRIOR_PREV_AVG = False       # Use the avg of prior year (EQUIL or 1980) and previous timestep as prior
 USE_1980_EQUIL_PREV_AVG = False  # Use the avg of 1980, equil year, and previous month as prior
+USE_DYNAMIC_AVG = True           # Use weighted avg of 1980 and EQUIL between 1980 and EQUIL
 #---------------------------------------------------------------#
 
 #------------------------Damping------------------------#
@@ -84,6 +95,7 @@ def get_param_log():
 ############################ Parameters ##############################
 C_INIT_CAP = {C_INIT_CAP}
 C_INIT_FACTOR = {C_INIT_FACTOR}
+SOC_1980_FACTOR = {SOC_1980_FACTOR}
 USE_TIKHONOV = {USE_TIKHONOV}
 REG_CONST = {REG_CONST}
 USE_SPATIAL_REG = {USE_SPATIAL_REG}
@@ -92,10 +104,18 @@ REG_ALPHA = {REG_ALPHA}
 USE_K_FOR_SPATIAL = {USE_K_FOR_SPATIAL}
 ADD_V_IN_SPATIAL = {ADD_V_IN_SPATIAL}
 REG_BETA = {REG_BETA}
+REG_FREQ = {REG_FREQ}
 RUN_FROM_EQUIL = {RUN_FROM_EQUIL}
 EQUIL_YEAR = {EQUIL_YEAR}
 USE_1980_EQUIL = {USE_1980_EQUIL}
 ALWAYS_USE_1980 = {ALWAYS_USE_1980}
+USE_1980_EQUIL_AVG = {USE_1980_EQUIL_AVG}
+USE_PRIOR_PREV_AVG = {USE_PRIOR_PREV_AVG}
+USE_1980_EQUIL_PREV_AVG = {USE_1980_EQUIL_PREV_AVG}
+USE_1980_LAI_TREND = {USE_1980_LAI_TREND}
+USE_GAUSSIAN_BLUR = {USE_GAUSSIAN_BLUR}
+SIGMA = {SIGMA}
+USE_DYNAMIC_AVG={USE_DYNAMIC_AVG}
 FAST_DAMP_START = {FAST_DAMP_START}
 LAMBDA_FAST = {LAMBDA_FAST}
 FAST_DAMP_THRESH = {FAST_DAMP_THRESH}
@@ -134,6 +154,7 @@ class INIT_VALUES:
     SOC_1980_FAST = None
     SOC_1980_SLOW = None
     UNet_Model = None
+    LAI_1980 = []
     
     @classmethod
     def reset(cls):

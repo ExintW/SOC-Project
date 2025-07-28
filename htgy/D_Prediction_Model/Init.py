@@ -7,11 +7,14 @@ from scipy.ndimage import minimum_filter
 from globalss import *
 import torch
 from UNet_Model import UNet
+import netCDF4 as nc
 
 # Append parent directory to path to access 'globals' if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
+
+from simulation_loop import create_grid_from_points
 
 # ---------------------------------------------------------------------
 # Helper: create 2D grid from CSV by pivoting lat/lon
@@ -120,10 +123,11 @@ def init_global_data_structs(fraction=1):
     INIT_VALUES.K_slow = create_grid(df, k2_col)
     
     if USE_UNET:
-        SAVE_MODEL_PATH = OUTPUT_DIR / "unet_model.pt"
+        SAVE_MODEL_PATH = OUTPUT_DIR / MODEL_NAME
         DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         UNet_MODEL = UNet(in_channels=13, out_channels=2).to(DEVICE)
-        UNet_MODEL.load_state_dict(torch.load(SAVE_MODEL_PATH, map_location=DEVICE))
+        checkpoint = torch.load(SAVE_MODEL_PATH, map_location=DEVICE)
+        UNet_MODEL.load_state_dict(checkpoint["model_state_dict"])
         UNet_MODEL.eval()
         INIT_VALUES.UNet_Model = UNet_MODEL
     
@@ -132,14 +136,16 @@ def init_global_data_structs(fraction=1):
     # =============================================================================
     INIT_VALUES.C_fast, INIT_VALUES.C_slow, MAP_STATS.p_fast_grid = allocate_fast_slow_soc()
     with np.load(PROCESSED_DIR / 'soc_resampled_1980_matrix.npz') as data:
-        INIT_VALUES.SOC_1980_FAST = data['soc_mean_matrix']
-        INIT_VALUES.SOC_1980_FAST = np.flipud(INIT_VALUES.SOC_1980_FAST)
-        INIT_VALUES.SOC_1980_FAST = np.nan_to_num(INIT_VALUES.SOC_1980_FAST, nan=np.nanmean(INIT_VALUES.SOC_1980_FAST))
-        INIT_VALUES.SOC_1980_FAST *= MAP_STATS.p_fast_grid
-        INIT_VALUES.SOC_1980_SLOW = data['soc_mean_matrix']
-        INIT_VALUES.SOC_1980_SLOW = np.flipud(INIT_VALUES.SOC_1980_SLOW)
-        INIT_VALUES.SOC_1980_SLOW = np.nan_to_num(INIT_VALUES.SOC_1980_SLOW, nan=np.nanmean(INIT_VALUES.SOC_1980_SLOW))
-        INIT_VALUES.SOC_1980_SLOW *= (1 - MAP_STATS.p_fast_grid)
+        soc_1980_fast = data['soc_mean_matrix']
+        soc_1980_fast = np.flipud(soc_1980_fast)
+        soc_1980_fast = np.nan_to_num(soc_1980_fast, nan=np.nanmean(soc_1980_fast))
+        soc_1980_fast *= MAP_STATS.p_fast_grid
+        INIT_VALUES.SOC_1980_FAST = soc_1980_fast * SOC_1980_FACTOR
+        soc_1980_slow = data['soc_mean_matrix']
+        soc_1980_slow = np.flipud(soc_1980_slow)
+        soc_1980_slow = np.nan_to_num(soc_1980_slow, nan=np.nanmean(soc_1980_slow))
+        soc_1980_slow *= (1 - MAP_STATS.p_fast_grid)
+        INIT_VALUES.SOC_1980_SLOW = soc_1980_slow * SOC_1980_FACTOR
     
 
     # =============================================================================
@@ -156,6 +162,23 @@ import numpy as np
 import pandas as pd
 from scipy.ndimage import minimum_filter
 from globals import PROCESSED_DIR
+
+def get_1980_LAI():
+    # Get 1980 LAI
+    lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_1950-2000.nc"
+    cmip_start = 1950
+    with nc.Dataset(lai_file) as ds_lai:
+        lon_lai = ds_lai.variables['lon'][:]  # Adjusted variable name if needed
+        lat_lai = ds_lai.variables['lat'][:]
+        lai_data = ds_lai.variables['lai'][:]
+        for month in range(12):
+            idx = (1980 - cmip_start) * 12 + month
+            lai_1d = lai_data[idx, :]
+            LAI_2D = create_grid_from_points(lon_lai, lat_lai, lai_1d, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            LAI_2D = np.nan_to_num(LAI_2D, nan=np.nanmean(LAI_2D))
+            LAI_2D[~MAP_STATS.loess_border_mask] = np.nan
+            print(f"1980 month {month+1} LAI shape = {LAI_2D.shape}, avg = {np.nanmean(LAI_2D)}, max = {np.nanmax(LAI_2D)}, min = {np.nanmin(LAI_2D)}")
+            INIT_VALUES.LAI_1980.append(np.nanmean(LAI_2D))
 
 def precompute_low_point():
     """

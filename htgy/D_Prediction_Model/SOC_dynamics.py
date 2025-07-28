@@ -164,7 +164,7 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc_fast, dep_soc_s
         dep_soil[nr, nc] += E_tcell[row, col] * w
       
 
-def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month, year, past=False, UNet_MODEL=None):
+def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month, year, past=False, UNet_MODEL=None, LAI_avg=None):
     dt = 1
     if past:
         dt = -1
@@ -200,8 +200,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         x = np.stack([
             cf,                # fast pool
             cs,                # slow pool
-            vf,            # v_fast
-            vs,            # v_slow 或替换为实际 v_slow
+            vf,                 # v_fast
+            vs,                 # v_slow 或替换为实际 v_slow
             a,                 # precip
             active_dams,       # check_dams，如有数据请替换
         ], axis=0)
@@ -249,9 +249,12 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         soc_1980_fast = INIT_VALUES.SOC_1980_FAST
         soc_1980_slow = INIT_VALUES.SOC_1980_SLOW
     if RUN_FROM_EQUIL and past:
+        # if abs(year - 1980) > abs(year - EQUIL_YEAR) and year != EQUIL_YEAR:
+        #     MAP_STATS.C_fast_equil_list *= EQUIL_DECREASE_FACTOR
+        #     MAP_STATS.C_slow_equil_list *= EQUIL_DECREASE_FACTOR
         soc_equil_fast = MAP_STATS.C_fast_equil_list[month]
         soc_equil_slow = MAP_STATS.C_slow_equil_list[month]
-
+        
     if not past:
         del_soc_fast  = np.zeros(shape, dtype=np.float64) # Change in SOC
         del_soc_slow  = np.zeros(shape, dtype=np.float64) # Change in SOC
@@ -265,6 +268,9 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         C_slow_past = np.zeros(shape, np.float64)
         C_fast_past[~MAP_STATS.loess_border_mask] = np.nan
         C_slow_past[~MAP_STATS.loess_border_mask] = np.nan
+    
+    C_equil_fast = np.zeros(shape, np.float64)
+    C_equil_slow = np.zeros(shape, np.float64)
 
     A = np.clip(A, 0, A_MAX)
     
@@ -363,7 +369,6 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             C_slow_past[row][col] = max(C_slow_past[row][col], 0)
             
             if USE_TIKHONOV and MAP_STATS.REG_counter == 1:
-                MAP_STATS.REG_counter = REG_FREQ
                 if USE_SPATIAL_REG:
                     if USE_K_FOR_SPATIAL:
                         reg_const_fast = REG_CONST_BASE * (1 + REG_ALPHA * (K_fast[row][col] / (max_k_fast + 1e-9)))
@@ -380,30 +385,50 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
                     reg_const_slow = REG_CONST
                 if USE_1980_EQUIL:
                     if USE_1980_EQUIL_AVG:
-                        C_equil_fast = (soc_1980_fast[row][col] + soc_equil_fast[row][col]) / 2
-                        C_equil_slow = (soc_1980_slow[row][col] + soc_equil_slow[row][col]) / 2
+                        C_equil_fast[row][col] = (soc_1980_fast[row][col] + soc_equil_fast[row][col]) / 2
+                        C_equil_slow[row][col] = (soc_1980_slow[row][col] + soc_equil_slow[row][col]) / 2
                     elif USE_1980_EQUIL_PREV_AVG:
-                        C_equil_fast = (soc_1980_fast[row][col] + soc_equil_fast[row][col] + soc_prev_fast[row][col]) / 3
-                        C_equil_slow = (soc_1980_slow[row][col] + soc_equil_slow[row][col] + soc_prev_slow[row][col]) / 3
-                    elif abs(year - 1980) < abs(year - EQUIL_YEAR) or ALWAYS_USE_1980:
-                        C_equil_fast = soc_1980_fast[row][col]
-                        C_equil_slow = soc_1980_slow[row][col]
-                    else:
-                        C_equil_fast = soc_equil_fast[row][col]
-                        C_equil_slow = soc_equil_slow[row][col]
-                else:
-                    C_equil_fast = soc_equil_fast[row][col]
-                    C_equil_slow = soc_equil_slow[row][col]
-                if USE_PRIOR_PREV_AVG:
-                    C_equil_fast = (C_equil_fast + soc_prev_fast[row][col]) / 2
-                    C_equil_slow = (C_equil_slow + soc_prev_slow[row][col]) / 2
+                        C_equil_fast[row][col] = (soc_1980_fast[row][col] + soc_equil_fast[row][col] + soc_prev_fast[row][col]) / 3
+                        C_equil_slow[row][col] = (soc_1980_slow[row][col] + soc_equil_slow[row][col] + soc_prev_slow[row][col]) / 3
+                    elif USE_DYNAMIC_AVG and not ALWAYS_USE_1980:
+                        if year < 1980:
+                            # if less than 1980: use 1980 with LAI trend as prior
+                            if USE_1980_LAI_TREND:
+                                C_equil_fast[row][col] = soc_1980_fast[row][col] * (LAI_avg / INIT_VALUES.LAI_1980[month])
+                                C_equil_slow[row][col] = soc_1980_slow[row][col] * (LAI_avg / INIT_VALUES.LAI_1980[month])
+                            else:
+                                C_equil_fast[row][col] = soc_1980_fast[row][col]
+                                C_equil_slow[row][col] = soc_1980_slow[row][col]
+                        else:
+                            w_equil = (year - 1980) / (EQUIL_YEAR - 1980)
+                            w_1980 = 1 - w_equil
+                            # debug print
+                            print(f"w_1980 = {w_1980}")
+                            print(f"w_equil = {w_equil}")
+                            C_equil_fast[row][col] = w_1980 * soc_1980_fast[row][col] + w_equil * soc_equil_fast[row][col]
+                            C_equil_slow[row][col] = w_1980 * soc_1980_slow[row][col] + w_equil * soc_equil_slow[row][col]
                         
-                C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (reg_const_fast * C_equil_fast)
+                    elif abs(year - 1980) < abs(year - EQUIL_YEAR) or ALWAYS_USE_1980:
+                        C_equil_fast[row][col] = soc_1980_fast[row][col]
+                        C_equil_slow[row][col] = soc_1980_slow[row][col]
+                    else:
+                        C_equil_fast[row][col] = soc_equil_fast[row][col]
+                        C_equil_slow[row][col] = soc_equil_slow[row][col]
+                    
+                    if USE_1980_LAI_TREND and (abs(year - 1980) < abs(year - EQUIL_YEAR) or ALWAYS_USE_1980) and not USE_DYNAMIC_AVG:
+                        C_equil_fast[row][col] = soc_1980_fast[row][col] * (LAI_avg / INIT_VALUES.LAI_1980[month])
+                        C_equil_slow[row][col] = soc_1980_slow[row][col] * (LAI_avg / INIT_VALUES.LAI_1980[month])
+                else:
+                    C_equil_fast[row][col] = soc_equil_fast[row][col]
+                    C_equil_slow[row][col] = soc_equil_slow[row][col]
+                if USE_PRIOR_PREV_AVG:
+                    C_equil_fast[row][col] = (C_equil_fast[row][col] + soc_prev_fast[row][col]) / 2
+                    C_equil_slow[row][col] = (C_equil_slow[row][col] + soc_prev_slow[row][col]) / 2
+                        
+                C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (reg_const_fast * C_equil_fast[row][col])
                 C_fast_past[row][col] /= (L_fast[row][col] ** 2) + reg_const_fast
-                C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (reg_const_slow * C_equil_slow)
+                C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (reg_const_slow * C_equil_slow[row][col])
                 C_slow_past[row][col] /= (L_slow[row][col] ** 2) + reg_const_slow
-            elif USE_TIKHONOV:
-                MAP_STATS.REG_counter -= 1
             
             
         if not past:
@@ -428,7 +453,15 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
                                     loess_border_mask)
             time2 = time.time()
             total_dep_time += time2 - time1
-        
+    
+    if USE_TIKHONOV and MAP_STATS.REG_counter == 1:
+        MAP_STATS.REG_counter = REG_FREQ
+        print(f"C_equil_fast: avg = {np.nanmean(C_equil_fast)}")
+        print(f"C_equil_slow: avg = {np.nanmean(C_equil_slow)}")
+        if LAI_avg is not None:
+            print(f"LAI Proportion: {LAI_avg / INIT_VALUES.LAI_1980[month]}")
+    elif USE_TIKHONOV:
+        MAP_STATS.REG_counter -= 1
         
     MAP_STATS.dam_cur_stored = dam_cur_stored    
     time_end = time.time()

@@ -288,6 +288,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             soc_time = time.time()
             if past and USE_UNET:
                 MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, year, past, UNet_MODEL=UNet_Model)
+            elif past and USE_1980_LAI_TREND:
+                LAI_2D[~MAP_STATS.loess_border_mask] = np.nan
+                LAI_avg = np.nanmean(LAI_2D)
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, year, past, LAI_avg=LAI_avg)
             else:
                 MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, year, past)
             print(f'SOC took {time.time() - soc_time}')
