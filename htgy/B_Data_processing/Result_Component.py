@@ -9,7 +9,7 @@ from globals import OUTPUT_DIR  # Expected to point at root Output folder
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Scenario subfolder name (e.g. "126", "245", "585")
-SCENARIO = "585"
+SCENARIO = "370"
 
 def annual_summary(year: int, scenario: str = SCENARIO):
     """
@@ -24,7 +24,8 @@ def annual_summary(year: int, scenario: str = SCENARIO):
       - means: pd.Series of annual means for each numeric column + Trapped_SOC_Dam
       - mets:  pd.Series of the seven percentage metrics (in %)
     """
-    base_dir = OUTPUT_DIR / "Data" / "SOC_Future 5" / scenario
+    #base_dir = OUTPUT_DIR / "Data" / "SOC_Future 5" / scenario
+    base_dir = OUTPUT_DIR / "Data"
 
     monthly_dfs = []
     dam_ratios = []
@@ -59,6 +60,10 @@ def annual_summary(year: int, scenario: str = SCENARIO):
             dam_avg_concs.append(0.0)
 
     combined = pd.concat(monthly_dfs, ignore_index=True)
+    means = combined.mean(numeric_only=True)
+
+    # only keep rows where Total_C is available (not NaN)
+    combined = combined[combined["Total_C"].notna()]
     means = combined.mean(numeric_only=True)
 
     # ----- compute average concentration in sedimentation area (mean over months) -----

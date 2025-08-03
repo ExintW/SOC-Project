@@ -106,7 +106,7 @@ print(f"→ Saved figure to: {out_png}")
 # save CSV
 annual_df = pd.DataFrame.from_records(records)
 csv_path = OUTPUT_DIR / "annual_mean_lai_by_scenario.csv"
-annual_df.to_csv(csv_path, index=False)
+annual_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
 print(f"→ Saved annual means CSV to {csv_path}")
 
 plt.show()

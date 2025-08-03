@@ -27,7 +27,7 @@ records = []
 
 # Past (1950–2007)
 with xr.open_dataset(past_nc) as ds:
-    ds_sel = ds.sel(time=slice("1950-01-01", "2007-12-01"))
+    ds_sel = ds.sel(time=slice("1950-01-01", "2006-12-01"))
     for t_val in ds_sel.time.values:
         arr      = ds_sel["total_C"].sel(time=t_val).values
         mean_val = np.nanmean(arr)
@@ -38,7 +38,7 @@ with xr.open_dataset(past_nc) as ds:
         })
 
 # Present (2008–2024)
-for year in range(2008, 2025):
+for year in range(2007, 2025):
     for month in range(1, 13):
         path     = present_dir / f"SOC_terms_{year}_{month:02d}_River.parquet"
         df       = pd.read_parquet(path)
@@ -68,6 +68,13 @@ for scen in future_scenarios:
 df_all = pd.DataFrame(records)
 df_all["date"] = pd.to_datetime(df_all["date"])
 
+# NEW: Save monthly SOC means to Excel
+# ──────────────────────────────────────────────────────────────────────────────
+monthly_df   = df_all[["scenario", "date", "mean"]]
+monthly_xlsx = OUTPUT_DIR / "monthly_mean_soc_by_scenario.xlsx"
+monthly_df.to_excel(monthly_xlsx, index=False)
+print(f"Monthly means saved to: {monthly_xlsx}")
+
 # =============================================================================
 # 3) Compute Annual Means
 # =============================================================================
@@ -79,7 +86,7 @@ annual_means = df_all.groupby(["scenario", "year"], as_index=False).mean()[["sce
 # =============================================================================
 ci_records = []
 for (scen, year), grp in df_all.groupby(["scenario", "year"]):
-    if year < 2008 or year > 2100:
+    if year < 2007 or year > 2100:
         continue
     vals = grp["mean"].values
     if len(vals) < 2:
@@ -189,3 +196,6 @@ plt.tight_layout()
 out_path = OUTPUT_DIR / "soc_timeseries_by_scenario_with_CI.png"
 fig.savefig(out_path, dpi=300)
 print(f"Figure saved to: {out_path}")
+
+annual_means.to_csv(OUTPUT_DIR/"annual_mean_soc_by_scenario.csv", index=False)
+print("Annual means saved to: annual_mean_soc_by_scenario.csv")

@@ -67,6 +67,8 @@ from River_Basin import *
 from utils import *
 from simulation_loop import run_simulation_year
 from shapely.geometry import LineString, MultiLineString
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # Append parent directory to path to access 'globals' if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -84,7 +86,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     if future_year != None:
         # Path to the snapshot for December of the present period
-        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 5" / "SOC_terms_2024_12_River.parquet"
+        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 6" / "SOC_terms_2024_12_River.parquet"
         if future_initial_file.exists():
             df_init = pd.read_parquet(future_initial_file)
             # reshape to original grid shape
@@ -191,28 +193,50 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    fig, ax = plt.subplots()
-    cax = ax.imshow(INIT_VALUES.C_fast + INIT_VALUES.C_slow, cmap="viridis", vmin=0,vmax=30,
-                    extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(),
-                            MAP_STATS.grid_y.max()],
-                    origin='upper')
-    # overlay the border (no fill, just outline)
-    border = MAP_STATS.loess_border_geom.boundary
+    # 1) Create the figure and main axes
+    fig, ax = plt.subplots(figsize=(10, 6))
 
+    # 2) Plot the initial SOC map
+    im = ax.imshow(
+        INIT_VALUES.C_fast + INIT_VALUES.C_slow,
+        cmap="viridis", vmin=0, vmax=30,
+        extent=[
+            MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(),
+            MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()
+        ],
+        origin="upper",
+    )
+
+    # 3) Overlay the Loess Plateau border
+    border = MAP_STATS.loess_border_geom.boundary
     if isinstance(border, LineString):
         x, y = border.xy
         ax.plot(x, y, color="black", linewidth=0.4)
-    elif isinstance(border, MultiLineString):
+    else:
         for seg in border.geoms:
             x, y = seg.xy
             ax.plot(x, y, color="black", linewidth=0.4)
-    cbar = fig.colorbar(cax, label="SOC (g/kg)")
+
+    # 4) Axis labels and formatting
     ax.set_title("Initial SOC Distribution (t = 0)")
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
     ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
-    ax.ticklabel_format(style='plain', axis='x')
-    plt.savefig(os.path.join(OUTPUT_DIR / "Figure" / "SOC_initial.png"), dpi=600)
+    ax.ticklabel_format(style="plain", axis="x")
+
+    # 5) Append a colorbar axis with the same height as the map and a bit of padding
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="4%", pad="4%")  # 5% width, 5% gap
+    cbar = fig.colorbar(im, cax=cax)
+    cbar.set_label("SOC (g/kg)")
+
+    # 6) Tighten layout and save
+    fig.tight_layout()
+    plt.savefig(
+        OUTPUT_DIR / "Figure" / "SOC_initial.png",
+        dpi=600,
+        bbox_inches="tight"
+    )
     plt.close(fig)
 
     t_sim_start = time.perf_counter()

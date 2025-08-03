@@ -82,9 +82,9 @@ for rate in precip_rates:
             "Region": region,
             "k_theory": k_theory,
             "Mean_measured": mean_meas,
-            "RMSE": rmse,
-            "MAE": mae,
-            "R2": r2,
+            #"RMSE": rmse,
+            #"MAE": mae,
+            #"R2": r2,
             "Conf_int_lower": conf_int[0],
             "Conf_int_upper": conf_int[1],
             "N_measured": len(y_meas)
