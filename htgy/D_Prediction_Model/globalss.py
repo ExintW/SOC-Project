@@ -34,8 +34,8 @@ EQUIL_DECREASE_FACTOR = 1    # Every timestep equil multiply by this factor if u
 
 #------------------------Regularization------------------------#
 USE_TIKHONOV = True             # If this is True, RUN_FROM_EQUIL or ALWAYS_USE_1980 also has to be True
-REG_CONST = 0.275               # Not using this if spatial reg is true
-USE_SPATIAL_REG = True      
+REG_CONST = 1                   # Not using this if spatial reg is true
+USE_SPATIAL_REG = False      
 REG_CONST_BASE = 0.125            # 0.2 # 0.25
 REG_ALPHA = 5                  # Adjust the impact of K or A on REG
 USE_K_FOR_SPATIAL = True        # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
@@ -44,9 +44,11 @@ REG_BETA = 5                    # Adjust the impact of V on REG
 
 REG_FREQ = 5                    # Apply regularization every REG_FREQ months
 
+PLOT_PRIOR = True               # Plot the prior when reg
+
 # Prior Knowledge related
 RUN_FROM_EQUIL = True           # if True, past will start from end_year=EQUIL_YEAR
-EQUIL_YEAR = 2009               # Make sure to set end_year to this if run from equil
+EQUIL_YEAR = 2014               # Make sure to set end_year to this if run from equil
 USE_1980_EQUIL = True           # if True, past will use 1980 soc as prior knowledge if cur year is closer to 1980
 ALWAYS_USE_1980 = False          # if True, always use 1980 as prior knowledge (USE_1980_EQUIL needs to be True)
 USE_1980_LAI_TREND = True       # Let 1980 Prior match the trend of LAI

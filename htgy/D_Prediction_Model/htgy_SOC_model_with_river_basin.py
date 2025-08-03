@@ -109,6 +109,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     if USE_GAUSSIAN_BLUR:
         INIT_VALUES.SOC_1980_FAST = gaussian_blur_with_nan(INIT_VALUES.SOC_1980_FAST, sigma=SIGMA)
         INIT_VALUES.SOC_1980_SLOW = gaussian_blur_with_nan(INIT_VALUES.SOC_1980_SLOW, sigma=SIGMA)
+        
     # =============================================================================
     # COMPUTE CONSTANT LOW POINT MASK AND LOW POINT CAPACITY
     # =============================================================================
@@ -383,10 +384,10 @@ if __name__ == "__main__":
     b = 1.78
     c = 5.5
     
-    start_year =  2025  # year of init condition, default is 2007, set to 2025 for future
-    end_year = None    # last year of present  (set to None to disable present year)
-    past_year = None    # last year of past     (set to None to disable past year)
-    future_year = 2100  # last year of future   (set to None to disable future year)
+    start_year = 2007  # year of init condition, default is 2007, set to 2025 for future
+    end_year = EQUIL_YEAR    # last year of present  (set to None to disable present year)
+    past_year = 1950    # last year of past     (set to None to disable past year)
+    future_year = None  # last year of future   (set to None to disable future year)
 
     fraction = 1                # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     

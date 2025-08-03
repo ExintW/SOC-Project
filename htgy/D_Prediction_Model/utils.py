@@ -29,7 +29,7 @@ def gaussian_blur_with_nan(data, sigma=1):
     result[~MAP_STATS.loess_border_mask] = np.nan
     return result
 
-def plot_SOC(soc, year, month_idx):
+def plot_SOC(soc, year, month_idx, ext=None):
     fig, ax = plt.subplots()
     cax = ax.imshow(soc, cmap="viridis", vmin=0,vmax=30,
                     extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
@@ -45,12 +45,18 @@ def plot_SOC(soc, year, month_idx):
             x, y = seg.xy
             ax.plot(x, y, color="black", linewidth=0.4)
     cbar = fig.colorbar(cax, label="SOC (g/kg)")
-    ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx+1}")
+    if ext is None:
+        ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx+1}")
+    else:
+        ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx+1}, {ext}")
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
     ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
     ax.ticklabel_format(style='plain', axis='x')
-    filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
+    if ext is None:
+        filename_fig = f"SOC_{year}_{month_idx+1:02d}_River.png"
+    else:
+        filename_fig = f"SOC_{year}_{month_idx+1:02d}_{ext}_River.png"
     plt.savefig(os.path.join(OUTPUT_DIR, "Figure", filename_fig), dpi=600)
     plt.close("all")
 
