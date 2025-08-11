@@ -14,6 +14,7 @@ INIT_YEAR = 2007
 PRESENT_YEAR = 2025
 # global_timestep = 0
 USE_CMIP6 = True            # Use CMIP6 lai for present and past simulations (Uses ERA5 if False)
+VALIDATE_1980 = True
 
 ############################ UNet Hyperparameters ##############################
 BATCH_SIZE = 4
@@ -198,6 +199,8 @@ class MAP_STATS:
     C_slow_equil_list = []
     
     REG_counter = REG_FREQ
+    
+    C_total_1980_Valid_list = []
 
     @classmethod
     def reset(cls):

@@ -55,7 +55,6 @@ import sys
 from numba import njit, prange
 import numba
 import glob
-import pandas as pd
 import xarray as xr
 
 sys.path.append(os.path.dirname(__file__))
@@ -104,6 +103,13 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # CLEAN UP GLOBAL DATA: SET NAN TO MEAN AND VALUES OUTSIDE OF BORDER TO NAN
     # =============================================================================
     clean_nan()
+    
+    # =============================================================================
+    # Save cleaned 1980 SOC for validation
+    # =============================================================================
+    if VALIDATE_1980:
+        SOC_1980_Total = INIT_VALUES.SOC_1980_FAST + INIT_VALUES.SOC_1980_SLOW
+        np.savez_compressed(OUTPUT_DIR / 'SOC_1980_Total_cleaned', SOC_1980_Total)
     
     # =============================================================================
     # USE GAUSSIAN BLUR TO 1980 IF ENABLED
@@ -392,6 +398,13 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
                 generate_mp4(start_year=past_year, end_year=end_year)
             else:
                 generate_mp4(start_year=past_year, end_year=future_year)
+            
+            if VALIDATE_1980:
+                pred_stack = np.stack(MAP_STATS.C_total_1980_Valid_list, axis=0)  
+                pred_avg = np.nanmean(pred_stack, axis=0)
+                np.savez_compressed(OUTPUT_DIR / 'SOC_1980_Total_predicted', pred_avg)
+                validate_SOC(pred_avg, SOC_1980_Total)
+                
         else:   # run non-reversed past year simulation with given fraction as init condition
             for year in range(past_year, start_year, step_size):
                 run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)

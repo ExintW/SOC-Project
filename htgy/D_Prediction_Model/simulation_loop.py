@@ -300,6 +300,9 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 MAP_STATS.C_fast_equil_list.append(MAP_STATS.C_fast_current)
                 MAP_STATS.C_slow_equil_list.append(MAP_STATS.C_slow_current)
             
+            if VALIDATE_1980 and year == 1980:
+                MAP_STATS.C_total_1980_Valid_list.append(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
+            
             # print(f"C fast nan: {np.isnan(MAP_STATS.C_fast_current).sum()}")
             # print(f"C slow nan: {np.isnan(MAP_STATS.C_slow_current).sum()}")
             

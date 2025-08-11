@@ -9,9 +9,21 @@ import matplotlib.pyplot as plt
 from shapely.geometry import LineString, MultiLineString
 import matplotlib.ticker as mticker
 import scipy.ndimage as ndimage
+from sklearn.metrics import r2_score
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
+
+def validate_SOC(pred, true):
+    mask = ~np.isnan(true)
+
+    # Flatten both arrays using the mask
+    y_true = true[mask]
+    y_pred = pred[mask]
+
+    # Compute R²
+    r2 = r2_score(y_true, y_pred)
+    print(f"R² score: {r2}")
 
 def find_nearest_index(array, value):
     """Return index of element in array closest to value."""
