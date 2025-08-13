@@ -23,7 +23,7 @@ SOC_CSV = OUTPUT_DIR / "annual_mean_soc_by_scenario.csv"
 STL_CSV = OUTPUT_DIR / "stl_1950-2100_mean_temperature.csv"
 
 # now cover 1950 through 2100 inclusive
-years = np.arange(1950, 2101)
+years = np.arange(2025, 2101)
 
 # =============================================================================
 # 2) SEQUENTIAL MANN–KENDALL CHANGE‑POINT DETECTION

@@ -28,6 +28,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
     # Filter dams built on or before current year
     df_dam_active = MAP_STATS.df_dam[MAP_STATS.df_dam["year"] <= year].copy()
     active_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
+    full_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
     dam_max_cap = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
     dam_cur_stored = MAP_STATS.dam_cur_stored
     dam_capacity_arr = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
@@ -36,16 +37,16 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         i_idx = find_nearest_index(MAP_STATS.grid_y, row["y"])
         j_idx = find_nearest_index(MAP_STATS.grid_x, row["x"])
         capacity_10000_m3 = row["capacity_remained"]
-        capacity_tons = capacity_10000_m3 * 10000 * BULK_DENSITY
+        capacity_tons = capacity_10000_m3 * 10000 * BULK_DENSITY/1000
         dam_capacity_arr[i_idx, j_idx] = capacity_tons
         
         max_cap_10000_m3 = row["total_stor"]
-        max_cap_tons = max_cap_10000_m3 * 10000 * BULK_DENSITY
+        max_cap_tons = max_cap_10000_m3 * 10000 * BULK_DENSITY/1000
         dam_max_cap[i_idx, j_idx] = max_cap_tons
-        
+
         if dam_cur_stored[i_idx, j_idx] == 0.0:   # Only initialize cur_stored for new dams for this year
             cur_stored_10000_m3 = row["deposition"]
-            cur_stored_tons = cur_stored_10000_m3 * 10000 * BULK_DENSITY
+            cur_stored_tons = cur_stored_10000_m3 * 10000 * BULK_DENSITY/1000
             if np.isnan(cur_stored_tons):
                 cur_stored_tons = 0.0
             dam_cur_stored[i_idx, j_idx] = cur_stored_tons
@@ -54,7 +55,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
     # Load monthly climate data (NetCDF)
     if future:
-        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_126.nc"
+        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_585.nc"
     else:
         nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
 
@@ -65,7 +66,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2001-2014.nc"
         cmip_start = 2001
     else:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_126.nc"
+        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_585.nc"
         cmip_start = 2015
 
     if future != True:
@@ -287,13 +288,13 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             soc_time = time.time()
             if past and USE_UNET:
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, year, past, UNet_MODEL=UNet_Model)
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past, UNet_MODEL=UNet_Model)
             elif past and USE_1980_LAI_TREND:
                 LAI_2D[~MAP_STATS.loess_border_mask] = np.nan
                 LAI_avg = np.nanmean(LAI_2D)
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, year, past, LAI_avg=LAI_avg)
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past, LAI_avg=LAI_avg)
             else:
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month_idx, year, past)
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past)
             print(f'SOC took {time.time() - soc_time}')
             
             if year == EQUIL_YEAR and not past:
@@ -314,17 +315,22 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 MAP_STATS.C_fast_matrix.insert(0, MAP_STATS.C_fast_current.copy())
                 MAP_STATS.C_slow_matrix.insert(0, MAP_STATS.C_slow_current.copy())
                 MAP_STATS.active_dam_matrix.insert(0, active_dams.copy())
+                MAP_STATS.full_dam_matrix.insert(0, full_dams.copy())
             else:
                 MAP_STATS.total_C_matrix.append(C_total.copy())
                 MAP_STATS.C_fast_matrix.append(MAP_STATS.C_fast_current.copy())
                 MAP_STATS.C_slow_matrix.append(MAP_STATS.C_slow_current.copy())
                 MAP_STATS.active_dam_matrix.append(active_dams.copy())
+                MAP_STATS.full_dam_matrix.append(full_dams.copy())
 
 
             # New: count and report cells where C_total > 40 and it's an active dam
             high_dam_mask = (C_total > 40) & active_dams
             count_high_dam = np.count_nonzero(high_dam_mask)
             print(f"Number of active dam cells with C_total > 40: {count_high_dam}")
+
+            count_full_dam = np.count_nonzero(full_dams)
+            print(f"Number of full dams: {count_full_dam}")
 
             print(f"Year {year} Month {month_idx + 1}: Total_SOC_mean: {mean_C_total:.2f}, "
                   f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
@@ -427,7 +433,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             R_factor_list =  R_month      .ravel('C').tolist()
             lost_soc_list =  lost_soc     .ravel('C').tolist()
 
-            C_total_list = C_total       .ravel('C').tolist()
+            C_total_list = C_total        .ravel('C').tolist()
+
+            full_dams_list = full_dams    .ravel('C').tolist()
+            dam_rem_cap_list = dam_rem_cap.ravel('C').tolist()
 
             print(f"Gather data for csv took {time.time() - time1} seconds")
             
@@ -454,7 +463,9 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'LS_factor_month': LS_factor_list,
                 'P_factor_month': P_factor_list,
                 'R_factor_month': R_factor_list,
-                'Lost_SOC_River': lost_soc_list
+                'Lost_SOC_River': lost_soc_list,
+                'full_dam': full_dams_list,
+                'dam_rem_cap': dam_rem_cap_list
             })
             
             if USE_PARQUET:
