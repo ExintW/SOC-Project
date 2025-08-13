@@ -1,3 +1,4 @@
+from utils import plot_SOC
 from globalss import *
 from globals import *  
 import math
@@ -406,9 +407,6 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
                         else:
                             w_equil = (year - 1980) / (EQUIL_YEAR - 1980)
                             w_1980 = 1 - w_equil
-                            # debug print
-                            print(f"w_1980 = {w_1980}")
-                            print(f"w_equil = {w_equil}")
                             C_equil_fast[row][col] = w_1980 * soc_1980_fast[row][col] + w_equil * soc_equil_fast[row][col]
                             C_equil_slow[row][col] = w_1980 * soc_1980_slow[row][col] + w_equil * soc_equil_slow[row][col]
                         
@@ -458,13 +456,19 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
             time2 = time.time()
             total_dep_time += time2 - time1
     
-    if USE_TIKHONOV and MAP_STATS.REG_counter == 1:
+    if past and USE_TIKHONOV and MAP_STATS.REG_counter == 1:
         MAP_STATS.REG_counter = REG_FREQ
         print(f"C_equil_fast: avg = {np.nanmean(C_equil_fast)}")
         print(f"C_equil_slow: avg = {np.nanmean(C_equil_slow)}")
         if LAI_avg is not None:
             print(f"LAI Proportion: {LAI_avg / INIT_VALUES.LAI_1980[month]}")
-    elif USE_TIKHONOV:
+            
+        if PLOT_PRIOR:
+            C_equil_total = C_equil_fast + C_equil_slow
+            C_equil_total[~MAP_STATS.loess_border_mask] = np.nan
+            plot_SOC(C_equil_total, year, month, ext='Prior')
+                
+    elif past and USE_TIKHONOV:
         MAP_STATS.REG_counter -= 1
         
     MAP_STATS.dam_cur_stored = dam_cur_stored    
