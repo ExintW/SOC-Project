@@ -165,7 +165,7 @@ def get_deposition_of_point(E_tcell, A, point, dep_soil, dep_soc_fast, dep_soc_s
         dep_soil[nr, nc] += E_tcell[row, col] * w
       
 
-def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V, month, year, past=False, UNet_MODEL=None, LAI_avg=None):
+def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month, year, past=False, UNet_MODEL=None, LAI_avg=None):
     dt = 1
     if past:
         dt = -1
@@ -177,6 +177,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     low_point_mask = MAP_STATS.low_mask
     low_point_capacity = MAP_STATS.Low_Point_Capacity
     low_point_cur_stored = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
+    dam_rem_cap = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
     K_fast = INIT_VALUES.K_fast
     K_slow = INIT_VALUES.K_slow
     DEM = INIT_VALUES.DEM
@@ -331,6 +332,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
                 ero_soil[row][col] = 0.0
                 dam_proportion = 0.0
             else:
+                full_dams[row][col] = 1
                 extra_soil = dam_cur_stored[row][col] - dam_max_cap[row][col]
                 assert extra_soil > 0, f'Error: dam extra soil <= 0: dam_cur_stored[row][col] = {dam_cur_stored[row][col]}, dam_max_cap[row][col] = {dam_max_cap[row][col]}'
                 ero_proportion = extra_soil / dam_cur_stored[row][col]
@@ -342,6 +344,8 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
                 dam_proportion = ero_proportion
             dam_cur_stored[row][col] += dt * dep_soil[row][col]
             dam_cur_stored[row][col] -= dt * ero_soil[row][col]
+            dam_cur_stored[row][col] = max(0,dam_cur_stored[row][col])
+            dam_rem_cap[row][col] = max(0,dam_max_cap[row][col] - dam_cur_stored[row][col])
         
         if past:
             # L_fast[row][col] -= ero_soc[row][col] * init_fast_proportion[row][col]
@@ -580,7 +584,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     MAP_STATS.C_fast_prev = C_fast_current.copy()
     MAP_STATS.C_slow_prev = C_slow_current.copy()
     
-    return C_fast_new, C_slow_new, dep_soc_fast, dep_soc_slow, lost_soc
+    return C_fast_new, C_slow_new, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap
 
 # def soc_dynamic_model_past(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, V):
 #     C_fast_current = MAP_STATS.C_fast_current

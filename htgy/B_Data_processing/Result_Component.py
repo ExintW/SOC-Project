@@ -9,7 +9,7 @@ from globals import OUTPUT_DIR  # Expected to point at root Output folder
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Scenario subfolder name (e.g. "126", "245", "585")
-SCENARIO = "370"
+SCENARIO = "126"
 
 def annual_summary(year: int, scenario: str = SCENARIO):
     """
@@ -19,18 +19,18 @@ def annual_summary(year: int, scenario: str = SCENARIO):
       - Compute annual mean of all numeric columns
       - Derive seven percentage metrics (using that year’s Total_C)
       - Derive average concentration in sedimentation area (Trapped_SOC_Dam)
-        using total grid-cell count as the denominator
     Returns:
       - means: pd.Series of annual means for each numeric column + Trapped_SOC_Dam
       - mets:  pd.Series of the seven percentage metrics (in %)
     """
-    #base_dir = OUTPUT_DIR / "Data" / "SOC_Future 5" / scenario
-    base_dir = OUTPUT_DIR / "Data"
+    #base_dir = OUTPUT_DIR / "Data" / "SOC_Future 6" / scenario
+    base_dir = OUTPUT_DIR / "Data" / "SOC_Present 6"
+    #base_dir = OUTPUT_DIR / "Data" / "SOC_Past 2"
 
     monthly_dfs = []
     dam_ratios = []
     low_ratios = []
-    dam_avg_concs = []  # collect average concentration in sedimentation area each month
+    dam_avg_concs = []
 
     for m in range(1, 13):
         fn = f"SOC_terms_{year}_{m:02d}_River.parquet"
@@ -44,42 +44,31 @@ def annual_summary(year: int, scenario: str = SCENARIO):
 
         total_c = df["Total_C"].sum()
         if total_c > 0:
-            # Dam and low-point percentages
             dam_sum = df.loc[df["Region"] == "sedimentation area", "Total_C"].sum()
             low_sum = df.loc[df["Low point"] == "True", "Total_C"].sum()
             dam_ratios.append(dam_sum / total_c * 100)
             low_ratios.append(low_sum / total_c * 100)
 
-            # Average concentration in sedimentation area per total grid count
             num_total = len(df)
-            dam_avg = dam_sum / num_total if num_total > 0 else 0.0
-            dam_avg_concs.append(dam_avg)
+            dam_avg_concs.append(dam_sum / num_total if num_total > 0 else 0.0)
         else:
             dam_ratios.append(0.0)
             low_ratios.append(0.0)
             dam_avg_concs.append(0.0)
 
     combined = pd.concat(monthly_dfs, ignore_index=True)
-    means = combined.mean(numeric_only=True)
-
-    # only keep rows where Total_C is available (not NaN)
     combined = combined[combined["Total_C"].notna()]
     means = combined.mean(numeric_only=True)
 
-    # ----- compute average concentration in sedimentation area (mean over months) -----
-    trapped_dam_avg_conc = sum(dam_avg_concs) / len(dam_avg_concs)
-    means["Trapped_SOC_Dam"] = trapped_dam_avg_conc
-    # -------------------------------------------------------------------------------
+    # average concentration in sedimentation area (mean over months)
+    means["Trapped_SOC_Dam"] = sum(dam_avg_concs) / len(dam_avg_concs)
 
-    # Compute the five base % metrics *using this year’s* Total_C
+    # five base % metrics using this year’s Total_C
     erosion_pct    = (means["Erosion_fast"] + means["Erosion_slow"])       / means["Total_C"] * 100
     deposition_pct = (means["Deposition_fast"] + means["Deposition_slow"]) / means["Total_C"] * 100
     vegetation_pct = (means["Vegetation_fast"] + means["Vegetation_slow"]) / means["Total_C"] * 100
     reaction_pct   = (means["Reaction_fast"] + means["Reaction_slow"])     / means["Total_C"] * 100
     river_lost_pct = means["Lost_SOC_River"]                               / means["Total_C"] * 100
-
-    dam_avg_pct = sum(dam_ratios) / len(dam_ratios)
-    low_avg_pct = sum(low_ratios) / len(low_ratios)
 
     mets = pd.Series({
         "Erosion_pct":               erosion_pct,
@@ -87,8 +76,8 @@ def annual_summary(year: int, scenario: str = SCENARIO):
         "Vegetation_pct":            vegetation_pct,
         "Reaction_pct":              reaction_pct,
         "River_lost_pct":            river_lost_pct,
-        "SOC_trapped_dam_pct":       dam_avg_pct,
-        "SOC_trapped_low_point_pct": low_avg_pct,
+        "SOC_trapped_dam_pct":       sum(dam_ratios) / len(dam_ratios),
+        "SOC_trapped_low_point_pct": sum(low_ratios) / len(low_ratios),
     })
 
     return means, mets
@@ -100,21 +89,18 @@ if __name__ == "__main__":
     # Get this year’s stats + trapped dam concentration added
     means, mets = annual_summary(year)
 
-    # Get previous year’s mean Total_C for denominator
+    # Get previous year’s Total_C for denominator
     if year > 1950:
         means_prev, _ = annual_summary(year - 1)
         prev_total_c = means_prev["Total_C"]
     else:
         prev_total_c = means["Total_C"]
 
-    # Override five pct metrics to use previous‐year denominator
-    mets["Erosion_pct"]    = (means["Erosion_fast"]    + means["Erosion_slow"])    / prev_total_c * 100
-    mets["Reaction_pct"]   = (means["Reaction_fast"]   + means["Reaction_slow"])   / prev_total_c * 100
-    mets["Deposition_pct"] = (means["Deposition_fast"] + means["Deposition_slow"]) / prev_total_c * 100
-    mets["Vegetation_pct"] = (means["Vegetation_fast"] + means["Vegetation_slow"]) / prev_total_c * 100
-    mets["River_lost_pct"] = (means["Lost_SOC_River"])                                / prev_total_c * 100
+    # Override pct metrics to use previous‐year denominator
+    for key in ["Erosion_pct", "Reaction_pct", "Deposition_pct", "Vegetation_pct", "River_lost_pct"]:
+        mets[key] = mets[key] * means["Total_C"] / prev_total_c
 
-    # Drop unneeded columns (Trapped_SOC_Dam stays)
+    # Drop unneeded columns
     to_drop = [
         "LAT", "LON",
         "E_t_ha_month",
@@ -123,7 +109,7 @@ if __name__ == "__main__":
     ]
     means = means.drop(labels=to_drop, errors="ignore")
 
-    # Prepare tidy DataFrames (Trapped_SOC_Dam now appears in df_means)
+    # Prepare tidy DataFrames
     df_means = means.reset_index()
     df_means.columns = ["Metric", "Value (g/kg/month)"]
     df_mets  = mets.reset_index()
@@ -139,48 +125,21 @@ if __name__ == "__main__":
     vals    = df_means["Value (g/kg/month)"].reindex(range(n))
     vals_pg = vals * conv_factor
 
+    # Compute annual Pg values (skip for C_fast, C_slow, Total_C)
+    vals_pg_year = vals_pg * 12
+    skip_metrics = ["C_fast", "C_slow", "Total_C"]
+    metrics = df_means["Metric"].reindex(range(n))
+    vals_pg_year[metrics.isin(skip_metrics)] = pd.NA
+
     out = pd.DataFrame({
-        "Metric":              df_means["Metric"].reindex(range(n)),
-        "Value (g/kg/month)":  vals,
-        "Value (Pg/month)":    vals_pg,
-        "":                    [""] * n,
-        "PctMetric":           df_mets["PctMetric"].reindex(range(n)),
-        "PctValue (%)":        df_mets["PctValue (%)"].reindex(range(n)),
+        "Metric":               metrics,
+        "Value (g/kg/month)":   vals,
+        "Value (Pg/month)":     vals_pg,
+        "Value (Pg/yr)":        vals_pg_year,
+        "":                     [""] * n,
+        "PctMetric":            df_mets["PctMetric"].reindex(range(n)),
+        "PctValue (%)":         df_mets["PctValue (%)"].reindex(range(n)),
     })
-
-    # Category‐contribution logic (unchanged)
-    erosion_sum    = means["Erosion_fast"]    + means["Erosion_slow"]
-    reaction_sum   = means["Reaction_fast"]   + means["Reaction_slow"]
-    deposition_sum = means["Deposition_fast"] + means["Deposition_slow"]
-    vegetation_sum = means["Vegetation_fast"] + means["Vegetation_slow"]
-
-    total_decrease = erosion_sum + reaction_sum
-    total_increase = deposition_sum + vegetation_sum
-
-    erosion_contrib    = (erosion_sum    / total_decrease * 100) if total_decrease != 0 else 0.0
-    reaction_contrib   = (reaction_sum   / total_decrease * 100) if total_decrease != 0 else 0.0
-    deposition_contrib = (deposition_sum / total_increase * 100) if total_increase != 0 else 0.0
-    vegetation_contrib = (vegetation_sum / total_increase * 100) if total_increase != 0 else 0.0
-
-    contrib_map = {
-        "Erosion_pct":    erosion_contrib,
-        "Reaction_pct":   reaction_contrib,
-        "Deposition_pct": deposition_contrib,
-        "Vegetation_pct": vegetation_contrib,
-    }
-    category_map = {
-        "Erosion_pct":    "Erosion",
-        "Reaction_pct":   "Reaction",
-        "Deposition_pct": "Deposition",
-        "Vegetation_pct": "Vegetation",
-    }
-
-    out["Category"]         = out["PctMetric"].map(category_map)
-    out["Contribution (%)"] = out["PctMetric"].map(contrib_map)
-
-    # Insert a blank column after 'PctValue (%)'
-    insert_at = out.columns.get_loc("PctValue (%)") + 1
-    out.insert(insert_at, " ", [""] * len(out))
 
     # Save
     output_fp = OUTPUT_DIR / f"annual_summary_{year}_{SCENARIO}.csv"

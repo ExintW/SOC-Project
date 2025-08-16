@@ -55,6 +55,7 @@ import sys
 from numba import njit, prange
 import numba
 import glob
+import pandas as pd
 import xarray as xr
 
 sys.path.append(os.path.dirname(__file__))
@@ -110,14 +111,14 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     if VALIDATE_1980:
         SOC_1980_Total = INIT_VALUES.SOC_1980_FAST + INIT_VALUES.SOC_1980_SLOW
         np.savez_compressed(OUTPUT_DIR / 'SOC_1980_Total_cleaned', SOC_1980_Total)
-    
+
     # =============================================================================
     # USE GAUSSIAN BLUR TO 1980 IF ENABLED
     # =============================================================================
     if USE_GAUSSIAN_BLUR:
         INIT_VALUES.SOC_1980_FAST = gaussian_blur_with_nan(INIT_VALUES.SOC_1980_FAST, sigma=SIGMA)
         INIT_VALUES.SOC_1980_SLOW = gaussian_blur_with_nan(INIT_VALUES.SOC_1980_SLOW, sigma=SIGMA)
-        
+
     # =============================================================================
     # COMPUTE CONSTANT LOW POINT MASK AND LOW POINT CAPACITY
     # =============================================================================
@@ -398,13 +399,13 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
                 generate_mp4(start_year=past_year, end_year=end_year)
             else:
                 generate_mp4(start_year=past_year, end_year=future_year)
-            
+
             if VALIDATE_1980:
-                pred_stack = np.stack(MAP_STATS.C_total_1980_Valid_list, axis=0)  
+                pred_stack = np.stack(MAP_STATS.C_total_1980_Valid_list, axis=0)
                 pred_avg = np.nanmean(pred_stack, axis=0)
                 np.savez_compressed(OUTPUT_DIR / 'SOC_1980_Total_predicted', pred_avg)
                 validate_SOC(pred_avg, SOC_1980_Total)
-                
+
         else:   # run non-reversed past year simulation with given fraction as init condition
             for year in range(past_year, start_year, step_size):
                 run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
@@ -421,9 +422,9 @@ if __name__ == "__main__":
     b = 1.78
     c = 5.5
     
-    start_year = 2007  # year of init condition, default is 2007, set to 2025 for future
-    end_year = EQUIL_YEAR    # last year of present  (set to None to disable present year)
-    past_year = 1950    # last year of past     (set to None to disable past year)
+    start_year =  2007  # year of init condition, default is 2007, set to 2025 for future
+    end_year = 2024    # last year of present  (set to None to disable present year)
+    past_year = None    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
 
     fraction = 1                # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)

@@ -16,8 +16,8 @@ from globals import *    # defines OUTPUT_DIR
 # 1) Configuration & File-path Setup
 # =============================================================================
 past_nc     = OUTPUT_DIR / "Data" / "SOC_Past 2" / "Total_C_1950-2007_monthly.nc"
-present_dir = OUTPUT_DIR / "Data" / "SOC_Present 5"
-future_dir  = OUTPUT_DIR / "Data" / "SOC_Future 5"
+present_dir = OUTPUT_DIR / "Data" / "SOC_Present 6"
+future_dir  = OUTPUT_DIR / "Data" / "SOC_Future 6"
 future_scenarios = ["126", "245", "370", "585"]
 
 # =============================================================================
