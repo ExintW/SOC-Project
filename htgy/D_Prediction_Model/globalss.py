@@ -45,7 +45,7 @@ REG_BETA = 5                    # Adjust the impact of V on REG
 
 REG_FREQ = 5                    # Apply regularization every REG_FREQ months
 
-PLOT_PRIOR = True               # Plot the prior when reg
+PLOT_PRIOR = False               # Plot the prior when reg
 
 # Prior Knowledge related
 RUN_FROM_EQUIL = True           # if True, past will start from end_year=EQUIL_YEAR

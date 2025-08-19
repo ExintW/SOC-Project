@@ -10,6 +10,7 @@ from shapely.geometry import LineString, MultiLineString
 import matplotlib.ticker as mticker
 import scipy.ndimage as ndimage
 from sklearn.metrics import r2_score
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
@@ -43,7 +44,7 @@ def gaussian_blur_with_nan(data, sigma=1):
 
 def plot_SOC(soc, year, month_idx, ext=None):
     fig, ax = plt.subplots()
-    cax = ax.imshow(soc, cmap="viridis", vmin=0,vmax=30,
+    im = ax.imshow(soc, cmap="viridis", vmin=0,vmax=30,
                     extent=[MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()],
                     origin='upper')
     # overlay the border (no fill, just outline)
@@ -56,7 +57,10 @@ def plot_SOC(soc, year, month_idx, ext=None):
         for seg in border.geoms:
             x, y = seg.xy
             ax.plot(x, y, color="black", linewidth=0.4)
-    cbar = fig.colorbar(cax, label="SOC (g/kg)")
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="4%", pad="4%")
+    cbar = fig.colorbar(im, cax=cax)
+    cbar.set_label("SOC (g/kg)")
     if ext is None:
         ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx+1}")
     else:
