@@ -9,7 +9,7 @@ from globals import OUTPUT_DIR  # Expected to point at root Output folder
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Scenario subfolder name (e.g. "126", "245", "585")
-SCENARIO = "126"
+SCENARIO = "585"
 
 def annual_summary(year: int, scenario: str = SCENARIO):
     """
@@ -23,9 +23,9 @@ def annual_summary(year: int, scenario: str = SCENARIO):
       - means: pd.Series of annual means for each numeric column + Trapped_SOC_Dam
       - mets:  pd.Series of the seven percentage metrics (in %)
     """
-    #base_dir = OUTPUT_DIR / "Data" / "SOC_Future 6" / scenario
-    base_dir = OUTPUT_DIR / "Data" / "SOC_Present 6"
-    #base_dir = OUTPUT_DIR / "Data" / "SOC_Past 2"
+    #base_dir = OUTPUT_DIR / "Data" / "SOC_Future 7" / scenario
+    #base_dir = OUTPUT_DIR / "Data" / "SOC_Present 7"
+    base_dir = OUTPUT_DIR / "Data" / "SOC_Past 2"
 
     monthly_dfs = []
     dam_ratios = []
@@ -105,7 +105,8 @@ if __name__ == "__main__":
         "LAT", "LON",
         "E_t_ha_month",
         "C_factor_month", "K_factor_month", "LS_factor_month",
-        "P_factor_month", "R_factor_month"
+        "P_factor_month", "R_factor_month",
+        "full_dam", "dam_rem_cap"
     ]
     means = means.drop(labels=to_drop, errors="ignore")
 

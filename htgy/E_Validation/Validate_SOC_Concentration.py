@@ -70,7 +70,7 @@ for sheet_name in xls.sheet_names:
     year = sheet_name.split("-")[-1]
 
     # 2) find model files
-    model_dir = OUTPUT_DIR / "Data" / "SOC_Present 6"
+    model_dir = OUTPUT_DIR / "Data" / "SOC_Present 7"
     files = sorted(model_dir.glob(f"SOC_terms_{year}_*_River.parquet"))
     if not files:
         print(f"[SKIP] '{sheet_name}': no model files for {year}")
