@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys, os
 from pathlib import Path
+from itertools import combinations
 
 import pandas as pd
 import numpy as np
@@ -8,7 +9,7 @@ from sklearn.cross_decomposition import PLSRegression
 from sklearn.preprocessing import StandardScaler
 
 # =============================================================================
-# CONFIGURATION & PATHS
+# (1) CONFIGURATION & PATHS
 # =============================================================================
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from globals import PROCESSED_DIR, OUTPUT_DIR
@@ -26,7 +27,7 @@ STL_CSV = OUTPUT_DIR / 'stl_1950-2100_mean_temperature.csv'
 years = np.arange(1950, 2024)
 
 # =============================================================================
-# Utilities: Sequential MK break detection
+# (2) Utilities: Sequential MK break detection
 # =============================================================================
 def sequential_mk(x):
     n = len(x)
@@ -51,7 +52,7 @@ def detect_one_mk_break(x):
     return np.argmin(diff[1:-1]) + 1  # avoid endpoints
 
 # =============================================================================
-# Load time series
+# (3) Load time series
 # =============================================================================
 def load_df():
     # SOC
@@ -89,33 +90,42 @@ def load_df():
     annual_dam.loc[2010:2100] = mean_add
     dam = annual_dam.fillna(0)
 
-    return pd.DataFrame({
-        'soc': soc, 'lai': lai, 'tp': tp, 'dam': dam, 'stl': stl
-    }).dropna()
+    df_all = pd.DataFrame({'soc': soc, 'lai': lai, 'tp': tp, 'dam': dam, 'stl': stl}).dropna()
+    df_all.index.name = 'year'
+    return df_all
 
 # =============================================================================
-# Build 2-way interactions
+# (4) Feature builders
 # =============================================================================
-def make_interactions(df, drivers):
-    X = df[drivers].copy()
-    for i in range(len(drivers)):
-        for j in range(i + 1, len(drivers)):
-            a, b = drivers[i], drivers[j]
-            X[f'{a}x{b}'] = df[a] * df[b]
+def singles(df, drivers):
+    return df[drivers].copy()
+
+def singles_plus_exact_k(df, drivers, k):
+    X = singles(df, drivers)  # always include singles
+    for combo in combinations(drivers, k):
+        name = "x".join(combo)
+        prod = np.prod([df[c] for c in combo], axis=0)
+        X[name] = prod
     return X
 
+# sets as requested
+def features_set1(df, drivers):  # singles + only 2-way
+    return singles_plus_exact_k(df, drivers, 2)
+
+def features_set2(df, drivers):  # singles + only 3-way
+    return singles_plus_exact_k(df, drivers, 3)
+
+def features_set3(df, drivers):  # singles + only 4-way
+    return singles_plus_exact_k(df, drivers, 4)
+
 # =============================================================================
-# VIP calculation
+# (5) VIP calculation
 # =============================================================================
 def pls_vip_contrib(X, y, n_components=2):
-    # too few samples → return NaNs to avoid crash
-    if X.shape[0] < 3 or np.allclose(np.std(y), 0):
+    if X.shape[0] < 3 or np.allclose(np.std(y), 0) or X.shape[1] == 0:
         return np.full(X.shape[1], np.nan)
 
-    scalerX = StandardScaler()
-    Xc = scalerX.fit_transform(X)
-
-    # center y only (keep units scale-neutral in VIP)
+    Xc = StandardScaler().fit_transform(X)
     yc = (y - np.mean(y))
 
     A = min(n_components, Xc.shape[0] - 1, Xc.shape[1])
@@ -123,12 +133,10 @@ def pls_vip_contrib(X, y, n_components=2):
         return np.full(X.shape[1], np.nan)
 
     pls = PLSRegression(n_components=A).fit(Xc, yc)
-
     W = pls.x_weights_             # (p, A)
     U = pls.y_scores_              # (n, A)
-    SSY = np.sum(U ** 2, axis=0)   # variance explained per component
+    SSY = np.sum(U ** 2, axis=0)
     p = W.shape[0]; total_SSY = SSY.sum()
-
     if total_SSY <= 0:
         return np.full(p, np.nan)
 
@@ -145,78 +153,79 @@ def pls_vip_contrib(X, y, n_components=2):
     return (VIP / sVIP * 100) if sVIP > 0 else np.full(p, np.nan)
 
 # =============================================================================
-# Main: TWO change points (no cp3)
-#   - cp1 from 1950..1995 window
-#   - cp2 from 1996..2005 window
-#   - For each cp, compute PLS VIP before/after within its window
+# (6) Main: CPs → 3 segments → compute 3 sets → wide layout (3 columns)
 # =============================================================================
 def main():
     df = load_df()
     yrs = df.index.values
     soc = df['soc'].values
 
-    # Resolve window boundaries safely
+    # detect CPs in fixed windows
     if not np.any(yrs <= 1995) or not np.any((yrs >= 1996) & (yrs <= 2005)):
         raise ValueError("Not enough data to locate two windows (<=1995 and 1996–2005).")
+    i1 = np.where(yrs <= 1995)[0][-1]
+    i2 = np.where(yrs <= 2005)[0][-1]
 
-    i1 = np.where(yrs <= 1995)[0][-1]          # end idx of first window
-    i2 = np.where(yrs <= 2005)[0][-1]          # end idx of second window
+    cp1 = detect_one_mk_break(soc[:i1 + 1])
+    cp2 = detect_one_mk_break(soc[i1 + 1:i2 + 1]) + (i1 + 1)
+    print(f"Detected CP1={int(yrs[cp1])}, CP2={int(yrs[cp2])}")
 
-    # Detect two change points
-    cp1 = detect_one_mk_break(soc[:i1 + 1])                     # within [0..i1]
-    cp2 = detect_one_mk_break(soc[i1 + 1:i2 + 1]) + (i1 + 1)    # within [i1+1..i2]
-
-    cp_idxs  = [cp1, cp2]
-    cp_years = yrs[cp_idxs]
-
-    print("Detected Change Points (2 only):")
-    for k, y in enumerate(cp_years, start=1):
-        print(f"CP{k} at year {y}")
+    # segments (no before/after duplication)
+    segments = [
+        ("S1", 0,        cp1),             # start .. CP1
+        ("S2", cp1 + 1,  cp2),             # CP1+1 .. CP2
+        ("S3", cp2 + 1,  len(yrs) - 1),    # CP2+1 .. end
+    ]
 
     drivers = ['lai', 'tp', 'dam', 'stl']
-    rows = []
+    builders = {
+        'set1_2way': features_set1,  # singles + 2-way
+        'set2_3way': features_set2,  # singles + 3-way
+        'set3_4way': features_set3,  # singles + 4-way
+    }
 
-    for idx, cp in enumerate(cp_idxs):
-        # segment bounds for this cp
-        start = 0 if idx == 0 else (cp_idxs[idx - 1] + 1)
-        end   = cp
+    # Collect tidy then pivot to wide
+    tidy_rows = []
+    for set_name, builder in builders.items():
+        for seg_label, a, b in segments:
+            if a > b:
+                continue
+            seg_df = df.iloc[a:b+1]
+            X_df = builder(seg_df, drivers)
+            feat_names = list(X_df.columns)
+            contrib = pls_vip_contrib(X_df.values, seg_df['soc'].values)
+            seg_years = f"{int(yrs[a])}-{int(yrs[b])}"
 
-        # after-segment ends at next cp start, else series end
-        seg_end = (cp_idxs[idx + 1] + 1) if idx < len(cp_idxs) - 1 else len(yrs)
+            for name, v in zip(feat_names, contrib):
+                tidy_rows.append({
+                    'set': set_name,
+                    'segment': seg_label,
+                    'segment_years': seg_years,
+                    'feature': name,
+                    'contrib_%': v
+                })
 
-        seg_df_b = df.iloc[start: end + 1]
-        seg_df_a = df.iloc[end + 1: seg_end]
+    out_tidy = pd.DataFrame(tidy_rows)
 
-        # Build features (same columns for b/a)
-        feat_names = list(make_interactions(seg_df_b, drivers).columns)
+    # Wide layout: one row per segment×feature, with separate columns per set
+    wide = (
+        out_tidy
+        .pivot_table(
+            index=['segment', 'segment_years', 'feature'],
+            columns='set',
+            values='contrib_%',
+            aggfunc='first'
+        )
+        .reset_index()
+        .rename_axis(None, axis=1)
+    )
 
-        Xb = make_interactions(seg_df_b, drivers).values
-        yb = seg_df_b['soc'].values
-        Xa = make_interactions(seg_df_a, drivers).values
-        ya = seg_df_a['soc'].values
+    # column order
+    cols = ['segment', 'segment_years', 'feature', 'set1_2way', 'set2_3way', 'set3_4way']
+    wide = wide.reindex(columns=[c for c in cols if c in wide.columns])
 
-        cb = pls_vip_contrib(Xb, yb)
-        ca = pls_vip_contrib(Xa, ya)
-
-        for name, vb, va in zip(feat_names, cb, ca):
-            rows.append({
-                'break': idx + 1,
-                'year': int(cp_years[idx]),
-                'period': 'before',
-                'feature': name,
-                'contrib_%': vb
-            })
-            rows.append({
-                'break': idx + 1,
-                'year': int(cp_years[idx]),
-                'period': 'after',
-                'feature': name,
-                'contrib_%': va
-            })
-
-    out = pd.DataFrame(rows)
     out_path = OUT_SUBDIR / 'pls_interaction_vip_1950_2024.csv'
-    out.to_csv(out_path, index=False)
+    wide.to_csv(out_path, index=False)
     print(f"Saved → {out_path}")
 
 if __name__ == '__main__':

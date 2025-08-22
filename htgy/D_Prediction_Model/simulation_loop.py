@@ -319,12 +319,14 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 MAP_STATS.C_slow_matrix.insert(0, MAP_STATS.C_slow_current.copy())
                 MAP_STATS.active_dam_matrix.insert(0, active_dams.copy())
                 MAP_STATS.full_dam_matrix.insert(0, full_dams.copy())
+                MAP_STATS.dam_rem_cap_matrix.insert(0, dam_rem_cap.copy())
             else:
                 MAP_STATS.total_C_matrix.append(C_total.copy())
                 MAP_STATS.C_fast_matrix.append(MAP_STATS.C_fast_current.copy())
                 MAP_STATS.C_slow_matrix.append(MAP_STATS.C_slow_current.copy())
                 MAP_STATS.active_dam_matrix.append(active_dams.copy())
                 MAP_STATS.full_dam_matrix.append(full_dams.copy())
+                MAP_STATS.dam_rem_cap_matrix.append(dam_rem_cap.copy())
 
 
             # New: count and report cells where C_total > 40 and it's an active dam
@@ -334,6 +336,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             count_full_dam = np.count_nonzero(full_dams)
             print(f"Number of full dams: {count_full_dam}")
+
+            # Easiest: promote the accumulator
+            dam_cap = np.nansum(dam_rem_cap, dtype=np.float64)
+            print(f"Remaining dam capacity: {dam_cap} tons")
 
             print(f"Year {year} Month {month_idx + 1}: Total_SOC_mean: {mean_C_total:.2f}, "
                   f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
