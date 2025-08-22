@@ -3,6 +3,7 @@ import numpy as np
 USE_PARQUET = True  # Save output df as parquet instead of csv
 CLEAN_OUTDIR = True
 SAVE_NC = True
+SAVE_NPZ = False
 
 desired_crs = "EPSG:4326"
 #desired_crs = "EPSG:3857"
