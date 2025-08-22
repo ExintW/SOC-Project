@@ -12,7 +12,7 @@ from globals import DATA_DIR, OUTPUT_DIR
 
 INPUT_XLSX = DATA_DIR / "River_Basin_Points.xlsx"
 OUTPUT_XLSX = OUTPUT_DIR / "River_Basin_Points_Filtered.xlsx"
-MODEL_DIR = OUTPUT_DIR / "Data" / "SOC_Present 6"
+MODEL_DIR = OUTPUT_DIR / "Data" / "SOC_Present 7"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -21,8 +21,8 @@ error_thresholds = {
     "CaiJiaChuan": 15,  # CaiJiaChuan-2022
     "LiCha": 7,  # LiCha-2024
     "LuoYuGou": 15,  # LuoYuGou-2008
-    "WeiBei": 25,  # WeiBei-2010
-    "WangMaoGou": 5  # WangMaoGou-2017
+    "WeiBei": 30,  # WeiBei-2010
+    "WangMaoGou": 4  # WangMaoGou-2017
 }
 
 xls = pd.ExcelFile(INPUT_XLSX)

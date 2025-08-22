@@ -155,21 +155,40 @@ def resample_LS_to_1km_grid(ls_30m, factor=33):
 
     return ls_1km[start_h:start_h + th, start_w:start_w + tw]
 
-def export_total_C_netcdf(total_C_array, time_start, lat, lon, out_path):
+def export_total_C_netcdf(total_C_array, dam_rem_cap_array, time_start, lat, lon, out_path):
     """
-    Wrap a 3-D numpy array (time × lat × lon) into an xarray Dataset
-    with a monthly time axis, and write to NetCDF.
+    Write total_C and dam_rem_cap (time × lat × lon) to a NetCDF with a monthly time axis.
+    Both arrays must have identical shapes.
     """
+    # Build monthly time axis from start year
     n_steps = total_C_array.shape[0]
-    time_index = pd.date_range(start=f"{time_start}-01-01",
-                               periods=n_steps,
-                               freq="MS")
-    da = xr.DataArray(
-        total_C_array,
-        dims=("time", "lat", "lon"),
+    assert dam_rem_cap_array.shape == total_C_array.shape, \
+        f"dam_rem_cap shape {dam_rem_cap_array.shape} must match total_C shape {total_C_array.shape}"
+    time_index = pd.date_range(start=f"{time_start}-01-01", periods=n_steps, freq="MS")
+
+    # Construct dataset
+    ds = xr.Dataset(
+        data_vars={
+            "total_C": (
+                ("time", "lat", "lon"),
+                total_C_array,
+                {"long_name": "Total SOC (fast + slow)", "units": "g kg-1"}
+            ),
+            "dam_rem_cap": (
+                ("time", "lat", "lon"),
+                dam_rem_cap_array,
+                {"long_name": "Dam remaining capacity", "units": "kg"}  # change units if needed
+            ),
+        },
         coords={"time": time_index, "lat": lat, "lon": lon},
-        name="total_C"
+        attrs={"title": "SOC model outputs with dams & routing", "Conventions": "CF-1.8"},
     )
-    ds = da.to_dataset()
-    ds.to_netcdf(out_path)
-    print(f"– Wrote NetCDF to {out_path}")
+
+    # Compression / dtype
+    encoding = {
+        "total_C": {"zlib": True, "complevel": 4, "dtype": "float32"},
+        "dam_rem_cap": {"zlib": True, "complevel": 4, "dtype": "float32"},
+    }
+
+    ds.to_netcdf(out_path, format="NETCDF4", encoding=encoding)
+    print(f"– Wrote NetCDF to {out_path} with variables: total_C, dam_rem_cap")

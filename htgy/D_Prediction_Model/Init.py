@@ -156,6 +156,7 @@ def init_global_data_structs(fraction=1):
     MAP_STATS.C_slow_matrix = []
     MAP_STATS.active_dam_matrix = []
     MAP_STATS.full_dam_matrix = []
+    MAP_STATS.dam_rem_cap_matrix = []
     
     print(f"Initial p_fast_grid mean = {np.nanmean(MAP_STATS.p_fast_grid)}, max = {np.nanmax(MAP_STATS.p_fast_grid)}, min = {np.nanmin(MAP_STATS.p_fast_grid)}")
 

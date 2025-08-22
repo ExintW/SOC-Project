@@ -15,8 +15,8 @@ from globals import OUTPUT_DIR    # OUTPUT_DIR 已在 globals 中定义
 
 # 2) Configuration & File-path Setup
 past_nc         = OUTPUT_DIR / "Data" / "SOC_Past 2"   / "Total_C_1950-2007_monthly.nc"
-present_dir     = OUTPUT_DIR / "Data" / "SOC_Present 6"
-future_dir      = OUTPUT_DIR / "Data" / "SOC_Future 6"
+present_dir     = OUTPUT_DIR / "Data" / "SOC_Present 7"
+future_dir      = OUTPUT_DIR / "Data" / "SOC_Future 7"
 future_scenarios = ["126", "245", "370", "585"]
 
 output_csv = OUTPUT_DIR / "yearly_mean_std_total_C_by_scenario.csv"

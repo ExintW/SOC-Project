@@ -14,7 +14,7 @@ INIT_YEAR = 2007
 PRESENT_YEAR = 2025
 # global_timestep = 0
 USE_CMIP6 = True            # Use CMIP6 lai for present and past simulations (Uses ERA5 if False)
-VALIDATE_1980 = True
+VALIDATE_1980 = False
 
 ############################ UNet Hyperparameters ##############################
 BATCH_SIZE = 4

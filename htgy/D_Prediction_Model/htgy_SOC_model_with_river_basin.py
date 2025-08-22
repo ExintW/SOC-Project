@@ -86,7 +86,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     if future_year != None:
         # Path to the snapshot for December of the present period
-        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 6" / "SOC_terms_2024_12_River.parquet"
+        future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 7" / "SOC_terms_2024_12_River.parquet"
         if future_initial_file.exists():
             df_init = pd.read_parquet(future_initial_file)
             # reshape to original grid shape
@@ -257,6 +257,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
             Slow_C_array = np.stack(MAP_STATS.C_slow_matrix, axis=0)
             total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0)
             active_dam_arr = np.stack(MAP_STATS.active_dam_matrix, axis=0)
+            dam_rem_cap_array = np.stack(MAP_STATS.dam_rem_cap_matrix, axis=0)
             np.savez(
                 os.path.join(OUTPUT_DIR, f"Fast SOC year {start_year}-{end_year}.npz"),
                 soc_fast=Fast_C_array
@@ -284,6 +285,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
             nc_path = OUTPUT_DIR / f"Total_C_{start_year}-{end_year}_monthly.nc"
             export_total_C_netcdf(
                 total_C_array,
+                dam_rem_cap_array,
                 time_start=start_year,
                 lat=MAP_STATS.grid_y,
                 lon=MAP_STATS.grid_x,
@@ -298,6 +300,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         Fast_C_array = np.stack(MAP_STATS.C_fast_matrix, axis=0)
         Slow_C_array = np.stack(MAP_STATS.C_slow_matrix, axis=0)
         active_dam_arr = np.stack(MAP_STATS.active_dam_matrix, axis=0)
+        dam_rem_cap_array = np.stack(MAP_STATS.dam_rem_cap_matrix, axis=0)
         np.savez(
             os.path.join(OUTPUT_DIR, f"Fast SOC year {start_year}-{future_year}.npz"),
             soc_fast=Fast_C_array
@@ -325,6 +328,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
         nc_path = OUTPUT_DIR / f"Total_C_{start_year}-{future_year}_monthly.nc"
         export_total_C_netcdf(
             total_C_array,
+            dam_rem_cap_array,
             time_start=start_year,
             lat=MAP_STATS.grid_y,
             lon=MAP_STATS.grid_x,
@@ -360,6 +364,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
             Fast_C_array = np.stack(MAP_STATS.C_fast_matrix, axis=0)
             Slow_C_array = np.stack(MAP_STATS.C_slow_matrix, axis=0)
             active_dam_arr = np.stack(MAP_STATS.active_dam_matrix, axis=0)
+            dam_rem_cap_array = np.stack(MAP_STATS.dam_rem_cap_matrix, axis=0)
 
             np.savez(
                 os.path.join(OUTPUT_DIR, f"Fast SOC year {past_year}-{end_year}.npz"),
@@ -389,6 +394,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
             nc_path = OUTPUT_DIR / f"Total_C_{past_year}-{start_year}_monthly.nc"
             export_total_C_netcdf(
                 total_C_array,
+                dam_rem_cap_array,
                 time_start=past_year,
                 lat=MAP_STATS.grid_y,
                 lon=MAP_STATS.grid_x,
@@ -423,7 +429,7 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year =  2007  # year of init condition, default is 2007, set to 2025 for future
-    end_year = 2024    # last year of present  (set to None to disable present year)
+    end_year = 2008    # last year of present  (set to None to disable present year)
     past_year = None    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
 
