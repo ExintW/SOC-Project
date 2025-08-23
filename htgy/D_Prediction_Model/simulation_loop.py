@@ -25,6 +25,7 @@ from SOC_dynamics import vegetation_input, soc_dynamic_model
 
 
 def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, future=False, a=-1.7, b=1.61, c=1):
+    print(f"Processing year {year}...")
     # Filter dams built on or before current year
     df_dam_active = MAP_STATS.df_dam[MAP_STATS.df_dam["year"] <= year].copy()
     active_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
