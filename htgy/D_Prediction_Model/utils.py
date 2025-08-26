@@ -24,7 +24,7 @@ def validate_SOC(pred, true):
 
     # Compute R²
     r2 = r2_score(y_true, y_pred)
-    print(f"R² score: {r2}")
+    print(f"R^2 score: {r2}")
 
 def find_nearest_index(array, value):
     """Return index of element in array closest to value."""
