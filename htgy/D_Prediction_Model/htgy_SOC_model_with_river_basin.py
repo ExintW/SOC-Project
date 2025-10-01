@@ -84,6 +84,10 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     # LOAD FUTURE-INITIAL SOC FROM PARQUET
     # =============================================================================
+
+    # Initialize current dam capacity
+    MAP_STATS.dam_cur_stored = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
+
     if future_year != None:
         # Path to the snapshot for December of the present period
         future_initial_file = OUTPUT_DIR / "Data" / "SOC_Present 7" / "SOC_terms_2024_12_River.parquet"
@@ -92,6 +96,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
             # reshape to original grid shape
             INIT_VALUES.C_fast = df_init['C_fast'].values.reshape(INIT_VALUES.C_fast.shape)
             INIT_VALUES.C_slow = df_init['C_slow'].values.reshape(INIT_VALUES.C_slow.shape)
+            MAP_STATS.dam_cur_stored = df_init['dam_cur_stored'].values.reshape(MAP_STATS.dam_cur_stored.shape)
         else:
             print(f"Warning: future initial file not found at {future_initial_file}, using default INIT_VALUES")
 
@@ -179,9 +184,6 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
 
     os.makedirs(OUTPUT_DIR / "Figure", exist_ok=True)
     os.makedirs(OUTPUT_DIR / "Data", exist_ok=True)
-
-    # Initialize current dam capacity
-    MAP_STATS.dam_cur_stored = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
 
     # Delete previous results
     if CLEAN_OUTDIR:
@@ -463,10 +465,10 @@ if __name__ == "__main__":
     b = 1.78
     c = 5.5
     
-    start_year =  2007  # year of init condition, default is 2007, set to 2025 for future
-    end_year = EQUIL_YEAR    # last year of present  (set to None to disable present year)
-    past_year = 1950    # last year of past     (set to None to disable past year)
-    future_year = None  # last year of future   (set to None to disable future year)
+    start_year =  2025  # year of init condition, default is 2007, set to 2025 for future
+    end_year = None    # last year of present  (set to None to disable present year)
+    past_year = None    # last year of past     (set to None to disable past year)
+    future_year = 2100  # last year of future   (set to None to disable future year)
 
     fraction = 1                # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     

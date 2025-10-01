@@ -288,13 +288,13 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             soc_time = time.time()
             if past and USE_UNET:
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past, UNet_MODEL=UNet_Model)
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap, dam_cur_stored = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past, UNet_MODEL=UNet_Model)
             elif past and USE_1980_LAI_TREND:
                 LAI_2D[~MAP_STATS.loess_border_mask] = np.nan
                 LAI_avg = np.nanmean(LAI_2D)
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past, LAI_avg=LAI_avg)
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap, dam_cur_stored = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past, LAI_avg=LAI_avg)
             else:
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past)
+                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap, dam_cur_stored = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past)
             print(f'SOC took {time.time() - soc_time}')
             
             if year == EQUIL_YEAR and not past:
@@ -446,6 +446,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
 
             full_dams_list = full_dams    .ravel('C').tolist()
             dam_rem_cap_list = dam_rem_cap.ravel('C').tolist()
+            dam_cur_stored_list = dam_cur_stored.ravel('C').tolist()
 
             print(f"Gather data for csv took {time.time() - time1} seconds")
             
@@ -474,7 +475,8 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
                 'R_factor_month': R_factor_list,
                 'Lost_SOC_River': lost_soc_list,
                 'full_dam': full_dams_list,
-                'dam_rem_cap': dam_rem_cap_list
+                'dam_rem_cap': dam_rem_cap_list,
+                'dam_cur_stored': dam_cur_stored_list
             })
             
             if USE_PARQUET:

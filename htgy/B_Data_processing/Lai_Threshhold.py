@@ -29,7 +29,7 @@ LAI_FILES = {
     "future":  Path(PROCESSED_DIR) / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_245.nc",
 }
 PAST_SOC_NC   = Path(OUTPUT_DIR) / "Data" / "SOC_Past 2" / "Total_C_1950-2007_monthly.nc"
-PRESENT_SOC_DIR = Path(OUTPUT_DIR) / "Data" / "SOC_Present 6"
+PRESENT_SOC_DIR = Path(OUTPUT_DIR) / "Data" / "SOC_Present 7"
 
 # preload the past SOC netCDF
 ds_past = xr.open_dataset(PAST_SOC_NC)

@@ -14,7 +14,7 @@ from globals import *    # defines OUTPUT_DIR
 # =============================================================================
 # 1) Configuration & File-path Setup
 # =============================================================================
-past_nc     = OUTPUT_DIR / "Data" / "SOC_Past 2" / "Total_C_1950-2007_monthly.nc"  # expects 'dam_rem_cap' var
+past_nc     = OUTPUT_DIR / "Data" / "SOC_Past 2" / "Dam_rem_Cap_1950-2007_monthly.nc"  # expects 'dam_rem_cap' var
 present_dir = OUTPUT_DIR / "Data" / "SOC_Present 7"
 future_dir  = OUTPUT_DIR / "Data" / "SOC_Future 7"
 future_scenarios = ["126", "245", "370", "585"]
@@ -150,7 +150,7 @@ ax.set_xlim(left=start, right=end)
 
 ax.set_title("dam_rem_cap: Monthly Spatial Sum (by Scenario) and Annual Means")
 ax.set_xlabel("Year")
-ax.set_ylabel("Monthly sum of dam_rem_cap (units)")
+ax.set_ylabel("Monthly sum of dam_rem_cap (tons)")
 ax.legend()
 plt.tight_layout()
 

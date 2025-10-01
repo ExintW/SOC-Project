@@ -486,4 +486,4 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
     MAP_STATS.C_fast_prev = C_fast_current.copy()
     MAP_STATS.C_slow_prev = C_slow_current.copy()
     
-    return C_fast_new, C_slow_new, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap
+    return C_fast_new, C_slow_new, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap, dam_cur_stored

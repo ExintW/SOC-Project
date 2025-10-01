@@ -17,7 +17,7 @@ def parquet_to_csv(input_path: str, output_path: str = None) -> None:
 
 if __name__ == "__main__":
     # Your specific paths
-    input_file = OUTPUT_DIR / "Data" / "SOC_present 6" / "SOC_terms_2007_02_River.parquet"
+    input_file = OUTPUT_DIR / "Data" / "SOC_terms_2025_02_River.parquet"
     #output_dir = OUTPUT_DIR / "Data" / "SOC_present 5"
 
     #input_file = OUTPUT_DIR / "Data" / "SOC_Past 2" /  "SOC_terms_1980_01_River.parquet"

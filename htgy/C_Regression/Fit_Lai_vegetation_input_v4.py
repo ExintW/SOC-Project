@@ -179,8 +179,8 @@ sns.scatterplot(x=negative_points[lai_col], y=negative_points[soc_col],
 # boundary lines themselves
 y_up   = m_upper * x_plot + b_upper
 y_low  = m_lower * x_plot + b_lower
-plt.plot(x_plot, y_up,  color="black", linestyle="--", label="Upper boundary")
-plt.plot(x_plot, y_low, color="black", linestyle="--", label="Lower boundary")
+#plt.plot(x_plot, y_up,  color="black", linestyle="--", label="Upper boundary")
+#plt.plot(x_plot, y_low, color="black", linestyle="--", label="Lower boundary")
 
 # fitted curves
 for name, func in models.items():
