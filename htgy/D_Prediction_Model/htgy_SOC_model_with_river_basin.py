@@ -472,15 +472,35 @@ if __name__ == "__main__":
 
     fraction = 1                # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     
-    log = True                  # save output to a log file
+    log = True                 # save output to a log file
     
     if log:
+        # 创建一个同时输出到文件和终端的类
+        class TeeOutput:
+            def __init__(self, file, original_stdout):
+                self.file = file
+                self.original_stdout = original_stdout
+            
+            def write(self, text):
+                self.file.write(text)
+                # 显示关键进度信息到终端
+                if ("Processing year" in text or 
+                    "=======================================================================" in text or
+                    "Year" in text and "Month" in text or
+                    "Completed simulation for Year" in text):
+                    self.original_stdout.write(text)
+                self.file.flush()
+            
+            def flush(self):
+                self.file.flush()
+                self.original_stdout.flush()
+        
         with open(OUTPUT_DIR / "out.log", "w") as f:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             f.write(f"Log generated at: {timestamp}\n\n")
             f.write(get_param_log() + "\n")
             original_stdout = sys.stdout
-            sys.stdout = f
+            sys.stdout = TeeOutput(f, original_stdout)
             try:
                 rmse = run_model(a, b, c, start_year, end_year, past_year, future_year, fraction)
             finally:
