@@ -1,5 +1,5 @@
 # =============================================================================
-# Monthly SOC Climatology (1950–2024): mean ± std per month + sine fit (v2)
+# Monthly SOC Climatology (1950–2024): mean ± std per month + sine fit (v3, with R² & p-value)
 # =============================================================================
 import sys, os
 from pathlib import Path
@@ -8,6 +8,7 @@ import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from scipy.stats import pearsonr  # NEW: for correlation r & p-value
 
 # make OUTPUT_DIR available
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -92,6 +93,18 @@ popt, pcov = curve_fit(sin_model, months, y_obs, p0=[A0, phi0, C0], maxfev=10000
 A_fit, phi_fit, C_fit = popt
 phi_deg = (np.degrees(phi_fit) + 180) % 360 - 180  # display in (-180, 180]
 
+# Fitted values at the 12 observed months
+y_pred = sin_model(months, A_fit, phi_fit, C_fit)
+
+# ---- NEW: R² & p-value (Pearson correlation between observed and fitted) ----
+# R² based on residual sum of squares
+ss_res = np.sum((y_obs - y_pred) ** 2)
+ss_tot = np.sum((y_obs - np.mean(y_obs)) ** 2)
+r2 = 1.0 - ss_res / ss_tot
+
+# Pearson correlation r and corresponding p-value
+r_pearson, p_value = pearsonr(y_obs, y_pred)
+
 # Smooth curve (extend beyond 1..12 so edges aren’t cramped)
 month_fine = np.linspace(0, 13, 520)
 y_fit = sin_model(month_fine, A_fit, phi_fit, C_fit)
@@ -106,7 +119,7 @@ print(f"Monthly SOC climatology saved to: {clim_csv}")
 # =============================================================================
 # 7) Plot with error bars + sine fit + on-figure equation
 # =============================================================================
-fig, ax = plt.subplots(figsize=(12, 5))
+fig, ax = plt.subplots(figsize=(12,8))
 
 # error bars (±1σ)
 ax.errorbar(
@@ -130,22 +143,26 @@ ax.legend()
 eq_text = (
     f"Fit: y = {A_fit:.3f}·sin(2πm/12 + {phi_fit:.3f}) + {C_fit:.3f}\n"
     f"A = {A_fit:.3f},  φ = {phi_fit:.3f} rad ({phi_deg:.1f}°),  C = {C_fit:.3f}\n"
-    f"Wave height (peak–trough) = {2*abs(A_fit):.3f}"
+    f"Wave height (peak–trough) = {2*abs(A_fit):.3f}\n"
+    f"R² = {r2:.3f},  r = {r_pearson:.3f},  p = {p_value:.3e}"
 )
 ax.text(0.02, 0.98, eq_text, transform=ax.transAxes, va="top", ha="left",
         bbox=dict(boxstyle="round", alpha=0.1, pad=0.5))
 
 plt.tight_layout()
-fig_out = OUTPUT_DIR / "monthly_soc_climatology_sinefit_1950_2024_v2.png"
+fig_out = OUTPUT_DIR / "monthly_soc_climatology_sinefit_1950_2024_v3.png"
 fig.savefig(fig_out, dpi=300)
 print(f"Figure saved to: {fig_out}")
 
 # =============================================================================
-# 8) Console prints: fitted equation & wave height
+# 8) Console prints: fitted equation & wave height + R² & p-value
 # =============================================================================
 print("\n=== Sinusoid Fit (Monthly Climatology 1950–2024) ===")
 print(f"y = {A_fit:.6g} * sin(2π*m/12 + {phi_fit:.6g}) + {C_fit:.6g}")
 print(f"Amplitude A = {A_fit:.6g}")
 print(f"Phase φ = {phi_fit:.6g} rad ({phi_deg:.3g}°)")
 print(f"Mean level C = {C_fit:.6g}")
-print(f"Wave height (peak-to-trough) = {2*abs(A_fit):.6g}\n")
+print(f"Wave height (peak-to-trough) = {2*abs(A_fit):.6g}")
+print(f"R² = {r2:.6g}")
+print(f"Pearson r = {r_pearson:.6g}")
+print(f"p-value = {p_value:.6g}\n")
