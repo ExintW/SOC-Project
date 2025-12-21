@@ -1,43 +1,3 @@
-"""
-SOC Model with River Basin and Dam Effects
-=========================================
-
-This script models soil organic carbon (SOC) over the Loess Plateau, accounting for:
- - Partitioning of SOC into fast & slow pools
- - Erosion & deposition using a RUSLE-based approach
- - Dam capacity (for sediment storage)
- - River routing (removing SOC from the system)
- - Monthly climate forcing (LAI, precipitation)
- - Numba-accelerated flow routing
-
-Debugging Tips (CRS, Bounding Box, etc.):
------------------------------------------
-1) Ensure each shapefile is in the correct CRS before reprojecting:
-   - If a shapefile says EPSG:32649 (UTM 49N) but is actually lat/lon, you must fix that mismatch.
-   - Use .set_crs(...) if .crs is None or incorrect, then .to_crs(...) to convert.
-
-2) Compare bounding boxes in a common CRS (e.g., EPSG:4326) to confirm they overlap:
-   - Example:
-       print("Grid extent:", MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(), MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max())
-       print("Shapefile extent:", shapefile.total_bounds)
-   - If they don’t overlap, your plot might only show a tiny sliver or nothing at all.
-
-3) Plot shapefiles alone to confirm geometry is correct:
-   - shapefile.plot(...)
-
-4) If you use ax.imshow(..., extent=[minx, maxx, miny, maxy]), you clamp the plot
-   to that bounding box. Any data outside it won't appear.
-
-5) Buffering in a projected CRS:
-   - If your resolution is in degrees but you buffer in EPSG:3857 (meters),
-     the buffer distance might be too small or large. Double-check units.
-
-6) Delete old "PrecomputedMasks.npz" if you change the shapefiles or buffering steps,
-   so the script re-rasterizes and doesn’t use stale data.
-
-Following these steps should help ensure you see the full boundary coverage in your final plots.
-"""
-
 import os
 import time
 import numpy as np
@@ -76,7 +36,7 @@ from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
 
 from A_Data_visualization.png_to_mp4 import generate_mp4
 
-def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1):
+def run_model(a, b, c, start_year, end_year, past_year, future_year):
     # =============================================================================
     # CSV READING & GRID SETUP & SOC PARTITION
     # =============================================================================
@@ -103,7 +63,7 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     # RASTERIZE RIVER BASIN BOUNDARIES & MAIN RIVER USING PRECOMPUTED MASKS
     # =============================================================================
-    precompute_river_basin_1()
+    precompute_river_basin()
 
     # =============================================================================
     # CLEAN UP GLOBAL DATA: SET NAN TO MEAN AND VALUES OUTSIDE OF BORDER TO NAN
@@ -141,7 +101,6 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
     # =============================================================================
     K_factor = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, INIT_VALUES.SOC, INIT_VALUES.LANDUSE)     # constant K factor (not used)
     K_factor = np.nan_to_num(K_factor, nan=np.nanmean(K_factor))
-    # K_factor = np.full_like(C, 0.03)
     K_factor[~MAP_STATS.loess_border_mask] = np.nan
     LS_factor = calculate_ls_factor(INIT_VALUES.SLOPE, INIT_VALUES.DEM)
     LS_factor = resample_LS_to_1km_grid(LS_factor)
@@ -328,15 +287,14 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
                 check_dams=active_dam_arr
             )
             print(f"Saved active-dam matrix from year {start_year}-{future_year} of shape {active_dam_arr.shape}")
-            # ─────────────────────────────────────────────────────────────────────
-            # ─── SAVE static DEM (no time axis) ────────────────────────────────────
+            # SAVE static DEM (no time axis)
             dem_array = INIT_VALUES.DEM.copy()
             np.savez(
                 os.path.join(OUTPUT_DIR, "DEM.npz"),
                 dem=dem_array
             )
             print(f"Saved DEM of shape {dem_array.shape} to DEM.npz")
-            # ───────────────────────────────────────────────────────────────────────
+            
         C_nc_path = OUTPUT_DIR / f"Total_C_{start_year}-{future_year}_monthly.nc"
         export_total_C_netcdf(
             total_C_array,
@@ -357,120 +315,96 @@ def run_model(a, b, c, start_year, end_year, past_year, future_year, fraction=1)
             print(f"Generating mp4...")
             generate_mp4(start_year=start_year, end_year=future_year)
 
-
-    # if end_year != None or future_year != None:
-    #     # INIT_VALUES.reset()
-    #     # MAP_STATS.reset()
-    #     init_global_data_structs(fraction=fraction)
-    #     clean_nan()
-    #     # precompute_river_basin_1()
-    #     MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
-    #     MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
-    #     MAP_STATS.C_fast_current[~MAP_STATS.loess_border_mask] = np.nan
-    #     MAP_STATS.C_slow_current[~MAP_STATS.loess_border_mask] = np.nan
-
     if end_year == None or not RUN_FROM_EQUIL:    # for running from equilibrium
         if future_year == None:
             end_year = start_year - 1
         
     if past_year != None:
-        if fraction == 1:
-            # for year in range(start_year-1, past_year-1, -1):
-            for year in range(end_year, past_year-1, -1):
-                run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=True, a=a, b=b, c=c)
+        # for year in range(start_year-1, past_year-1, -1):
+        for year in range(end_year, past_year-1, -1):
+            run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=True, a=a, b=b, c=c)
 
-            # Drop elements from 2007 to Equil year to aviod double counting
-            N_DROP = (EQUIL_YEAR - start_year + 1) * 12  # 2007–2014 inclusive
-            MAP_STATS.total_C_matrix[-N_DROP:] = []
-            MAP_STATS.dam_rem_cap_matrix[-N_DROP:] = []
-            MAP_STATS.C_fast_matrix[-N_DROP:] = []
-            MAP_STATS.C_slow_matrix[-N_DROP:] = []
-            MAP_STATS.active_dam_matrix[-N_DROP:] = []
+        # Drop elements from 2007 to Equil year to aviod double counting
+        N_DROP = (EQUIL_YEAR - start_year + 1) * 12  # 2007–2014 inclusive
+        MAP_STATS.total_C_matrix[-N_DROP:] = []
+        MAP_STATS.dam_rem_cap_matrix[-N_DROP:] = []
+        MAP_STATS.C_fast_matrix[-N_DROP:] = []
+        MAP_STATS.C_slow_matrix[-N_DROP:] = []
+        MAP_STATS.active_dam_matrix[-N_DROP:] = []
 
-            # stack into an (X, 844, 1263) array
-            total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0).astype(np.float32)
-            dam_rem_cap_array = np.stack(MAP_STATS.dam_rem_cap_matrix, axis=0).astype(np.float32)
-            if SAVE_NPZ:
-                Fast_C_array = np.stack(MAP_STATS.C_fast_matrix, axis=0).astype(np.float32)
-                Slow_C_array = np.stack(MAP_STATS.C_slow_matrix, axis=0).astype(np.float32)
-                active_dam_arr = np.stack(MAP_STATS.active_dam_matrix, axis=0).astype(np.float32)
+        # stack into an (X, 844, 1263) array
+        total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0).astype(np.float32)
+        dam_rem_cap_array = np.stack(MAP_STATS.dam_rem_cap_matrix, axis=0).astype(np.float32)
+        if SAVE_NPZ:
+            Fast_C_array = np.stack(MAP_STATS.C_fast_matrix, axis=0).astype(np.float32)
+            Slow_C_array = np.stack(MAP_STATS.C_slow_matrix, axis=0).astype(np.float32)
+            active_dam_arr = np.stack(MAP_STATS.active_dam_matrix, axis=0).astype(np.float32)
 
 
-                np.savez(
-                    os.path.join(OUTPUT_DIR, f"Fast SOC year {past_year}-{end_year}.npz"),
-                    soc_fast=Fast_C_array
-                )
-                np.savez(
-                    os.path.join(OUTPUT_DIR, f"Slow SOC year {past_year}-{end_year}.npz"),
-                    soc_slow=Slow_C_array
-                )
-                print(f"Saved slow-C matrix from year {past_year}-{end_year} of shape {Slow_C_array.shape}")
-                print(f"Saved fast-C matrix from year {past_year}-{end_year} of shape {Fast_C_array.shape}")
-
-                np.savez(
-                    os.path.join(OUTPUT_DIR, f"Active_dams_{past_year}-{end_year}.npz"),
-                    check_dams=active_dam_arr
-                )
-                print(f"Saved active-dam matrix from year {past_year}-{end_year} of shape {active_dam_arr.shape}")
-                # ─── SAVE static DEM (no time axis) ────────────────────────────────────
-                dem_array = INIT_VALUES.DEM.copy()
-                np.savez(
-                    os.path.join(OUTPUT_DIR, "DEM.npz"),
-                    dem=dem_array
-                )
-                print(f"Saved DEM of shape {dem_array.shape} to DEM.npz")
-                # ───────────────────────────────────────────────────────────────────────
-
-            C_nc_path = OUTPUT_DIR / f"Total_C_{past_year}-{start_year}_monthly.nc"
-            export_total_C_netcdf(
-                total_C_array,
-                time_start=past_year,
-                lat=MAP_STATS.grid_y,
-                lon=MAP_STATS.grid_x,
-                out_path=C_nc_path
+            np.savez(
+                os.path.join(OUTPUT_DIR, f"Fast SOC year {past_year}-{end_year}.npz"),
+                soc_fast=Fast_C_array
             )
-            dam_nc_path = OUTPUT_DIR / f"Dam_rem_Cap_{past_year}-{start_year}_monthly.nc"
-            export_dam_remained_cap_netcdf(
-                dam_rem_cap_array,
-                time_start=past_year,
-                lat=MAP_STATS.grid_y,
-                lon=MAP_STATS.grid_x,
-                out_path=dam_nc_path
+            np.savez(
+                os.path.join(OUTPUT_DIR, f"Slow SOC year {past_year}-{end_year}.npz"),
+                soc_slow=Slow_C_array
             )
-            print(f"Generating mp4...")
-            if future_year is None:
-                generate_mp4(start_year=past_year, end_year=end_year)
-            else:
-                generate_mp4(start_year=past_year, end_year=future_year)
+            print(f"Saved slow-C matrix from year {past_year}-{end_year} of shape {Slow_C_array.shape}")
+            print(f"Saved fast-C matrix from year {past_year}-{end_year} of shape {Fast_C_array.shape}")
 
-            if VALIDATE_1980:
-                pred_stack = np.stack(MAP_STATS.C_total_1980_Valid_list, axis=0)
-                pred_avg = np.nanmean(pred_stack, axis=0)
-                np.savez_compressed(OUTPUT_DIR / 'SOC_1980_Total_predicted', pred_avg)
-                validate_SOC(pred_avg, SOC_1980_Total)
+            np.savez(
+                os.path.join(OUTPUT_DIR, f"Active_dams_{past_year}-{end_year}.npz"),
+                check_dams=active_dam_arr
+            )
+            print(f"Saved active-dam matrix from year {past_year}-{end_year} of shape {active_dam_arr.shape}")
+            # ─── SAVE static DEM (no time axis) ────────────────────────────────────
+            dem_array = INIT_VALUES.DEM.copy()
+            np.savez(
+                os.path.join(OUTPUT_DIR, "DEM.npz"),
+                dem=dem_array
+            )
+            print(f"Saved DEM of shape {dem_array.shape} to DEM.npz")
+            # ───────────────────────────────────────────────────────────────────────
 
-        else:   # run non-reversed past year simulation with given fraction as init condition
-            for year in range(past_year, start_year, step_size):
-                run_simulation_year(year, LS_factor, P_factor, sorted_indices, a=a, b=b, c=c)
+        C_nc_path = OUTPUT_DIR / f"Total_C_{past_year}-{start_year}_monthly.nc"
+        export_total_C_netcdf(
+            total_C_array,
+            time_start=past_year,
+            lat=MAP_STATS.grid_y,
+            lon=MAP_STATS.grid_x,
+            out_path=C_nc_path
+        )
+        dam_nc_path = OUTPUT_DIR / f"Dam_rem_Cap_{past_year}-{start_year}_monthly.nc"
+        export_dam_remained_cap_netcdf(
+            dam_rem_cap_array,
+            time_start=past_year,
+            lat=MAP_STATS.grid_y,
+            lon=MAP_STATS.grid_x,
+            out_path=dam_nc_path
+        )
+        print(f"Generating mp4...")
+        if future_year is None:
+            generate_mp4(start_year=past_year, end_year=end_year)
+        else:
+            generate_mp4(start_year=past_year, end_year=future_year)
+
+        if VALIDATE_1980:
+            pred_stack = np.stack(MAP_STATS.C_total_1980_Valid_list, axis=0)
+            pred_avg = np.nanmean(pred_stack, axis=0)
+            np.savez_compressed(OUTPUT_DIR / 'SOC_1980_Total_predicted', pred_avg)
+            validate_SOC(pred_avg, SOC_1980_Total)
     
     print(f"Simulation complete. Total simulation time: {time.perf_counter() - t_sim_start:.2f} seconds.")
-    print("Final SOC distribution is in C_fast_current + C_slow_current.")
-    
-    rmse = np.sqrt(np.nanmean((MAP_STATS.C_fast_current + MAP_STATS.C_slow_current - INIT_VALUES.SOC_valid) ** 2))
-    print(f"RMSE = {rmse}")
-    return rmse
 
 if __name__ == "__main__":
     a = -1.9
     b = 1.78
     c = 5.5
     
-    start_year =  2025  # year of init condition, default is 2007, set to 2025 for future
-    end_year = None    # last year of present  (set to None to disable present year)
-    past_year = None    # last year of past     (set to None to disable past year)
-    future_year = 2100  # last year of future   (set to None to disable future year)
-
-    fraction = 1                # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
+    start_year =  2007  # year of init condition, default is 2007, set to 2025 for future
+    end_year = EQUIL_YEAR     # last year of present  (set to None to disable present year)
+    past_year = 1950    # last year of past     (set to None to disable past year)
+    future_year = None  # last year of future   (set to None to disable future year)
     
     log = True                 # save output to a log file
     
@@ -502,8 +436,8 @@ if __name__ == "__main__":
             original_stdout = sys.stdout
             sys.stdout = TeeOutput(f, original_stdout)
             try:
-                rmse = run_model(a, b, c, start_year, end_year, past_year, future_year, fraction)
+                run_model(a, b, c, start_year, end_year, past_year, future_year)
             finally:
                 sys.stdout = original_stdout
     else:
-        rmse = run_model(a, b, c, start_year, end_year, past_year, future_year, fraction)
+        run_model(a, b, c, start_year, end_year, past_year, future_year)

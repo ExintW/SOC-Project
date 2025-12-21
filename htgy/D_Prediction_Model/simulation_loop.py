@@ -76,9 +76,6 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             return
 
     with (nc.Dataset(nc_file) if not future else nullcontext()) as ds, nc.Dataset(lai_file) as ds_lai, (nc.Dataset(pr_file) if future else nullcontext()) as ds_pr:
-
-        # valid_time = ds.variables['valid_time'][:]  # Expect 12 months
-        # n_time = len(valid_time)
         n_time = 12
 
         if future:
@@ -104,7 +101,7 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             if start_idx < 0 or end_idx > tp_data_mm.shape[0]:
                 raise ValueError(f"No CMIP6 data for year {year} (idx {start_idx}:{end_idx})")
 
-                # slice out the 12 months, no summing
+            # slice out the 12 months, no summing
             annual_tp_data_mm = tp_data_mm[start_idx:end_idx, :]  # shape = (12, n_points)
 
             R_annual = calculate_r_factor_annually(annual_tp_data_mm, c=c, b=b)
@@ -179,7 +176,6 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             print(f"tp_1d regrid took {time2 - time1} seconds")
 
             # Compute RUSLE factors
-            # R_month = calculate_r_factor_monthly(RAIN_2D)
             if future:
                 R_month = get_montly_r_factor(R_annual, tp_1d_mm, annual_tp_data_mm)
             else:
@@ -219,73 +215,10 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             )
             
             A = convert_soil_to_soc_loss(E_t_ha_month)
-            
-            # # Call the Numba-accelerated routing function
-            # D_soil, D_soc, inflow_soil, inflow_soc, lost_soc = distribute_soil_and_soc_with_dams_numba(
-            #     E_tcell_month, S, INIT_VALUES.DEM, dam_capacity_arr, MAP_STATS.grid_x, MAP_STATS.grid_y,
-            #     MAP_STATS.small_boundary_mask, MAP_STATS.small_outlet_mask,
-            #     MAP_STATS.large_boundary_mask, MAP_STATS.large_outlet_mask,
-            #     MAP_STATS.river_mask, sorted_indices,
-            #     reverse=past
-            # )
-
-            # # Debug: Print SOC summary
-            # Lost_soc_concentration = lost_soc*1000/M_soil
-            # mean_river_lost = np.nanmean(np.nan_to_num(Lost_soc_concentration, nan=0))
-            # max_river_lost = np.nanmax(Lost_soc_concentration)
-            # min_river_lost = np.nanmin(Lost_soc_concentration)
-            # print(f"Year {year} Month {month_idx+1}: River_Lost_SOC - mean: {mean_river_lost:.2f}, "
-            #     f"max: {max_river_lost:.2f}, min: {min_river_lost:.2f}")
-
-            # mean_erosion_lost = np.nanmean(np.nan_to_num(SOC_loss_g_kg_month, nan=0))
-            # max_erosion_lost = np.nanmax(SOC_loss_g_kg_month)
-            # min_erosion_lost = np.nanmin(SOC_loss_g_kg_month)
-            # print(f"Year {year} Month {month_idx + 1}: Erosion_Lost_SOC - mean: {mean_erosion_lost:.2f}, "
-            #     f"max: {max_erosion_lost:.2f}, min: {min_erosion_lost:.2f}")
-
-            # Compute vegetation input
             V = vegetation_input(LAI_2D)
             
             mean_vege_gain = np.nanmean(np.nan_to_num(V, nan=0))
-            # max_vege_gain = np.nanmax(V)
-            # min_vege_gain = np.nanmin(V)
             print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, ")
-            #       f"max: {max_vege_gain:.2f}, min: {min_vege_gain:.2f}")
-
-            # deposition_SOC_gain = D_soc*1000/M_soil
-            # mean_deposition_gain = np.nanmean(np.nan_to_num(deposition_SOC_gain, nan=0))
-            # max_deposition_gain = np.nanmax(deposition_SOC_gain)
-            # min_deposition_gain = np.nanmin(deposition_SOC_gain)
-            # print(f"Year {year} Month {month_idx + 1}: SOC_deposition_Gain - mean: {mean_deposition_gain:.2f}, "
-            #       f"max: {max_deposition_gain:.2f}, min: {min_deposition_gain:.2f}")
-
-            # mean_K_fast = np.nanmean(np.nan_to_num(INIT_VALUES.K_fast, nan=0))
-            # max_K_fast = np.nanmax(INIT_VALUES.K_fast)
-            # min_K_fast = np.nanmin(INIT_VALUES.K_fast)
-            # print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_fast:.6f}, "
-            #       f"max: {max_K_fast:.6f}, min: {min_K_fast:.6f}")
-
-            # mean_K_slow = np.nanmean(np.nan_to_num(INIT_VALUES.K_slow, nan=0))
-            # max_K_slow = np.nanmax(INIT_VALUES.K_slow)
-            # min_K_slow = np.nanmin(INIT_VALUES.K_slow)
-            # print(f"Year {year} Month {month_idx + 1}: K_fast mean: {mean_K_slow:.6f}, "
-            #       f"max: {max_K_slow:.6f}, min: {min_K_slow:.6f}")
-
-            # reaction_fast_loss = INIT_VALUES.K_fast * MAP_STATS.C_fast_current
-            # mean_reaction_fast_loss = np.nanmean(np.nan_to_num(reaction_fast_loss, nan=0))
-            # max_reaction_fast_loss = np.nanmax(reaction_fast_loss)
-            # min_reaction_fast_loss = np.nanmin(reaction_fast_loss)
-            # print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Fast_Loss - mean: {mean_reaction_fast_loss:.2f}, "
-            #       f"max: {max_reaction_fast_loss:.2f}, min: {min_reaction_fast_loss:.2f}")
-
-            # reaction_slow_loss = INIT_VALUES.K_slow * MAP_STATS.C_slow_current
-            # mean_reaction_slow_loss = np.nanmean(np.nan_to_num(reaction_slow_loss, nan=0))
-            # max_reaction_slow_loss = np.nanmax(reaction_slow_loss)
-            # min_reaction_slow_loss = np.nanmin(reaction_slow_loss)
-            # print(f"Year {year} Month {month_idx + 1}: SOC_Reaction_Slow_Loss - mean: {mean_reaction_slow_loss:.2f}, "
-            #       f"max: {max_reaction_slow_loss:.2f}, min: {min_reaction_slow_loss:.2f}")
-
-            # print(f"Year {year} Month {month_idx + 1}: SOC_mean_change: {(mean_deposition_gain + mean_vege_gain - mean_reaction_fast_loss - mean_reaction_slow_loss - mean_erosion_lost - mean_river_lost):.2f} ")
 
             soc_time = time.time()
             if past and USE_UNET:
@@ -304,9 +237,6 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             
             if VALIDATE_1980 and year == 1980:
                 MAP_STATS.C_total_1980_Valid_list.append(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
-            
-            # print(f"C fast nan: {np.isnan(MAP_STATS.C_fast_current).sum()}")
-            # print(f"C slow nan: {np.isnan(MAP_STATS.C_slow_current).sum()}")
             
             C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
             mean_C_total = np.nanmean(C_total)
