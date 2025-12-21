@@ -159,6 +159,14 @@ if SAVE_PNG:
 else:
     plt.show()
 
+
+gdf = gpd.read_file(DATA_DIR / "Ecological regionalization" / "Ecological_regionalization.shp")
+print(gdf.columns)
+
+# 看前几行数据，确认每列代表什么
+print(gdf.head())
+
+
 # --- Optional interactive HTML map ---
 if MAKE_FOLIUM:
     try:

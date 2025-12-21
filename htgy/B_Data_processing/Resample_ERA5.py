@@ -19,8 +19,8 @@ df_points = pd.read_csv(csv_file)
 lons = df_points["LON"].values
 lats = df_points["LAT"].values
 
-start_year = 1950
-end_year   = 2025
+start_year = 1958
+end_year   = 1958
 
 for year in range(start_year, end_year + 1):
     nc_file = ERA5_DATA_DIR / f"{year}.nc"

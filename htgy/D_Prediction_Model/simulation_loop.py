@@ -357,12 +357,12 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
             deposition_slow_list = (-sign * dep_soc_slow).ravel('C').tolist()
 
             # Vegetation（植被输入）
-            vegetation_fast_list = (V * V_FAST_PROP      ).ravel('C').tolist()
-            vegetation_slow_list = (V * (1 - V_FAST_PROP)).ravel('C').tolist()
+            vegetation_fast_list = (-sign * V * V_FAST_PROP      ).ravel('C').tolist()
+            vegetation_slow_list = (-sign * V * (1 - V_FAST_PROP)).ravel('C').tolist()
 
             # Reaction（微生物矿化）
-            reaction_fast_list = (-INIT_VALUES.K_fast * MAP_STATS.C_fast_current ).ravel('C').tolist()
-            reaction_slow_list = (-INIT_VALUES.K_slow * MAP_STATS.C_slow_current ).ravel('C').tolist()
+            reaction_fast_list = (sign * INIT_VALUES.K_fast * MAP_STATS.C_fast_current ).ravel('C').tolist()
+            reaction_slow_list = (sign * INIT_VALUES.K_slow * MAP_STATS.C_slow_current ).ravel('C').tolist()
 
             # 其余月度/因子量
             E_t_ha_list   =  E_t_ha_month .ravel('C').tolist()
