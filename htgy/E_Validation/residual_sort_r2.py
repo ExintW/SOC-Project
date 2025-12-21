@@ -39,7 +39,11 @@ print(f"   True data shape: {true.shape}")
 
 # 3. Get boundary mask
 print("3. Getting boundary mask...")
-from globalss import MAP_STATS
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from globals import MAP_STATS
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "D_Prediction_Model")))
 from River_Basin import precompute_river_basin_1
 
 # Initialize river basin data to get boundary mask

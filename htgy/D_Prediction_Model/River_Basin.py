@@ -10,8 +10,9 @@ from matplotlib.path import Path as MplPath
 import matplotlib.patches as mpatches
 from numba import njit, prange
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from globalss import *
 from globals import *  
 
 def precompute_river_basin_2():

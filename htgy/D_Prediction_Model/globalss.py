@@ -50,7 +50,7 @@ PLOT_PRIOR = False               # Plot the prior when reg
 
 # Prior Knowledge related
 RUN_FROM_EQUIL = True           # if True, past will start from end_year=EQUIL_YEAR
-EQUIL_YEAR = 2014               # Make sure to set end_year to this if run from equil
+EQUIL_YEAR = None              # Make sure to set end_year to this if run from equil
 USE_1980_EQUIL = True           # if True, past will use 1980 soc as prior knowledge if cur year is closer to 1980
 ALWAYS_USE_1980 = False          # if True, always use 1980 as prior knowledge (USE_1980_EQUIL needs to be True)
 USE_1980_LAI_TREND = True       # Let 1980 Prior match the trend of LAI

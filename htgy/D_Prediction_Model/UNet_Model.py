@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from globalss import *
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 
 class UNet(nn.Module):
     def __init__(self, in_channels=8, out_channels=2, features=[64, 128, 256, 512]):

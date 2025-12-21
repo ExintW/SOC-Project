@@ -4,7 +4,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from scipy.ndimage import minimum_filter
-from globalss import *
 import torch
 from UNet_Model import UNet
 import netCDF4 as nc

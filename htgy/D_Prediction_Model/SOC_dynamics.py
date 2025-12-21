@@ -1,5 +1,7 @@
 from utils import plot_SOC
-from globalss import *
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *  
 import math
 import time
@@ -156,6 +158,7 @@ def soc_dynamic_model(E_tcell, A, sorted_indices, dam_max_cap, dam_cur_stored, a
         # if abs(year - 1980) > abs(year - EQUIL_YEAR) and year != EQUIL_YEAR:
         #     MAP_STATS.C_fast_equil_list *= EQUIL_DECREASE_FACTOR
         #     MAP_STATS.C_slow_equil_list *= EQUIL_DECREASE_FACTOR
+        print(f"month: {month}")
         soc_equil_fast = MAP_STATS.C_fast_equil_list[month]
         soc_equil_slow = MAP_STATS.C_slow_equil_list[month]
         

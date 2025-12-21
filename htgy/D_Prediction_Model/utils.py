@@ -2,7 +2,8 @@ import os
 import sys
 import numpy as np
 import numba as nb
-from globalss import *
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from globals import *
 import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt

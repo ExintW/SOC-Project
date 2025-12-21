@@ -4,7 +4,6 @@ from torch.utils.data import Dataset
 
 import os
 import sys
-from globalss import *
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *
 

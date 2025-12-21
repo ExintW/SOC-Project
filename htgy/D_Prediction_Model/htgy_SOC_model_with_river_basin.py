@@ -61,7 +61,6 @@ import xarray as xr
 sys.path.append(os.path.dirname(__file__))
 
 from RUSLE_Calculations import *
-from globalss import *
 from Init import init_global_data_structs, clean_nan, precompute_low_point, get_1980_LAI
 from River_Basin import * 
 from utils import *
@@ -466,16 +465,15 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year =  2025  # year of init condition, default is 2007, set to 2025 for future
-    end_year = None    # last year of present  (set to None to disable present year)
+    end_year = EQUIL_YEAR   # last year of present  (set to None to disable present year)
     past_year = None    # last year of past     (set to None to disable past year)
-    future_year = 2100  # last year of future   (set to None to disable future year)
+    future_year = 2050  # last year of future   (set to None to disable future year)
 
     fraction = 1                # fraction of SOC of past year (set to 1 to disable non-reverse past year simulation)
     
     log = True                 # save output to a log file
     
     if log:
-        # 创建一个同时输出到文件和终端的类
         class TeeOutput:
             def __init__(self, file, original_stdout):
                 self.file = file
@@ -483,7 +481,6 @@ if __name__ == "__main__":
             
             def write(self, text):
                 self.file.write(text)
-                # 显示关键进度信息到终端
                 if ("Processing year" in text or 
                     "=======================================================================" in text or
                     "Year" in text and "Month" in text or

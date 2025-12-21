@@ -3,7 +3,6 @@ import sys
 import os
 from whitebox.whitebox_tools import WhiteboxTools
 import rasterio
-from globalss import *
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import * 
 

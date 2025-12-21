@@ -3,6 +3,7 @@
 
 import os
 import sys
+import time
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -104,7 +105,22 @@ def summarize_low_point_density(low_mask, grid_x, grid_y, tif_path, output_csv):
     low_hr    = neigh_min > dem_hr
 
     records = []
-    for (r, c) in np.argwhere(low_mask):
+    indices = np.argwhere(low_mask)
+    total = int(indices.shape[0])
+    progress_every = 1000
+    start = time.perf_counter()
+
+    def _format_seconds(seconds: float) -> str:
+        seconds = max(0.0, float(seconds))
+        m, s = divmod(int(seconds), 60)
+        h, m = divmod(m, 60)
+        if h > 0:
+            return f"{h:d}h{m:02d}m{s:02d}s"
+        return f"{m:d}m{s:02d}s"
+
+    print(f"Low-point cells to process: {total}", flush=True)
+
+    for i, (r, c) in enumerate(indices, start=1):
         lon, lat = grid_x[c], grid_y[r]
         x_utm, y_utm = _TRANSFORMER.transform(lon, lat)
         i0, j0       = rowcol(transform_hr, x_utm, y_utm)
@@ -117,6 +133,18 @@ def summarize_low_point_density(low_mask, grid_x, grid_y, tif_path, output_csv):
             max(0, j0-rad):min(dem_hr.shape[1], j0+rad)
         ]
         records.append({"LON": lon, "LAT": lat, "low_10m_count": int(block.sum())})
+
+        if (i % progress_every == 0) or (i == total):
+            elapsed = time.perf_counter() - start
+            rate = (i / elapsed) if elapsed > 0 else 0.0
+            eta = ((total - i) / rate) if rate > 0 else float("inf")
+            pct = (i / total * 100.0) if total > 0 else 100.0
+            eta_str = _format_seconds(eta) if np.isfinite(eta) else "unknown"
+            print(
+                f"Progress: {i}/{total} ({pct:5.1f}%) | elapsed={_format_seconds(elapsed)} | "
+                f"rate={rate:,.1f} cells/s | eta={eta_str}",
+                flush=True,
+            )
 
     pd.DataFrame(records)[["LON", "LAT", "low_10m_count"]].to_csv(output_csv, index=False)
     print(f"Low-point summary written to {output_csv}")
