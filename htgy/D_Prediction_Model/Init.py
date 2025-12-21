@@ -107,7 +107,6 @@ def init_global_data_structs(fraction=1):
     # Create 2D arrays from CSV
     # ---------------------------------------------------------------------
     INIT_VALUES.SOC = create_grid(df, soc_col)  # SOC concentration (g/kg)
-    INIT_VALUES.SOC_valid = INIT_VALUES.SOC.copy() # for validation
     INIT_VALUES.SOC *= fraction                 # for past simulation
     INIT_VALUES.SOC *= C_INIT_FACTOR
     INIT_VALUES.SOC = np.clip(INIT_VALUES.SOC, None, C_INIT_CAP)    # Clip values above 12
