@@ -53,7 +53,11 @@ class MAP_STATS:
     C_slow_equil_list = []
     
     dam_cur_stored = None
-    
+
+    low_mask = None
+    Low_Point_Capacity = None
+    Low_Point_DEM_Dif = None
+
     REG_counter = REG_FREQ
     
     C_total_1980_Valid_list = []

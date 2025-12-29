@@ -1,12 +1,13 @@
 import os
 import sys
 import pandas as pd
+import numpy as np
 from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from utils import TeeOutput
-from init import init_global_data_structs 
+from utils import TeeOutput, gaussian_blur_with_nan
+from init import init_global_data_structs, clean_nan
 from paths import Paths 
 from config import *
 from global_structs import INIT_VALUES, MAP_STATS
@@ -39,6 +40,26 @@ def run_model():
     # =============================================================================
     precompute_river_basin()
     
+    # =============================================================================
+    # CLEAN UP GLOBAL DATA: SET NAN TO MEAN AND VALUES OUTSIDE OF BORDER TO NAN
+    # =============================================================================
+    clean_nan()
+    
+    # =============================================================================
+    # Save cleaned past SOC for validation
+    # =============================================================================
+    if VALIDATE_PAST:
+        SOC_PAST_Total = INIT_VALUES.SOC_PAST_FAST + INIT_VALUES.SOC_PAST_SLOW
+        np.savez_compressed(Paths.OUTPUT_DIR / 'SOC_PAST_Total_cleaned', SOC_PAST_Total)
+    
+    # =============================================================================
+    # USE GAUSSIAN BLUR TO PAST IF ENABLED
+    # =============================================================================
+    if USE_GAUSSIAN_BLUR:
+        INIT_VALUES.SOC_PAST_FAST = gaussian_blur_with_nan(INIT_VALUES.SOC_PAST_FAST, sigma=SIGMA)
+        INIT_VALUES.SOC_PAST_SLOW = gaussian_blur_with_nan(INIT_VALUES.SOC_PAST_SLOW, sigma=SIGMA)
+    
+
 
 if __name__ == "__main__":
     with open(Paths.OUTPUT_DIR / "out.log", "w") as f:

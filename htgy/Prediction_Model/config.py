@@ -10,7 +10,11 @@ END_YEAR = 2025     # End year of forward simulation
 PAST_YEAR = 1950    # End year of reverse simulation
 
 FUTURE_INIT_FILE = Paths.OUTPUT_DIR / "Data" / "SOC_Present 7" / "SOC_terms_2024_12_River.parquet"  # File containing the parquet data for 2024/12
-SKIP_TO_FUTURE = False   # If True, skip to future initial data directly (only if FUTURE_INIT_FILE is set)
+SKIP_TO_FUTURE = False      # If True, skip to future initial data directly (only if FUTURE_INIT_FILE is set)
+
+VALIDATE_PAST = True        # If True, validate past SOC against simulated data
+USE_GAUSSIAN_BLUR = True    # If True, apply Gaussian blur to past SOC data for smoother prior
+SIGMA = 10                  # Strength of the gaussian blur
 
 ################################ Simulation/Model Config ##########################
 C_INIT_FACTOR = 1           # Adjust initial value of SOC (Set to 1 to use original)

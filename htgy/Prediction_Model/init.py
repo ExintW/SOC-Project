@@ -3,6 +3,7 @@ import sys
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+from scipy.ndimage import minimum_filter
 
 from config import *
 from global_structs import INIT_VALUES, MAP_STATS
@@ -111,3 +112,89 @@ def init_global_data_structs():
     # Initialize current dam capacity
     MAP_STATS.dam_cur_stored = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
     
+    # Precompute low-point masks and capacities
+    MAP_STATS.low_mask, MAP_STATS.Low_Point_Capacity, MAP_STATS.Low_Point_DEM_Dif = precompute_low_point()
+
+def precompute_low_point():
+    """
+    1) Identify 1 km low‐points in INIT_VALUES.DEM
+    2) Load the per‐cell 10 m low‐point counts from CSV
+    3) Build a full count_mat matching DEM shape
+    4) Compute capacity = area * height_diff * count_mat
+    5) Compute DEM difference matrix
+    Returns: low_mask, Low_Point_Capacity, Low_Point_DEM_Dif
+    """
+
+    dem = INIT_VALUES.DEM  # shape (nrows, ncols)
+
+    # 1 km cell area (m²)
+    area = 10 * 10
+
+    # --- step 1: find 1 km low‐points ---
+    fp       = np.array([[1,1,1],[1,0,1],[1,1,1]], dtype=bool)
+    neigh_min = minimum_filter(dem, footprint=fp, mode="nearest")
+    low_mask  = neigh_min > dem
+
+    # --- step 2: load 10 m low‐point counts ---
+    df_cnt     = pd.read_csv(Paths.PROCESSED_DIR / "Low_Point_Summary.csv", encoding="utf-8-sig")
+    lon_to_i   = {lon: i for i, lon in enumerate(MAP_STATS.grid_x)}
+    lat_to_j   = {lat: j for j, lat in enumerate(MAP_STATS.grid_y)}
+
+    # --- step 3: build a full count matrix ---
+    count_mat = np.zeros_like(dem, dtype=int)
+    for _, row in df_cnt.iterrows():
+        lon, lat, cnt = row["LON"], row["LAT"], int(row["low_10m_count"])
+        i = lon_to_i.get(lon)
+        j = lat_to_j.get(lat)
+        if i is not None and j is not None:
+            count_mat[j, i] = cnt
+
+    # --- step 4: compute capacity using that count_mat ---
+    height_diff = neigh_min - dem
+    Low_Point_Capacity = np.zeros_like(dem, dtype=float)
+    Low_Point_Capacity[low_mask] = (
+        area
+        * height_diff[low_mask]
+        * count_mat[low_mask]
+    )
+
+    # --- step 5: dem difference matrix for reference ---
+    Low_Point_DEM_Dif = np.zeros_like(dem, dtype=float)
+    Low_Point_DEM_Dif[low_mask] = height_diff[low_mask]
+    Low_Point_DEM_Dif[Low_Point_DEM_Dif == 0] = np.nan
+
+    print(f"Low_Point_Capacity: max = {np.nanmax(Low_Point_Capacity):.2f}, min = {np.nanmin(Low_Point_Capacity):.2f}, and mean = {np.nanmean(Low_Point_Capacity):.2f}, and sum = {np.nansum(Low_Point_Capacity):.2f}")
+
+    # Now Low_Point_Capacity[i,j] > 0 exactly at your low-lying points
+    return low_mask, Low_Point_Capacity, Low_Point_DEM_Dif
+
+def clean_nan():
+    INIT_VALUES.SOC[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.DEM[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.SAND[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.SILT[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.CLAY[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.LANDUSE[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.REGION[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.SLOPE[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.K_fast[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.K_slow[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.C_fast[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.SOC_PAST_FAST[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.C_slow[~MAP_STATS.border_mask] = np.nan
+    INIT_VALUES.SOC_PAST_SLOW[~MAP_STATS.border_mask] = np.nan
+    MAP_STATS.p_fast_grid[~MAP_STATS.border_mask] = np.nan
+    
+    # Fill missing values in some arrays.
+    INIT_VALUES.DEM[MAP_STATS.border_mask] = np.nan_to_num(INIT_VALUES.DEM[MAP_STATS.border_mask], nan=np.nanmean(INIT_VALUES.DEM))
+    INIT_VALUES.SOC[MAP_STATS.border_mask] = np.nan_to_num(INIT_VALUES.SOC[MAP_STATS.border_mask], nan=np.nanmean(INIT_VALUES.SOC))
+    INIT_VALUES.SAND[MAP_STATS.border_mask] = np.nan_to_num(INIT_VALUES.SAND[MAP_STATS.border_mask], nan=np.nanmean(INIT_VALUES.SAND))
+    INIT_VALUES.SILT[MAP_STATS.border_mask] = np.nan_to_num(INIT_VALUES.SILT[MAP_STATS.border_mask], nan=np.nanmean(INIT_VALUES.SILT))
+    INIT_VALUES.CLAY[MAP_STATS.border_mask] = np.nan_to_num(INIT_VALUES.CLAY[MAP_STATS.border_mask], nan=np.nanmean(INIT_VALUES.CLAY))
+    INIT_VALUES.SLOPE[MAP_STATS.border_mask] = np.nan_to_num(INIT_VALUES.SLOPE[MAP_STATS.border_mask], nan=np.nanmean(INIT_VALUES.SLOPE))
+    INIT_VALUES.K_fast[MAP_STATS.border_mask] = np.nan_to_num(INIT_VALUES.K_fast[MAP_STATS.border_mask], nan=np.nanmean(INIT_VALUES.K_fast))
+    INIT_VALUES.K_slow[MAP_STATS.border_mask] = np.nan_to_num(INIT_VALUES.K_slow[MAP_STATS.border_mask], nan=np.nanmean(INIT_VALUES.K_slow))
+    INIT_VALUES.C_fast[MAP_STATS.border_mask] = np.nan_to_num(INIT_VALUES.C_fast[MAP_STATS.border_mask], nan=np.nanmean(INIT_VALUES.C_fast))
+    INIT_VALUES.C_slow[MAP_STATS.border_mask] = np.nan_to_num(INIT_VALUES.C_slow[MAP_STATS.border_mask], nan=np.nanmean(INIT_VALUES.C_slow))
+    INIT_VALUES.LANDUSE[pd.isna(INIT_VALUES.LANDUSE)] = 'not used'
+    INIT_VALUES.REGION[pd.isna(INIT_VALUES.REGION)] = 'erosion area'
