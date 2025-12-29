@@ -13,6 +13,7 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from globalss import *
 from globals import *  
 
 def precompute_river_basin(cache_path=None):

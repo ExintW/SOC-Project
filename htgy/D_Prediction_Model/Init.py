@@ -8,6 +8,8 @@ import torch
 from UNet_Model import UNet
 import netCDF4 as nc
 
+from globalss import *
+
 # Append parent directory to path to access 'globals' if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -67,7 +69,6 @@ def init_global_data_structs(fraction=1):
     # Reproject the Loess Plateau border to the desired CRS (if needed).
     loess_border = loess_border.to_crs(desired_crs)
     MAP_STATS.loess_border_geom = loess_border.union_all()
-
 
     # Define file paths for the region CSV, dam CSV, and SOC proportion CSV.
     region_csv_path = PROCESSED_DIR / "Resampled_Loess_Plateau_1km_with_DEM_region_k1k2_labeled.csv"
