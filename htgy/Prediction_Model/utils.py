@@ -250,3 +250,63 @@ def validate_SOC(pred, true):
     # Compute R²
     r2 = r2_score(y_true, y_pred)
     print(f"Past SOC Validation: R^2 score: {r2}")
+
+def resolve_cmip6_lai_segment(year, segments):
+    """
+    Return (lai_file_path, cmip_start) for `year` using segments like:
+      {"start_year": ..., "end_year": int|None, "cmip_start": ..., "relpath": Path}
+    Assumes segments are sorted by start_year and non-overlapping.
+    """
+    for s in segments:
+        if year < s["start_year"]:
+            break
+        end = s["end_year"]
+        if end is None or year <= end:
+            return s["relpath"], s["cmip_start"]
+    raise ValueError(f"No CMIP6 LAI segment configured for year {year}.")
+
+def find_nearest_index(array, value):
+    """Return index of element in array closest to value."""
+    return (np.abs(array - value)).argmin()
+
+def init_dams(year):
+    df_dam_active = MAP_STATS.df_dam[MAP_STATS.df_dam["year"] <= year].copy()
+    active_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
+    full_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
+    dam_max_cap = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
+    dam_cur_stored = MAP_STATS.dam_cur_stored
+    
+    for _, row in df_dam_active.iterrows():
+        i_idx = find_nearest_index(MAP_STATS.grid_y, row["y"])
+        j_idx = find_nearest_index(MAP_STATS.grid_x, row["x"])
+        
+        max_cap_10000_m3 = row["total_stor"]
+        max_cap_tons = max_cap_10000_m3 * 10000 * BULK_DENSITY/1000
+        dam_max_cap[i_idx, j_idx] = max_cap_tons
+
+        if dam_cur_stored[i_idx, j_idx] == 0.0:   # Only initialize cur_stored for new dams for this year
+            cur_stored_10000_m3 = row["deposition"]
+            cur_stored_tons = cur_stored_10000_m3 * 10000 * BULK_DENSITY/1000
+            if np.isnan(cur_stored_tons):
+                cur_stored_tons = 0.0
+            dam_cur_stored[i_idx, j_idx] = cur_stored_tons
+        
+        active_dams[i_idx, j_idx] = 1
+    
+    MAP_STATS.active_dams = active_dams
+    MAP_STATS.full_dams = full_dams
+    MAP_STATS.dam_max_cap = dam_max_cap
+    MAP_STATS.dam_cur_stored = dam_cur_stored
+    
+def convert_soil_loss_to_soc_loss_monthly(E_t_ha_month, ORGA_g_per_kg, bulk_density=1300):
+    """
+    Convert soil loss (t/ha/month) to SOC loss (g/kg/month).
+    1 t/ha = 100 g/m². Then multiply by (SOC_concentration / 1000) * bulk_density.
+    """
+    depth = 0.2
+    E_g_m2_month = E_t_ha_month * 100.0
+    soc_loss_g_per_kg = (E_g_m2_month / 1000.0) * ORGA_g_per_kg/depth / bulk_density
+    return soc_loss_g_per_kg
+
+def convert_soil_to_soc_loss(E_t_ha_month):
+    return (E_t_ha_month * 0.1) / (DEPTH * BULK_DENSITY)

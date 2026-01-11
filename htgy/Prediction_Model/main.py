@@ -111,7 +111,7 @@ def run_model():
         # Run Future Simulation
         print("Running future simulation...")
         for year in range(END_YEAR + 1, FUTURE_YEAR + 1):
-            run_simulation_year(year)
+            run_simulation_year(year, future=True)
         if SAVE_NC:
             save_nc(INIT_YEAR, FUTURE_YEAR)
         if PAST_YEAR is None:

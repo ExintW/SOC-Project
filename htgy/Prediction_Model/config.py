@@ -33,9 +33,14 @@ SIGMA = 10                  # Strength of the gaussian blur
 
 USE_PAST_LAI_TREND = True   # If True, use past LAI trend for regularization
 
+V_FACTOR = 8                # for vegetation scaling (set to 1 to disable)
+V_MIN_CLIP = 0              # clip V (None to disable)
+
 ################################ Regularization Config ##########################
 REG_YEAR = 1980             # Year used for regularization
 REG_FREQ = 5                # Frequency (in years) to apply spatial regularization
+
+USE_PAST_EQUIL = True       # If True, use past equilibrium SOC for regularization
 
 ################################ Region Specific Config ################################
 BORDER_SHP = Paths.DATA_DIR / "Loess_Plateau_vector_border.shp"                 # Shapefile for the border
@@ -49,11 +54,18 @@ RIVERS_SHP = Paths.DATA_DIR / "China_River" / "ChinaRiver_main.shp"
 LAI_PAST_FILE = Paths.PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_1950-2000.nc"  # NetCDF file containing resampled LAI data for past years
 LS_FILE = Paths.PROCESSED_DIR / "LS_factor.npy"                                 # file name for precomputed LS factor grid (this file can be generated if not exist)
 DEM_FILE_NAME = "htgyDEM.tif"                                                   # DEM file used for LS factor calculation
+CMIP6_PR_FILE = Paths.PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_585.nc" # NetCDF file containing resampled precipitation data for CMIP6
+ERA5_PR_DIR = Paths.PROCESSED_DIR / "ERA5_Data_Monthly_Resampled"               # Directory containing resampled ERA5 precipitation data for present years
 
 CMIP_START = 1950                  # Start year for CMIP6 LAI data
 DESIRED_CRS = "EPSG:4326"          # Desired coordinate reference system for all spatial data
 DEM_RESOLUTION = 30                # Resolution of DEM data in meters  
 GRID_RESOLUTION = 1000             # Resolution of model grid in meters
+
+# Constants
+BULK_DENSITY = 1300                 # Convert dam capacity from 10,000 m³ to tons using a bulk density of 1300 t/m³.
+CELL_AREA_HA = 100.0                # 1 km² = 100 ha
+DEPTH = 0.2                         # Depth of soil layer in meters
 
 # Column names for INIT_SOC_CSV
 LON_COL = "LON"
@@ -79,3 +91,37 @@ DAM_CAPACITY_REMAINED = "capacity_remained"
 LAI_LON = 'lon'
 LAI_LAT = 'lat'
 LAI_VAR = 'lai'
+
+CMIP6_LAI_SEGMENTS = [      # Specify segments of CMIP6 LAI data files covering different time periods
+    {
+        "start_year": 1950,
+        "end_year": 2000,
+        "cmip_start": 1950,
+        "relpath": Paths.PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_1950-2000.nc",
+    },
+    {
+        "start_year": 2001,
+        "end_year": 2014,
+        "cmip_start": 2001,
+        "relpath": Paths.PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2001-2014.nc",
+    },
+    {
+        "start_year": 2015,
+        "end_year": None,  # open-ended
+        "cmip_start": 2015,
+        "relpath": Paths.PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_585.nc",
+    },
+]
+
+# Column names for CMIP6_LAI and CMIP6_PR
+CMIP_LON = 'lon'
+CMIP_LAT = 'lat'
+CMIP_LAI = 'lai'
+CMIP_PR  = 'pr'
+CMIP_PR_CONV_FACTOR = 30 * 86400  # Convert from kg m^-2 s^-1 to mm/month
+
+# Column names for ERA5_PR
+ERA5_LON = 'longitude'
+ERA5_LAT = 'latitude'
+ERA5_PR  = 'tp'      
+ERA5_PR_CONV_FACTOR = 30 * 1000  # Convert from m/month to mm/month

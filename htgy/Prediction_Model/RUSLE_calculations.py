@@ -98,3 +98,67 @@ def calculate_p_factor(landuse, slope):
     }
     
     return p_values.get(str(landuse).lower(), 1.0)
+
+def calculate_r_factor_annually(rain_year_mm):
+    annual_tp = np.sum(rain_year_mm, axis=0)
+    
+    """
+    Using regression formula from Renard and Freimund (1994):
+        P = total annual precipitation
+        R = 0.0483 * P^1.61, if P <= 850mm
+        R = 587.8 - 1.219P + 0.004105P^2, if P > 850mm
+    """
+    if np.mean(annual_tp) <= 850:
+        R = 0.0483 * (annual_tp ** 1.78)
+    else:
+        R = 587.8 - 1.219 * annual_tp + 0.004105 * annual_tp**2
+    
+    return R / 5.5
+
+def calculate_c_factor(lai):
+    """Compute C factor from LAI: C = exp(-1.7 * LAI)."""
+    # https://doi.org/10.3390/rs15112868
+    C = -0.177 * np.log(lai) + 0.184
+    return np.clip(C, a_min=1e-6, a_max=None)
+
+def get_monthly_r_factor(R_annual, rain_month_mm, rain_year_mm):
+    """
+    Compute montly R factor using the ratio of montly precipitation
+        
+        R_i = R_annual * {P_i^2} / {P_annual^2}
+    """
+    annual_tp = np.sum(rain_year_mm, axis=0)
+    R_month = R_annual * ((rain_month_mm) / (annual_tp))
+    
+    return R_month
+
+def calculate_k_factor(silt, sand, clay, soc, landuse):
+    """
+    EPIC from https://doi.org/10.11821/dlxb201509012 
+    """
+    # Avoid division by zero
+    total = silt + clay
+    total[total == 0] = 1e-9
+    SN_1 = 1 - (sand / 100)
+
+    # Organic carbon factor
+    oc = soc / 10  # convert to percentage
+    oc_factor = 1 - ((0.25 * oc) / (oc + np.exp(3.72 - 2.95 * oc)))
+
+    # Texture-related terms
+    texture_term = 0.2 + (0.3 * np.exp(-0.0256 * sand * (1 - silt / 100))) * \
+                   ((silt / total) ** 0.3)
+    
+    SN_term = 1 - ((0.7 * SN_1) / (SN_1 + np.exp(-5.51 + 22.9 * SN_1)))
+
+    # Final K factor
+    k_factor = 0.1317 * texture_term * oc_factor * SN_term
+    # k_factor = texture_term * oc_factor * SN_term
+    return np.clip(k_factor, a_min=1e-6, a_max=None)
+
+def vegetation_input(LAI):
+    """
+    Compute vegetation input based on LAI using an empirical formula.
+    """
+    LAI_safe = np.maximum(LAI, 1e-6)
+    return 0.1587 * np.log(LAI_safe) + 0.1331
