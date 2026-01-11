@@ -6,23 +6,19 @@ from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from utils import TeeOutput, gaussian_blur_with_nan
-from init import init_global_data_structs, clean_nan
+from utils import TeeOutput, gaussian_blur_with_nan, compute_const_RUSLE, print_factor_info
+from init import init_global_data_structs, clean_nan, get_PAST_LAI
 from paths import Paths 
 from config import *
 from global_structs import INIT_VALUES, MAP_STATS
 from river_basin import precompute_river_basin
 
 def run_model():
-    # =============================================================================
     # INIT GRID AND GLOBAL GRID INFO
-    # =============================================================================
     print("Initializing global data structures...")
     init_global_data_structs()
     
-    # =============================================================================
     # Load future initial data if running future only
-    # =============================================================================
     if SKIP_TO_FUTURE and FUTURE_INIT_FILE is not None:
         # Path to the snapshot for December of the present period
         future_initial_file = FUTURE_INIT_FILE
@@ -35,37 +31,36 @@ def run_model():
         else:
             print(f"Warning: future initial file not found at {future_initial_file}, using default INIT_VALUES")
 
-    # =============================================================================
-    # RASTERIZE RIVER BASIN BOUNDARIES & MAIN RIVER USING PRECOMPUTED MASKS
-    # =============================================================================
+    # rasterize river basin boundaries & main river using precomputed masks
     precompute_river_basin()
     
-    # =============================================================================
-    # CLEAN UP GLOBAL DATA: SET NAN TO MEAN AND VALUES OUTSIDE OF BORDER TO NAN
-    # =============================================================================
+    # clean up global data: set nan to mean and values outside of border to nan
     clean_nan()
     
-    # =============================================================================
     # Save cleaned past SOC for validation
-    # =============================================================================
     if VALIDATE_PAST:
         SOC_PAST_Total = INIT_VALUES.SOC_PAST_FAST + INIT_VALUES.SOC_PAST_SLOW
         np.savez_compressed(Paths.OUTPUT_DIR / 'SOC_PAST_Total_cleaned', SOC_PAST_Total)
     
-    # =============================================================================
-    # USE GAUSSIAN BLUR TO PAST IF ENABLED
-    # =============================================================================
+    # use gaussian blur to past if enabled
     if USE_GAUSSIAN_BLUR:
         INIT_VALUES.SOC_PAST_FAST = gaussian_blur_with_nan(INIT_VALUES.SOC_PAST_FAST, sigma=SIGMA)
         INIT_VALUES.SOC_PAST_SLOW = gaussian_blur_with_nan(INIT_VALUES.SOC_PAST_SLOW, sigma=SIGMA)
     
-
-
+    # Get past LAI for Regularization
+    if USE_PAST_LAI_TREND:
+        get_PAST_LAI()
+        
+    # Precompute Constant RUSLE Factors
+    compute_const_RUSLE()
+    print_factor_info(INIT_VALUES.LS_FACTOR, name="LS Factor")
+    print_factor_info(INIT_VALUES.P_FACTOR, name="P Factor")
+    
 if __name__ == "__main__":
     with open(Paths.OUTPUT_DIR / "out.log", "w") as f:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         f.write(f"Log generated at: {timestamp}\n\n")
-        f.write(get_param_log() + "\n")
+        #f.write(get_param_log() + "\n")
         original_stdout = sys.stdout
         sys.stdout = TeeOutput(f, original_stdout)
         try:

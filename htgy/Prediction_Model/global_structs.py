@@ -1,3 +1,5 @@
+from config import *
+
 class INIT_VALUES:
     SOC = None
     SOC_valid = None
@@ -16,6 +18,8 @@ class INIT_VALUES:
     SOC_PAST_SLOW = None
     UNet_Model = None
     LAI_PAST = []
+    LS_FACTOR = None
+    P_FACTOR = None
     
     @classmethod
     def reset(cls):

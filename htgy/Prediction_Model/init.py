@@ -3,10 +3,12 @@ import sys
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+import netCDF4 as nc
 from scipy.ndimage import minimum_filter
 
 from config import *
 from global_structs import INIT_VALUES, MAP_STATS
+from utils import create_grid_from_points
 
 def create_grid(data, col_name):
     """
@@ -130,17 +132,17 @@ def precompute_low_point():
     # 1 km cell area (m²)
     area = 10 * 10
 
-    # --- step 1: find 1 km low‐points ---
+    # find 1 km low‐points
     fp       = np.array([[1,1,1],[1,0,1],[1,1,1]], dtype=bool)
     neigh_min = minimum_filter(dem, footprint=fp, mode="nearest")
     low_mask  = neigh_min > dem
 
-    # --- step 2: load 10 m low‐point counts ---
+    # load 10 m low‐point counts
     df_cnt     = pd.read_csv(Paths.PROCESSED_DIR / "Low_Point_Summary.csv", encoding="utf-8-sig")
     lon_to_i   = {lon: i for i, lon in enumerate(MAP_STATS.grid_x)}
     lat_to_j   = {lat: j for j, lat in enumerate(MAP_STATS.grid_y)}
 
-    # --- step 3: build a full count matrix ---
+    # build a full count matrix
     count_mat = np.zeros_like(dem, dtype=int)
     for _, row in df_cnt.iterrows():
         lon, lat, cnt = row["LON"], row["LAT"], int(row["low_10m_count"])
@@ -149,7 +151,7 @@ def precompute_low_point():
         if i is not None and j is not None:
             count_mat[j, i] = cnt
 
-    # --- step 4: compute capacity using that count_mat ---
+    # compute capacity using that count_mat
     height_diff = neigh_min - dem
     Low_Point_Capacity = np.zeros_like(dem, dtype=float)
     Low_Point_Capacity[low_mask] = (
@@ -158,7 +160,7 @@ def precompute_low_point():
         * count_mat[low_mask]
     )
 
-    # --- step 5: dem difference matrix for reference ---
+    # dem difference matrix for reference
     Low_Point_DEM_Dif = np.zeros_like(dem, dtype=float)
     Low_Point_DEM_Dif[low_mask] = height_diff[low_mask]
     Low_Point_DEM_Dif[Low_Point_DEM_Dif == 0] = np.nan
@@ -167,6 +169,25 @@ def precompute_low_point():
 
     # Now Low_Point_Capacity[i,j] > 0 exactly at your low-lying points
     return low_mask, Low_Point_Capacity, Low_Point_DEM_Dif
+
+def get_PAST_LAI():
+    """
+    Load past LAI trend and use it as one factor of prior for regularization.
+    """
+    lai_file = LAI_PAST_FILE
+    cmip_start = CMIP_START
+    with nc.Dataset(lai_file) as ds_lai:
+        lon_lai = ds_lai.variables[LAI_LON][:] 
+        lat_lai = ds_lai.variables[LAI_LAT][:]
+        lai_data = ds_lai.variables[LAI_VAR][:]
+        for month in range(12):
+            idx = (REG_YEAR - cmip_start) * 12 + month
+            lai_1d = lai_data[idx, :]
+            LAI_2D = create_grid_from_points(lon_lai, lat_lai, lai_1d, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            LAI_2D = np.nan_to_num(LAI_2D, nan=np.nanmean(LAI_2D))
+            LAI_2D[~MAP_STATS.border_mask] = np.nan
+            # print(f"{REG_YEAR} month {month+1} LAI shape = {LAI_2D.shape}, avg = {np.nanmean(LAI_2D)}, max = {np.nanmax(LAI_2D)}, min = {np.nanmin(LAI_2D)}")
+            INIT_VALUES.LAI_PAST.append(np.nanmean(LAI_2D))
 
 def clean_nan():
     INIT_VALUES.SOC[~MAP_STATS.border_mask] = np.nan
