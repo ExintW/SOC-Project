@@ -20,6 +20,7 @@ class INIT_VALUES:
     LAI_PAST = []
     LS_FACTOR = None
     P_FACTOR = None
+    SORTED_INDICES = None
     
     @classmethod
     def reset(cls):
@@ -56,6 +57,9 @@ class MAP_STATS:
     C_fast_equil_list = []
     C_slow_equil_list = []
     
+    total_C_matrix = None
+    dam_rem_cap_matrix = None
+    
     dam_cur_stored = None
 
     low_mask = None
@@ -64,7 +68,7 @@ class MAP_STATS:
 
     REG_counter = REG_FREQ
     
-    C_total_1980_Valid_list = []
+    C_total_Past_Valid_list = []
 
     @classmethod
     def reset(cls):

@@ -2,8 +2,6 @@ import os
 import sys
 import numpy as np
 import numba as nb
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from globals import *
 import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
@@ -14,7 +12,8 @@ from sklearn.metrics import r2_score
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from globals import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
+from globalss import *  # Expects DATA_DIR, PROCESSED_DIR, OUTPUT_DIR
+from globals import *
 
 def validate_SOC(pred, true):
     mask = ~np.isnan(true)

@@ -429,7 +429,7 @@ if __name__ == "__main__":
                 self.file.flush()
                 self.original_stdout.flush()
         
-        with open(OUTPUT_DIR / "out.log", "w") as f:
+        with open(OUTPUT_DIR / "out.log", "w", encoding="utf-8") as f:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             f.write(f"Log generated at: {timestamp}\n\n")
             f.write(get_param_log() + "\n")

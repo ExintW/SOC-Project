@@ -1,12 +1,15 @@
 import os
 import sys
 import numpy as np
+import pandas as pd
+import xarray as xr
 import scipy.ndimage as ndimage
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
 from shapely.geometry import LineString, MultiLineString
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from sklearn.metrics import r2_score
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from paths import Paths 
@@ -112,7 +115,7 @@ def compute_const_RUSLE():
     P_factor[~MAP_STATS.border_mask] = np.nan
     INIT_VALUES.P_FACTOR = P_factor
     
-def print_factor_info(factor, name="Factor"):
+def print_plot_factor_info(factor, name="Factor", max_val=None):
     """
     Debug print function for a factor and plot it on the map
     """
@@ -125,10 +128,10 @@ def print_factor_info(factor, name="Factor"):
     
     # Plot figure
     fig, ax = plt.subplots(figsize=(10, 6))
-
+    
     im = ax.imshow(
         factor,
-        cmap="viridis", vmin=0, vmax=max_value,
+        cmap="viridis", vmin=0, vmax=max_val if max_val is not None else max_value,
         extent=[
             MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(),
             MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()
@@ -167,3 +170,83 @@ def print_factor_info(factor, name="Factor"):
         bbox_inches="tight"
     )
     plt.close(fig)
+    
+def precompute_sorted_indices():
+    """
+    Precompute sorted indices of DEM cells in descending order of elevation.
+    """
+    rows, cols = INIT_VALUES.DEM.shape
+    flat_dem = INIT_VALUES.DEM.flatten()
+    sorted_flat_indices = np.argsort(flat_dem)[::-1]  # descending order
+    sorted_indices = np.empty((sorted_flat_indices.shape[0], 2), dtype=np.int64)
+    sorted_indices[:, 0], sorted_indices[:, 1] = np.unravel_index(sorted_flat_indices, (rows, cols))
+    INIT_VALUES.SORTED_INDICES = sorted_indices
+    
+def export_total_C_netcdf(total_C_array, time_start, lat, lon, out_path):
+    """
+    Wrap a 3-D numpy array (time × lat × lon) into an xarray Dataset
+    with a monthly time axis, and write to NetCDF.
+    """
+    n_steps = total_C_array.shape[0]
+    time_index = pd.date_range(start=f"{time_start}-01-01",
+                               periods=n_steps,
+                               freq="MS")
+    da = xr.DataArray(
+        total_C_array,
+        dims=("time", "lat", "lon"),
+        coords={"time": time_index, "lat": lat, "lon": lon},
+        name="total_C"
+    )
+    ds = da.to_dataset()
+    ds.to_netcdf(out_path)
+
+def export_dam_remained_cap_netcdf(dam_rem_cap_array, time_start, lat, lon, out_path):
+    """
+    Wrap a 3-D numpy array (time × lat × lon) into an xarray Dataset
+    with a monthly time axis, and write to NetCDF.
+    """
+    n_steps = dam_rem_cap_array.shape[0]
+    time_index = pd.date_range(start=f"{time_start}-01-01",
+                               periods=n_steps,
+                               freq="MS")
+    da = xr.DataArray(
+        dam_rem_cap_array,
+        dims=("time", "lat", "lon"),
+        coords={"time": time_index, "lat": lat, "lon": lon},
+        name="dam_rem_cap"
+    )
+    ds = da.to_dataset()
+    ds.to_netcdf(out_path)
+
+def save_nc(start_year, end_year):
+    # stack into an (X, 844, 1263) array
+    total_C_array = np.stack(MAP_STATS.total_C_matrix, axis=0).astype(np.float32)
+    dam_rem_cap_array = np.stack(MAP_STATS.dam_rem_cap_matrix, axis=0).astype(np.float32)
+
+    C_nc_path = Paths.OUTPUT_DIR / f"Total_C_{start_year}-{end_year}_monthly.nc"
+    export_total_C_netcdf(
+        total_C_array,
+        time_start=start_year,
+        lat=MAP_STATS.grid_y,
+        lon=MAP_STATS.grid_x,
+        out_path=C_nc_path
+    )
+    dam_nc_path = Paths.OUTPUT_DIR / f"Dam_rem_Cap_{start_year}-{end_year}_monthly.nc"
+    export_dam_remained_cap_netcdf(
+        dam_rem_cap_array,
+        time_start=start_year,
+        lat=MAP_STATS.grid_y,
+        lon=MAP_STATS.grid_x,
+        out_path=dam_nc_path
+    )
+
+def validate_SOC(pred, true):
+    mask = ~np.isnan(true)
+
+    # Flatten both arrays using the mask
+    y_true = true[mask]
+    y_pred = pred[mask]
+
+    # Compute R²
+    r2 = r2_score(y_true, y_pred)
+    print(f"Past SOC Validation: R^2 score: {r2}")

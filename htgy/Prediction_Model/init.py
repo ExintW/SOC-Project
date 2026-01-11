@@ -165,7 +165,7 @@ def precompute_low_point():
     Low_Point_DEM_Dif[low_mask] = height_diff[low_mask]
     Low_Point_DEM_Dif[Low_Point_DEM_Dif == 0] = np.nan
 
-    print(f"Low_Point_Capacity: max = {np.nanmax(Low_Point_Capacity):.2f}, min = {np.nanmin(Low_Point_Capacity):.2f}, and mean = {np.nanmean(Low_Point_Capacity):.2f}, and sum = {np.nansum(Low_Point_Capacity):.2f}")
+    print(f"Low_Point_Capacity: max = {np.nanmax(Low_Point_Capacity):.2f}, min = {np.nanmin(Low_Point_Capacity):.2f}, mean = {np.nanmean(Low_Point_Capacity):.2f}, and sum = {np.nansum(Low_Point_Capacity):.2f}")
 
     # Now Low_Point_Capacity[i,j] > 0 exactly at your low-lying points
     return low_mask, Low_Point_Capacity, Low_Point_DEM_Dif

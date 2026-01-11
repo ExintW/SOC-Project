@@ -6,13 +6,21 @@ from paths import Paths
 
 ################################ Run Config ################################
 INIT_YEAR = 2007    # Year of initial SOC data (or first year of future for SKIP_TO_FUTURE)
-END_YEAR = 2025     # End year of forward simulation
+END_YEAR = 2024     # End year of present simulation
+FUTURE_YEAR = 2100  # End year of future simulation (Future year starts at END_YEAR + 1)
 PAST_YEAR = 1950    # End year of reverse simulation
+
+RUN_FROM_EQUIL = True       # If True, past run from equilibrium state instead of INIT_YEAR data
+EQUIL_YEAR = 2014           # Year to use as equilibrium state for reverse simulation
+
+CLEAN_OUTDIR = True          # If True, clean output directory before running
 
 FUTURE_INIT_FILE = Paths.OUTPUT_DIR / "Data" / "SOC_Present 7" / "SOC_terms_2024_12_River.parquet"  # File containing the parquet data for 2024/12
 SKIP_TO_FUTURE = False      # If True, skip to future initial data directly (only if FUTURE_INIT_FILE is set)
 
-VALIDATE_PAST = True        # If True, validate past SOC against simulated data
+VALIDATE_PAST = False        # If True, validate past SOC against simulated data
+
+SAVE_NC = False              # If True, additionally save output as NetCDF files
 
 ################################ Simulation/Model Config ##########################
 C_INIT_FACTOR = 1           # Adjust initial value of SOC (Set to 1 to use original)
