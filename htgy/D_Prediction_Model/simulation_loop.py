@@ -1,133 +1,63 @@
-import sys
 import os
+import sys
 import netCDF4 as nc
-import pandas as pd
-import pandas.testing as pdt
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
 import time
-from shapely.geometry import LineString, MultiLineString
-import pyarrow
-from contextlib import nullcontext
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+import numpy as np
+import pandas as pd
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from globals import * 
-from utils import *
-from RUSLE_Calculations import *
+from paths import Paths 
+from global_structs import MAP_STATS, INIT_VALUES
+from config import *
+from utils import convert_soil_to_soc_loss, resolve_cmip6_lai_segment, init_dams, create_grid_from_points, convert_soil_loss_to_soc_loss_monthly, plot_SOC_timestep
+from RUSLE_calculations import calculate_r_factor_annually, calculate_c_factor, get_monthly_r_factor, calculate_k_factor, vegetation_input 
+from SOC_Dynamic_Model import soc_dynamic_model
 
-from soil_and_soc_flow import distribute_soil_and_soc_with_dams_numba
-from SOC_dynamics import vegetation_input, soc_dynamic_model
-
-
-def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, future=False, a=-1.7, b=1.61, c=1):
-    print(f"Processing year {year}...")
-    # Filter dams built on or before current year
-    df_dam_active = MAP_STATS.df_dam[MAP_STATS.df_dam["year"] <= year].copy()
-    active_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
-    full_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
-    dam_max_cap = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
-    dam_cur_stored = MAP_STATS.dam_cur_stored
-    dam_capacity_arr = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
+def run_simulation_year(year, past=False, future=False):
+    print(f"Running Simulation year {year}...")
     
-    for _, row in df_dam_active.iterrows():
-        i_idx = find_nearest_index(MAP_STATS.grid_y, row["y"])
-        j_idx = find_nearest_index(MAP_STATS.grid_x, row["x"])
-        capacity_10000_m3 = row["capacity_remained"]
-        capacity_tons = capacity_10000_m3 * 10000 * BULK_DENSITY/1000
-        dam_capacity_arr[i_idx, j_idx] = capacity_tons
-        
-        max_cap_10000_m3 = row["total_stor"]
-        max_cap_tons = max_cap_10000_m3 * 10000 * BULK_DENSITY/1000
-        dam_max_cap[i_idx, j_idx] = max_cap_tons
-
-        if dam_cur_stored[i_idx, j_idx] == 0.0:   # Only initialize cur_stored for new dams for this year
-            cur_stored_10000_m3 = row["deposition"]
-            cur_stored_tons = cur_stored_10000_m3 * 10000 * BULK_DENSITY/1000
-            if np.isnan(cur_stored_tons):
-                cur_stored_tons = 0.0
-            dam_cur_stored[i_idx, j_idx] = cur_stored_tons
-        
-        active_dams[i_idx, j_idx] = 1
-
-    # Load monthly climate data (NetCDF)
+    # Initialize dams for this year
+    init_dams(year)
+    
+    # Get pr file paths
     if future:
-        pr_file  = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_585.nc"
+        pr_file = CMIP6_PR_FILE
     else:
-        nc_file = PROCESSED_DIR / "ERA5_Data_Monthly_Resampled" / f"resampled_{year}.nc"
-
-    if year <= 2000:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_1950-2000.nc"
-        cmip_start = 1950
-    elif year <= 2014:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2001-2014.nc"
-        cmip_start = 2001
-    else:
-        lai_file = PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_lai_points_2015-2100_585.nc"
-        cmip_start = 2015
-
-    if future != True:
-        if not os.path.exists(nc_file):
-            print(f"NetCDF file not found for year {year}: {nc_file}")
-            return
-
-    with (nc.Dataset(nc_file) if not future else nullcontext()) as ds, nc.Dataset(lai_file) as ds_lai, (nc.Dataset(pr_file) if future else nullcontext()) as ds_pr:
+        pr_file = ERA5_PR_DIR / f"resampled_{year}.nc"
+    
+    # Get lai file paths
+    lai_file, cmip_start = resolve_cmip6_lai_segment(year, CMIP6_LAI_SEGMENTS)
+    
+    with nc.Dataset(pr_file) as ds_pr, nc.Dataset(lai_file) as ds_lai:
         n_time = 12
-
+        
+        # Load LAI and PR data for the year
+        lon_lai = ds_lai.variables[CMIP_LON][:]  # Adjusted variable name if needed
+        lat_lai = ds_lai.variables[CMIP_LAT][:]
+        lai_data = ds_lai.variables[CMIP_LAI][:]  # shape: (12, n_points)
+            
         if future:
-            # LAI file variables
+            lon_pr = ds_pr.variables[CMIP_LON][:]
+            lat_pr = ds_pr.variables[CMIP_LAT][:]
+            pr_data = ds_pr.variables[CMIP_PR][:]
+            tp_data_mm = pr_data * CMIP_PR_CONV_FACTOR  # convert to mm/month
 
-            lon_lai = ds_lai.variables['lon'][:]  # Adjusted variable name if needed
-            lat_lai = ds_lai.variables['lat'][:]
-            lai_data = ds_lai.variables['lai'][:]  # shape: (12, n_points)
-
-            lon_nc = lon_lai
-            lat_nc = lat_lai
-
-            # Precipitation file variables
-            lon_nc_pr = ds_pr.variables['lon'][:]
-            lat_nc_pr = ds_pr.variables['lat'][:]
-            pr_data = ds_pr.variables['pr'][:]         # shape: (time, n_points), in kg m^-2 s^-1
-            tp_data_mm = pr_data * 30 * 86400
-
-            # figure out which 12‐month block corresponds to `year`
             start_idx = (year - cmip_start) * n_time
             end_idx = start_idx + n_time
-
+        
             if start_idx < 0 or end_idx > tp_data_mm.shape[0]:
                 raise ValueError(f"No CMIP6 data for year {year} (idx {start_idx}:{end_idx})")
-
+            
             # slice out the 12 months, no summing
-            annual_tp_data_mm = tp_data_mm[start_idx:end_idx, :]  # shape = (12, n_points)
-
-            R_annual = calculate_r_factor_annually(annual_tp_data_mm, c=c, b=b)
-            R_annual_temp = create_grid_from_points(lon_nc_pr, lat_nc_pr, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
-
+            tp_data_mm = tp_data_mm[start_idx:end_idx, :]  # shape = (12, n_points)
         else:
-            if USE_CMIP6:
-                lon_lai = ds_lai.variables['lon'][:]  # Adjusted variable name if needed
-                lat_lai = ds_lai.variables['lat'][:]
-                lai_data = ds_lai.variables['lai'][:]  # shape: (12, n_points)
-            else:
-                lon_lai = ds.variables['longitude'][:]  # Adjusted variable name if needed
-                lat_lai = ds.variables['latitude'][:]
-                lai_data = ds.variables['lai_lv'][:]  # shape: (12, n_points)
-
-            lon_nc = ds.variables['longitude'][:]
-            lat_nc = ds.variables['latitude'][:]
-            tp_data = ds.variables['tp'][:]       # shape: (12, n_points), in meters
-            tp_data = tp_data * 30
-            tp_data_mm = tp_data * 1000.0
-            R_annual = calculate_r_factor_annually(tp_data_mm, c=c, b=b)
-            R_annual_temp = create_grid_from_points(lon_nc, lat_nc, R_annual, MAP_STATS.grid_x, MAP_STATS.grid_y)
-
-        R_annual_temp = np.nan_to_num(R_annual_temp, nan=np.nanmean(R_annual_temp))
-        R_annual_temp[~MAP_STATS.loess_border_mask] = np.nan
-        print(f"Total elements in R Year: {R_annual_temp.size}, with max = {np.nanmax(R_annual_temp)}, min = {np.nanmin(R_annual_temp)}, mean = {np.nanmean(R_annual_temp)}")
-
+            lon_pr = ds_pr.variables[ERA5_LON][:]
+            lat_pr = ds_pr.variables[ERA5_LAT][:]
+            pr_data = ds_pr.variables[ERA5_PR][:]         # shape: (time, n_points), in m/month
+            tp_data_mm = pr_data * ERA5_PR_CONV_FACTOR  # convert to mm/month
+        
+        R_annual = calculate_r_factor_annually(tp_data_mm)
+        
         E_month_avg_list = []   # for calculating annual mean for validation
         C_month_list = []
         if past:
@@ -135,292 +65,196 @@ def run_simulation_year(year, LS_factor, P_factor, sorted_indices, past=False, f
         else:
             time_range = range(n_time)
             
-        if USE_UNET and past:
-            UNet_Model = INIT_VALUES.UNet_Model
-
         for month_idx in time_range:
-            idx = month_idx
-
-            # CMIP6 / future case: compute flat index relative to cmip_start
-            if USE_CMIP6 or future:
-                idx = (year - cmip_start) * n_time + month_idx
-                # skip months before or after our CMIP6 file
-                if idx < 0 or idx >= lai_data.shape[0]:
-                    continue
-            # Regrid LAI data
             time_month = time.time()
-
+            
+            idx = (year - cmip_start) * n_time + month_idx  # flat index relative to cmip_start
+            if idx < 0 or idx >= lai_data.shape[0]:
+                continue
+            
             print(f"\n=======================================================================")
             print(f"                          Year {year} Month {month_idx+1}")
             print(f"=======================================================================\n")
-
-            print(f"lai_data shape = {lai_data.shape}")
+            
+            # Load LAI data and compute C factor
             lai_1d = lai_data[idx, :]
-            LAI_2D = create_grid_from_points(lon_lai, lat_lai, lai_1d, MAP_STATS.grid_x, MAP_STATS.grid_y)
-            LAI_2D = np.nan_to_num(LAI_2D, nan=np.nanmean(LAI_2D))
+            lai_2d = create_grid_from_points(lon_lai, lat_lai, lai_1d, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            lai_2d = np.nan_to_num(lai_2d, nan=np.nanmean(lai_2d))
+            lai_2d[~MAP_STATS.border_mask] = np.nan
             
-            print(f"LAI_1d regrid took {time.time() - time_month} seconds")
-            time1 = time.time()
+            C_factor_2D = calculate_c_factor(lai_2d)
+            C_factor_2D[~MAP_STATS.border_mask] = np.nan
+            C_month_list.append(np.nanmean(C_factor_2D))
             
-            # Regrid precipitation and convert to mm
+            # Load PR data and compute R factor
             if future:
                 tp_1d_mm = tp_data_mm[idx, :]
-                RAIN_2D = create_grid_from_points(lon_nc_pr, lat_nc_pr, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
             else:
                 tp_1d_mm = tp_data_mm[month_idx, :]
-                RAIN_2D = create_grid_from_points(lon_nc, lat_nc, tp_1d_mm, MAP_STATS.grid_x, MAP_STATS.grid_y)
-            RAIN_2D = np.nan_to_num(RAIN_2D, nan=np.nanmean(RAIN_2D))
-            
-            time2 = time.time()
-            print(f"tp_1d regrid took {time2 - time1} seconds")
-
-            # Compute RUSLE factors
-            if future:
-                R_month = get_montly_r_factor(R_annual, tp_1d_mm, annual_tp_data_mm)
-            else:
-                R_month = get_montly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
-            R_month = create_grid_from_points(lon_nc, lat_nc, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
+            R_month = get_monthly_r_factor(R_annual, tp_1d_mm, tp_data_mm)
+            R_month = create_grid_from_points(lon_pr, lat_pr, R_month, MAP_STATS.grid_x, MAP_STATS.grid_y)
             R_month = np.nan_to_num(R_month, nan=np.nanmean(R_month))
-            R_month[~MAP_STATS.loess_border_mask] = np.nan
+            R_month[~MAP_STATS.border_mask] = np.nan
             
-            print(f"R_month regrid took {time.time() - time2} seconds")
-            print(f"before R_month took {time.time() - time_month} seconds\n")
-
-            print(f"Total elements in R month: {R_month.size}, with max = {np.nanmax(R_month)}, min = {np.nanmin(R_month)}, and mean = {np.nanmean(R_month)}")
-            
-            C_factor_2D = calculate_c_factor(LAI_2D, a=a)
-            C_factor_2D[~MAP_STATS.loess_border_mask] = np.nan
-            C_month_list.append(np.nanmean(C_factor_2D))
-            print(f"Total elements in C: {C_factor_2D.size}, with max = {np.nanmax(C_factor_2D)}, min = {np.nanmin(C_factor_2D)}, and mean = {np.nanmean(C_factor_2D)}")
-            print(f"\nLAI mean = {np.nanmean(LAI_2D)}\n")
-            
-            # Calculate monthly K factor
+            # Calculate Monthly K Factor
             K_month = calculate_k_factor(INIT_VALUES.SILT, INIT_VALUES.SAND, INIT_VALUES.CLAY, (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current), INIT_VALUES.LANDUSE)
             K_month = np.nan_to_num(K_month, nan=np.nanmean(K_month))
-            K_month[~MAP_STATS.loess_border_mask] = np.nan
-            print(f"Total elements in K: {K_month.size}, with max = {np.nanmax(K_month)}, min = {np.nanmin(K_month)}, and mean = {np.nanmean(K_month)}")
+            K_month[~MAP_STATS.border_mask] = np.nan
 
-            # Calculate soil loss (t/ha/month) & then per cell
-            E_t_ha_month = R_month * K_month * LS_factor * C_factor_2D * P_factor
-            E_t_ha_month[~MAP_STATS.loess_border_mask] = np.nan
-            print(f"Total elements in E: {E_t_ha_month.size}, with max = {np.nanmax(E_t_ha_month)}, min = {np.nanmin(E_t_ha_month)}, and mean = {np.nanmean(E_t_ha_month)}")
+            E_t_ha_month = R_month * K_month * INIT_VALUES.LS_FACTOR * C_factor_2D * INIT_VALUES.P_FACTOR
+            E_t_ha_month[~MAP_STATS.border_mask] = np.nan
             E_tcell_month = E_t_ha_month * CELL_AREA_HA
             E_month_avg_list.append(np.nanmean(E_t_ha_month))
-
-            # Compute SOC mass eroded (kg/cell/month)
-            S = E_tcell_month * (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
+            
             SOC_loss_g_kg_month = convert_soil_loss_to_soc_loss_monthly(
                 E_t_ha_month, (MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
             )
             
             A = convert_soil_to_soc_loss(E_t_ha_month)
-            V = vegetation_input(LAI_2D)
+            V = vegetation_input(lai_2d)
             
-            mean_vege_gain = np.nanmean(np.nan_to_num(V, nan=0))
-            print(f"Year {year} Month {month_idx+1}: SOC_Vegetation_Gain - mean: {mean_vege_gain:.2f}, ")
-
             soc_time = time.time()
-            if past and USE_UNET:
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap, dam_cur_stored = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past, UNet_MODEL=UNet_Model)
-            elif past and USE_1980_LAI_TREND:
-                LAI_2D[~MAP_STATS.loess_border_mask] = np.nan
-                LAI_avg = np.nanmean(LAI_2D)
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap, dam_cur_stored = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past, LAI_avg=LAI_avg)
-            else:
-                MAP_STATS.C_fast_current, MAP_STATS.C_slow_current, dep_soc_fast, dep_soc_slow, lost_soc, full_dams, dam_rem_cap, dam_cur_stored = soc_dynamic_model(E_tcell_month, A, sorted_indices, dam_max_cap, dam_cur_stored, active_dams, full_dams, V, month_idx, year, past)
-            print(f'SOC took {time.time() - soc_time}')
+            LAI_avg = np.nanmean(lai_2d)
+            # Run SOC Dynamic Model to update SOC pools
+            dep_soc_fast, dep_soc_slow, lost_soc = soc_dynamic_model(E_tcell_month, A, V, month_idx, year, past, LAI_avg)
+            print(f'SOC Dynamic Model took {time.time() - soc_time}')
             
-            if year == EQUIL_YEAR and not past:
+            store_plot_output(year, month_idx, past, SOC_loss_g_kg_month, dep_soc_fast, dep_soc_slow, V, E_t_ha_month, C_factor_2D, K_month, R_month, lost_soc)
+            
+            print(f"Completed simulation for Year {year}, Month {month_idx+1}")
+            print(f"This month took {time.time() - time_month} seconds")
+        
+        print(f'C factor annual avg = {np.nanmean(C_month_list)}')
+        print(f"\nAnnual mean of E = {np.nanmean(E_month_avg_list)}\n")
+        
+        return
+            
+def store_plot_output(year, month_idx, past, SOC_loss_g_kg_month, dep_soc_fast, dep_soc_slow, V, E_t_ha_month, C_factor_2D, K_month, R_month, lost_soc):
+    if year == EQUIL_YEAR and not past:
                 MAP_STATS.C_fast_equil_list.append(MAP_STATS.C_fast_current)
                 MAP_STATS.C_slow_equil_list.append(MAP_STATS.C_slow_current)
             
-            if VALIDATE_1980 and year == 1980:
-                MAP_STATS.C_total_1980_Valid_list.append(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
+    if VALIDATE_PAST and year == PAST_KNOWN:
+        MAP_STATS.C_total_Past_Valid_list.append(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
+    
+    C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
+    mean_C_total = np.nanmean(C_total)
+    max_C_total = np.nanmax(C_total)
+    min_C_total = np.nanmin(C_total)
+    
+    # stash a copy of this month’s total‐C grid
+    if past:
+        MAP_STATS.total_C_matrix.insert(0, C_total.copy())
+        MAP_STATS.C_fast_matrix.insert(0, MAP_STATS.C_fast_current.copy())
+        MAP_STATS.C_slow_matrix.insert(0, MAP_STATS.C_slow_current.copy())
+        MAP_STATS.active_dam_matrix.insert(0, MAP_STATS.active_dams.copy())
+        MAP_STATS.full_dam_matrix.insert(0, MAP_STATS.full_dams.copy())
+        MAP_STATS.dam_rem_cap_matrix.insert(0, MAP_STATS.dam_rem_cap.copy())
+    else:
+        MAP_STATS.total_C_matrix.append(C_total.copy())
+        MAP_STATS.C_fast_matrix.append(MAP_STATS.C_fast_current.copy())
+        MAP_STATS.C_slow_matrix.append(MAP_STATS.C_slow_current.copy())
+        MAP_STATS.active_dam_matrix.append(MAP_STATS.active_dams.copy())
+        MAP_STATS.full_dam_matrix.append(MAP_STATS.full_dams.copy())
+        MAP_STATS.dam_rem_cap_matrix.append(MAP_STATS.dam_rem_cap.copy())
+        
+    # count and report cells where C_total > 40 and it's an active dam
+    high_dam_mask = (C_total > 40) & MAP_STATS.active_dams
+    count_high_dam = np.count_nonzero(high_dam_mask)
+    print(f"Number of active dam cells with C_total > 40: {count_high_dam}")
+
+    count_full_dam = np.count_nonzero(MAP_STATS.full_dams)
+    print(f"Number of full dams: {count_full_dam}")
+    
+    dam_cap = np.nansum(MAP_STATS.dam_rem_cap, dtype=np.float64)
+    print(f"Remaining dam capacity: {dam_cap} tons")
+
+    print(f"Year {year} Month {month_idx + 1}: Total_SOC_mean: {mean_C_total:.2f}, "
+            f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
+    
+    plot_SOC_timestep(year, month_idx)
+    
+    lat_grid, lon_grid = np.meshgrid(MAP_STATS.grid_y, MAP_STATS.grid_x, indexing='ij')
+
+    lat_list =  lat_grid.ravel(order='C').tolist()
+    lon_list =  lon_grid.ravel(order='C').tolist()
+    landuse_list = INIT_VALUES.LANDUSE.astype(str).ravel(order='C').tolist()
+    Region_list = INIT_VALUES.REGION.astype(str).ravel(order='C').tolist()
+    Low_point_list = MAP_STATS.low_mask.astype(str).ravel('C').tolist()
+
+    pf = MAP_STATS.p_fast_grid
+    sign = 1 if past else -1
+    
+    # SOC groups
+    C_fast_list  = MAP_STATS.C_fast_current .ravel('C').tolist()
+    C_slow_list  = MAP_STATS.C_slow_current .ravel('C').tolist()
+    lost_soc_list =  lost_soc     .ravel('C').tolist()
+    C_total_list = C_total        .ravel('C').tolist()
+
+    # Erosion
+    erosion_fast_list = ( sign * SOC_loss_g_kg_month *  pf          ).ravel('C').tolist()
+    erosion_slow_list = ( sign * SOC_loss_g_kg_month * (1 - pf)     ).ravel('C').tolist()
+
+    # Deposition
+    deposition_fast_list = (-sign * dep_soc_fast).ravel('C').tolist()
+    deposition_slow_list = (-sign * dep_soc_slow).ravel('C').tolist()
+
+    # Vegetation）
+    vegetation_fast_list = (-sign * V * V_FAST_PROP      ).ravel('C').tolist()
+    vegetation_slow_list = (-sign * V * (1 - V_FAST_PROP)).ravel('C').tolist()
+
+    # Reaction
+    reaction_fast_list = (sign * INIT_VALUES.K_fast * MAP_STATS.C_fast_current ).ravel('C').tolist()
+    reaction_slow_list = (sign * INIT_VALUES.K_slow * MAP_STATS.C_slow_current ).ravel('C').tolist()
+
+    # RUSLE Factors
+    E_t_ha_list   =  E_t_ha_month .ravel('C').tolist()
+    C_factor_list =  C_factor_2D  .ravel('C').tolist()
+    K_factor_list =  K_month      .ravel('C').tolist()
+    LS_factor_list=  INIT_VALUES.LS_FACTOR    .ravel('C').tolist()
+    P_factor_list =  INIT_VALUES.P_FACTOR     .ravel('C').tolist()
+    R_factor_list =  R_month      .ravel('C').tolist()
+
+    # Dams
+    full_dams_list = MAP_STATS.full_dams    .ravel('C').tolist()
+    dam_rem_cap_list = MAP_STATS.dam_rem_cap.ravel('C').tolist()
+    dam_cur_stored_list = MAP_STATS.dam_cur_stored.ravel('C').tolist()
+    
+    df_out = pd.DataFrame({
+        'LAT': lat_list,
+        'LON': lon_list,
+        'Landuse': landuse_list,
+        'Region': Region_list,
+        'Low point': Low_point_list,
+        'C_fast': C_fast_list,
+        'C_slow': C_slow_list,
+        'Total_C': C_total_list,
+        'Erosion_fast': erosion_fast_list,
+        'Erosion_slow': erosion_slow_list,
+        'Deposition_fast': deposition_fast_list,
+        'Deposition_slow': deposition_slow_list,
+        'Vegetation_fast': vegetation_fast_list,
+        'Vegetation_slow': vegetation_slow_list,
+        'Reaction_fast': reaction_fast_list,
+        'Reaction_slow': reaction_slow_list,
+        'E_t_ha_month': E_t_ha_list,
+        'C_factor_month': C_factor_list,
+        'K_factor_month': K_factor_list,
+        'LS_factor_month': LS_factor_list,
+        'P_factor_month': P_factor_list,
+        'R_factor_month': R_factor_list,
+        'Lost_SOC_River': lost_soc_list,
+        'full_dam': full_dams_list,
+        'dam_rem_cap': dam_rem_cap_list,
+        'dam_cur_stored': dam_cur_stored_list
+    })
+    
+    if USE_PARQUET:
+        filename_parquet = f"SOC_terms_{year}_{month_idx+1:02d}_River.parquet"
+        df_out.to_parquet(os.path.join(Paths.OUTPUT_DIR, "Data", filename_parquet), index=False, engine="pyarrow")
+        print(f"Saved parquet output for Year {year}, Month {month_idx+1} as {filename_parquet}")
+    else:
+        filename_csv = f"SOC_terms_{year}_{month_idx+1:02d}_River.csv"
+        df_out.to_csv(os.path.join(Paths.OUTPUT_DIR, "Data", filename_csv), index=False, float_format="%.6f")
+        print(f"Saved CSV output for Year {year}, Month {month_idx+1} as {filename_csv}")
             
-            C_total = MAP_STATS.C_fast_current + MAP_STATS.C_slow_current
-            mean_C_total = np.nanmean(C_total)
-            max_C_total = np.nanmax(C_total)
-            min_C_total = np.nanmin(C_total)
-
-            # stash a copy of this month’s total‐C grid
-            if past:
-                MAP_STATS.total_C_matrix.insert(0, C_total.copy())
-                MAP_STATS.C_fast_matrix.insert(0, MAP_STATS.C_fast_current.copy())
-                MAP_STATS.C_slow_matrix.insert(0, MAP_STATS.C_slow_current.copy())
-                MAP_STATS.active_dam_matrix.insert(0, active_dams.copy())
-                MAP_STATS.full_dam_matrix.insert(0, full_dams.copy())
-                MAP_STATS.dam_rem_cap_matrix.insert(0, dam_rem_cap.copy())
-            else:
-                MAP_STATS.total_C_matrix.append(C_total.copy())
-                MAP_STATS.C_fast_matrix.append(MAP_STATS.C_fast_current.copy())
-                MAP_STATS.C_slow_matrix.append(MAP_STATS.C_slow_current.copy())
-                MAP_STATS.active_dam_matrix.append(active_dams.copy())
-                MAP_STATS.full_dam_matrix.append(full_dams.copy())
-                MAP_STATS.dam_rem_cap_matrix.append(dam_rem_cap.copy())
-
-
-            # New: count and report cells where C_total > 40 and it's an active dam
-            high_dam_mask = (C_total > 40) & active_dams
-            count_high_dam = np.count_nonzero(high_dam_mask)
-            print(f"Number of active dam cells with C_total > 40: {count_high_dam}")
-
-            count_full_dam = np.count_nonzero(full_dams)
-            print(f"Number of full dams: {count_full_dam}")
-
-            # Easiest: promote the accumulator
-            dam_cap = np.nansum(dam_rem_cap, dtype=np.float64)
-            print(f"Remaining dam capacity: {dam_cap} tons")
-
-            print(f"Year {year} Month {month_idx + 1}: Total_SOC_mean: {mean_C_total:.2f}, "
-                  f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
-
-            # global_timestep += 1
-            print(f"Completed simulation for Year {year}, Month {month_idx+1}")
-
-            time1 = time.time()
-            # Save figure output
-            from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-            # ─── FIGURE OUTPUT ─────────────────────────────────────────────────────────────
-            fig, ax = plt.subplots(figsize=(10, 6))
-
-            # 1) Plot SOC
-            im = ax.imshow(
-                MAP_STATS.C_fast_current + MAP_STATS.C_slow_current,
-                cmap="viridis", vmin=0, vmax=30,
-                extent=[
-                    MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(),
-                    MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()
-                ],
-                origin="upper"
-            )
-
-            # 2) Overlay the border (no fill, just outline)
-            border = MAP_STATS.loess_border_geom.boundary
-            if isinstance(border, LineString):
-                x, y = border.xy
-                ax.plot(x, y, color="black", linewidth=0.4)
-            elif isinstance(border, MultiLineString):
-                for seg in border.geoms:
-                    x, y = seg.xy
-                    ax.plot(x, y, color="black", linewidth=0.4)
-
-            # 3) Append a colorbar axis the same height as the map, with padding
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes("right", size="4%", pad="4%")
-            cbar = fig.colorbar(im, cax=cax)
-            cbar.set_label("SOC (g/kg)")
-
-            # 4) Labels and formatting
-            ax.set_title(f"SOC at Timestep Year {year}, Month {month_idx + 1}")
-            ax.set_xlabel("Longitude")
-            ax.set_ylabel("Latitude")
-            ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useOffset=False))
-            ax.ticklabel_format(style="plain", axis="x")
-
-            # 5) Save and close
-            filename_fig = f"SOC_{year}_{month_idx + 1:02d}_River.png"
-            plt.savefig(
-                os.path.join(OUTPUT_DIR, "Figure", filename_fig),
-                dpi=600,
-                bbox_inches="tight"
-            )
-            plt.close(fig)
-
-            print(f"plot took {time.time() - time1} seconds")
-            
-            time1 = time.time()
-
-            rows_grid, cols_grid = MAP_STATS.C_fast_current.shape
-            lat_grid, lon_grid = np.meshgrid(MAP_STATS.grid_y, MAP_STATS.grid_x, indexing='ij')
-
-            lat_list =  lat_grid.ravel(order='C').tolist()      # 与 for i→for j 顺序一致
-            lon_list =  lon_grid.ravel(order='C').tolist()
-            landuse_list = INIT_VALUES.LANDUSE.astype(str).ravel(order='C').tolist()
-            Region_list = INIT_VALUES.REGION.astype(str).ravel(order='C').tolist()
-            Low_point_list = MAP_STATS.low_mask.astype(str).ravel('C').tolist()
-
-            pf = MAP_STATS.p_fast_grid
-            sign = 1 if past else -1                              # past=True ➜ 正号，False ➜ 取反
-
-            # SOC 组分
-            C_fast_list  = MAP_STATS.C_fast_current .ravel('C').tolist()
-            C_slow_list  = MAP_STATS.C_slow_current .ravel('C').tolist()
-
-            # Erosion（侵蚀输出）
-            erosion_fast_list = ( sign * SOC_loss_g_kg_month *  pf          ).ravel('C').tolist()
-            erosion_slow_list = ( sign * SOC_loss_g_kg_month * (1 - pf)     ).ravel('C').tolist()
-
-            # Deposition（沉积输入，符号与 erosion 相反）
-            deposition_fast_list = (-sign * dep_soc_fast).ravel('C').tolist()
-            deposition_slow_list = (-sign * dep_soc_slow).ravel('C').tolist()
-
-            # Vegetation（植被输入）
-            vegetation_fast_list = (-sign * V * V_FAST_PROP      ).ravel('C').tolist()
-            vegetation_slow_list = (-sign * V * (1 - V_FAST_PROP)).ravel('C').tolist()
-
-            # Reaction（微生物矿化）
-            reaction_fast_list = (sign * INIT_VALUES.K_fast * MAP_STATS.C_fast_current ).ravel('C').tolist()
-            reaction_slow_list = (sign * INIT_VALUES.K_slow * MAP_STATS.C_slow_current ).ravel('C').tolist()
-
-            # 其余月度/因子量
-            E_t_ha_list   =  E_t_ha_month .ravel('C').tolist()
-            C_factor_list =  C_factor_2D  .ravel('C').tolist()
-            K_factor_list =  K_month      .ravel('C').tolist()
-            LS_factor_list=  LS_factor    .ravel('C').tolist()
-            P_factor_list =  P_factor     .ravel('C').tolist()
-            R_factor_list =  R_month      .ravel('C').tolist()
-            lost_soc_list =  lost_soc     .ravel('C').tolist()
-
-            C_total_list = C_total        .ravel('C').tolist()
-
-            full_dams_list = full_dams    .ravel('C').tolist()
-            dam_rem_cap_list = dam_rem_cap.ravel('C').tolist()
-            dam_cur_stored_list = dam_cur_stored.ravel('C').tolist()
-
-            print(f"Gather data for csv took {time.time() - time1} seconds")
-            
-            df_out = pd.DataFrame({
-                'LAT': lat_list,
-                'LON': lon_list,
-                'Landuse': landuse_list,
-                'Region': Region_list,
-                'Low point': Low_point_list,
-                'C_fast': C_fast_list,
-                'C_slow': C_slow_list,
-                'Total_C': C_total_list,
-                'Erosion_fast': erosion_fast_list,
-                'Erosion_slow': erosion_slow_list,
-                'Deposition_fast': deposition_fast_list,
-                'Deposition_slow': deposition_slow_list,
-                'Vegetation_fast': vegetation_fast_list,
-                'Vegetation_slow': vegetation_slow_list,
-                'Reaction_fast': reaction_fast_list,
-                'Reaction_slow': reaction_slow_list,
-                'E_t_ha_month': E_t_ha_list,
-                'C_factor_month': C_factor_list,
-                'K_factor_month': K_factor_list,
-                'LS_factor_month': LS_factor_list,
-                'P_factor_month': P_factor_list,
-                'R_factor_month': R_factor_list,
-                'Lost_SOC_River': lost_soc_list,
-                'full_dam': full_dams_list,
-                'dam_rem_cap': dam_rem_cap_list,
-                'dam_cur_stored': dam_cur_stored_list
-            })
-            
-            if USE_PARQUET:
-                filename_parquet = f"SOC_terms_{year}_{month_idx+1:02d}_River.parquet"
-                df_out.to_parquet(os.path.join(OUTPUT_DIR, "Data", filename_parquet), index=False, engine="pyarrow")
-                print(f"Saved parquet output for Year {year}, Month {month_idx+1} as {filename_parquet}")
-            else:
-                filename_csv = f"SOC_terms_{year}_{month_idx+1:02d}_River.csv"
-                df_out.to_csv(os.path.join(OUTPUT_DIR, "Data", filename_csv), index=False, float_format="%.6f")
-                print(f"Saved CSV output for Year {year}, Month {month_idx+1} as {filename_csv}")
-            
-            
-            
-            print(f"This month took {time.time() - time_month} seconds")
-            
-        print(f'C factor annual avg = {np.nanmean(C_month_list)}')
-        print(f"\nAnnual mean of E = {np.nanmean(E_month_avg_list)}\n")
