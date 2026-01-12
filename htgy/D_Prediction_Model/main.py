@@ -127,7 +127,7 @@ def run_model():
     if PAST_YEAR != None:
         # Run Past Simulation
         if RUN_FROM_EQUIL:
-            start_year = EQUIL_YEAR - 1
+            start_year = EQUIL_YEAR
             if FUTURE_YEAR != None or END_YEAR != EQUIL_YEAR:
                 # Run present again to get to EQUIL_YEAR state
                 print(f"Running present simulation to reach equilibrium year {EQUIL_YEAR}...")
@@ -136,7 +136,7 @@ def run_model():
         else:
             start_year = INIT_YEAR
         print("Running past simulation...")
-        for year in range(start_year - 1, PAST_YEAR - 1, -1):
+        for year in range(start_year, PAST_YEAR - 1, -1):
             run_simulation_year(year, past=True)
             
         # Drop elements from 2007 to Equil year to aviod double counting
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     with open(Paths.OUTPUT_DIR / "out.log", "w", encoding="utf-8") as f:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         f.write(f"Log generated at: {timestamp}\n\n")
-        #f.write(get_param_log() + "\n")
+        f.write(get_param_log() + "\n")
         original_stdout = sys.stdout
         sys.stdout = TeeOutput(f, original_stdout)
         try:

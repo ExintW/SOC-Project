@@ -6,11 +6,11 @@ from paths import Paths
 
 ################################ Run Config ################################
 INIT_YEAR = 2007    # Year of initial SOC data (or first year of future for SKIP_TO_FUTURE)
-END_YEAR = 2024     # End year of present simulation
-FUTURE_YEAR = 2100  # End year of future simulation (Future year starts at END_YEAR + 1)
+END_YEAR = None     # End year of present simulation
+FUTURE_YEAR = None  # End year of future simulation (Future year starts at END_YEAR + 1)
 PAST_YEAR = 1950    # End year of reverse simulation
 
-RUN_FROM_EQUIL = True       # If True, past run from equilibrium state instead of INIT_YEAR data
+RUN_FROM_EQUIL = True      # If True, past run from equilibrium state instead of INIT_YEAR data, if False and USE_PAST_EQUIL is True, ALWAYS_USE_PAST must be True
 EQUIL_YEAR = 2014           # Year to use as equilibrium state for reverse simulation
 
 CLEAN_OUTDIR = True          # If True, clean output directory before running
@@ -21,12 +21,18 @@ SKIP_TO_FUTURE = False      # If True, skip to future initial data directly (onl
 VALIDATE_PAST = False        # If True, validate past SOC against simulated data
 
 SAVE_NC = False              # If True, additionally save output as NetCDF files
+USE_PARQUET = True           # Use parquet to store output, if false, use csv instead
 
+PRINT_MAX = False            # DEBUG: print all max values for each timestep
+PRINT_ALL = False            # DEBUG: Print all values for each timestep
 ################################ Simulation/Model Config ##########################
 C_INIT_FACTOR = 1           # Adjust initial value of SOC (Set to 1 to use original)
 C_INIT_CAP = 80             # Cap initial SOC to this value (0 to disable)
 P_FAST_DIV_FACTOR = 10      # divide p_fast grid by this, 1 to use original   
 SOC_PAST_FACTOR = 1         # Adjust past year SOC values (Set to 1 to use original)
+C_MIN_CAP = 0.001            # Min of C, to avoid dead areas when past
+C_FAST_MAX = 7 
+C_SLOW_MAX = 1e9 
 
 USE_GAUSSIAN_BLUR = True    # If True, apply Gaussian blur to past SOC data for smoother prior
 SIGMA = 10                  # Strength of the gaussian blur
@@ -35,12 +41,40 @@ USE_PAST_LAI_TREND = True   # If True, use past LAI trend for regularization
 
 V_FACTOR = 8                # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0              # clip V (None to disable)
+V_FAST_PROP = 0.8           # for vegetation input proportion
+A_MAX = 1                   # clip A
+
+ALPHA = 0.20                # for humification -> % minerized C fast that becomes C slow  (0 to disable)
 
 ################################ Regularization Config ##########################
-REG_YEAR = 1980             # Year used for regularization
+USE_TIKHONOV = True         # Enable L2 Regularization
+PAST_KNOWN = 1980               # Year of 1 known SOC data in the past
 REG_FREQ = 5                # Frequency (in years) to apply spatial regularization
 
 USE_PAST_EQUIL = True       # If True, use past equilibrium SOC for regularization
+ALWAYS_USE_PAST = False     # if True, always use PAST_KNOWN as prior knowledge (USE_PAST_EQUIL needs to be True)
+
+L_FAST_MIN = 0.1            # Regularization Term
+L_SLOW_MIN = 0.1            # Regularization Term
+
+PLOT_PRIOR = False          # Plot the piror SOC of that time step when doing reg
+
+# Spatial Regularization
+USE_SPATIAL_REG = False     # Unequal regularization
+USE_K_FOR_SPATIAL = False   # If False, use A for spatial. K for spatial uses different lambda for C fast and slow
+ADD_V_IN_SPATIAL = False    # Add more REG in low V areas
+REG_CONST_BASE = 0.125
+REG_ALPHA = 5                  # Adjust the impact of K or A on REG
+REG_BETA = 5                    # Adjust the impact of V on REG
+
+REG_CONST = 1                   # Not using this if spatial reg is true
+
+# Using 1 known past year for reg
+USE_PAST_EQUIL = True           # if True, past will use PAST soc as prior knowledge if cur year is closer to PAST
+USE_PAST_EQUIL_AVG = False      # Use the avg of PAST_KNOWN and equil year as prior
+USE_PAST_EQUIL_PREV_AVG = False  # Use the avg of PAST_KNOWN, equil year, and previous month as prior
+USE_DYNAMIC_AVG = True          # Use weighted avg of PAST_KNOWN and EQUIL between PAST_KNOWN and EQUIL
+USE_PRIOR_PREV_AVG = False      # Use the avg of prior year (EQUIL or 1980) and previous timestep as prior
 
 ################################ Region Specific Config ################################
 BORDER_SHP = Paths.DATA_DIR / "Loess_Plateau_vector_border.shp"                 # Shapefile for the border
@@ -125,3 +159,43 @@ ERA5_LON = 'longitude'
 ERA5_LAT = 'latitude'
 ERA5_PR  = 'tp'      
 ERA5_PR_CONV_FACTOR = 30 * 1000  # Convert from m/month to mm/month
+
+def get_param_log():
+        return f"""\
+############################ Parameters ##############################
+C_INIT_CAP = {C_INIT_CAP}
+C_INIT_FACTOR = {C_INIT_FACTOR}
+SOC_PAST_FACTOR = {SOC_PAST_FACTOR}
+USE_TIKHONOV = {USE_TIKHONOV}
+REG_CONST = {REG_CONST}
+USE_SPATIAL_REG = {USE_SPATIAL_REG}
+REG_CONST_BASE = {REG_CONST_BASE}
+REG_ALPHA = {REG_ALPHA}
+USE_K_FOR_SPATIAL = {USE_K_FOR_SPATIAL}
+ADD_V_IN_SPATIAL = {ADD_V_IN_SPATIAL}
+REG_BETA = {REG_BETA}
+REG_FREQ = {REG_FREQ}
+RUN_FROM_EQUIL = {RUN_FROM_EQUIL}
+EQUIL_YEAR = {EQUIL_YEAR}
+USE_PAST_EQUIL = {USE_PAST_EQUIL}
+ALWAYS_USE_PAST = {ALWAYS_USE_PAST}
+USE_PAST_EQUIL_AVG = {USE_PAST_EQUIL_AVG}
+USE_PRIOR_PREV_AVG = {USE_PRIOR_PREV_AVG}
+USE_PAST_EQUIL_PREV_AVG = {USE_PAST_EQUIL_PREV_AVG}
+USE_PAST_LAI_TREND = {USE_PAST_LAI_TREND}
+USE_GAUSSIAN_BLUR = {USE_GAUSSIAN_BLUR}
+SIGMA = {SIGMA}
+USE_DYNAMIC_AVG={USE_DYNAMIC_AVG}
+ALPHA = {ALPHA}
+A_MAX = {A_MAX}
+L_FAST_MIN = {L_FAST_MIN}
+L_SLOW_MIN = {L_SLOW_MIN}
+V_FAST_PROP = {V_FAST_PROP}
+V_FACTOR = {V_FACTOR}
+V_MIN_CLIP = {V_MIN_CLIP}
+P_FAST_DIV_FACTOR = {P_FAST_DIV_FACTOR}
+C_MIN_CAP = {C_MIN_CAP}
+C_FAST_MAX = {C_FAST_MAX}
+C_SLOW_MAX = {C_SLOW_MAX}
+######################################################################
+"""

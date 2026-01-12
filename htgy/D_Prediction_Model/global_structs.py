@@ -57,14 +57,19 @@ class MAP_STATS:
     C_fast_equil_list = []
     C_slow_equil_list = []
     
-    total_C_matrix = None
+    total_C_matrix = []
+    C_fast_matrix = []
+    C_slow_matrix = []
+    active_dam_matrix = []
+    full_dam_matrix = [] 
     
     # Dam related stats
-    dam_rem_cap_matrix = None
+    dam_rem_cap_matrix = []
     active_dams = None
     dam_cur_stored = None
     dam_max_cap = None
     full_dams = None
+    dam_rem_cap = None
 
     low_mask = None
     Low_Point_Capacity = None
