@@ -90,6 +90,7 @@ LS_FILE = Paths.PROCESSED_DIR / "LS_factor.npy"                                 
 DEM_FILE_NAME = "htgyDEM.tif"                                                   # DEM file used for LS factor calculation
 CMIP6_PR_FILE = Paths.PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_585.nc" # NetCDF file containing resampled precipitation data for CMIP6
 ERA5_PR_DIR = Paths.PROCESSED_DIR / "ERA5_Data_Monthly_Resampled"               # Directory containing resampled ERA5 precipitation data for present years
+LOW_POINT_CSV = Paths.PROCESSED_DIR / "Low_Point_Summary.csv"                   # CSV containing low point info
 
 CMIP_START = 1950                  # Start year for CMIP6 LAI data
 DESIRED_CRS = "EPSG:4326"          # Desired coordinate reference system for all spatial data
