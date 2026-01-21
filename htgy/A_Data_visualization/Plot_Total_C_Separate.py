@@ -12,6 +12,15 @@ import matplotlib.dates as mdates
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import *    # defines OUTPUT_DIR
 
+plt.rcParams.update({
+    "font.size": 16,          # base font
+    "axes.titlesize": 18,     # title
+    "axes.labelsize": 18,     # x/y label
+    "legend.fontsize": 16,    # legend
+    "xtick.labelsize": 16,    # x tick labels
+    "ytick.labelsize": 16,    # y tick labels
+})
+
 # =============================================================================
 # 1) Configuration & File-path Setup
 # =============================================================================
@@ -174,10 +183,43 @@ def plot_soc_window(df_all, annual_means, ci_df, start_date, end_date, out_path,
         prev_scen = scen
 
     # axis formatting
-    ax.set_ylim(bottom=0)
-    ax.set_title(title)
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Mean Total_C")
+    # -------------------------------------------------------------------------
+    # y-axis: auto-fit to the data in this window (monthly + annual + CI)
+    # -------------------------------------------------------------------------
+    y_vals = []
+
+    # monthly values in the window
+    y_vals.append(df_all.loc[(df_all["date"] >= start_date) & (df_all["date"] <= end_date), "mean"].to_numpy())
+
+    # annual means in the window
+    y_vals.append(annual_means.loc[
+                      (annual_means["year"] >= pd.to_datetime(start_date).year) &
+                      (annual_means["year"] <= pd.to_datetime(end_date).year),
+                      "mean"
+                  ].to_numpy())
+
+    # CI bounds in the window
+    y_vals.append(ci_df.loc[
+                      (ci_df["year"] >= pd.to_datetime(start_date).year) &
+                      (ci_df["year"] <= pd.to_datetime(end_date).year),
+                      ["lower", "upper"]
+                  ].to_numpy().ravel())
+
+    y_all = np.concatenate([v for v in y_vals if v.size > 0])
+    y_all = y_all[np.isfinite(y_all)]
+
+    if y_all.size > 0:
+        y_min = float(np.min(y_all))
+        y_max = float(np.max(y_all))
+
+        # padding so the curve does not touch the borders
+        pad = 0.08 * (y_max - y_min + 1e-12)
+
+        ax.set_ylim(y_min - pad, y_max + pad)
+
+    ax.set_title(title, fontsize = 18)
+    ax.set_xlabel("Year", fontsize = 18)
+    ax.set_ylabel("Mean Total SOC (g/kg)", fontsize = 18)
 
     # ticks: decade ticks within the window
     tick_start_year = (pd.to_datetime(start_date).year // 10) * 10
