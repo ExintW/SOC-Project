@@ -6,12 +6,12 @@ from paths import Paths
 
 ################################ Run Config ################################
 INIT_YEAR = 2007    # Year of initial SOC data (or first year of future for SKIP_TO_FUTURE)
-END_YEAR = None     # End year of present simulation
+END_YEAR = 2009     # End year of present simulation
 FUTURE_YEAR = None  # End year of future simulation (Future year starts at END_YEAR + 1)
-PAST_YEAR = 1950    # End year of reverse simulation
+PAST_YEAR = 2000    # End year of reverse simulation
 
 RUN_FROM_EQUIL = True      # If True, past run from equilibrium state instead of INIT_YEAR data, if False and USE_PAST_EQUIL is True, ALWAYS_USE_PAST must be True
-EQUIL_YEAR = 2014           # Year to use as equilibrium state for reverse simulation
+EQUIL_YEAR = 2009           # Year to use as equilibrium state for reverse simulation
 
 CLEAN_OUTDIR = True          # If True, clean output directory before running
 
@@ -49,15 +49,12 @@ ALPHA = 0.20                # for humification -> % minerized C fast that become
 ################################ Regularization Config ##########################
 USE_TIKHONOV = True         # Enable L2 Regularization
 PAST_KNOWN = 1980               # Year of 1 known SOC data in the past
-REG_FREQ = 5                # Frequency (in years) to apply spatial regularization
-
-USE_PAST_EQUIL = True       # If True, use past equilibrium SOC for regularization
-ALWAYS_USE_PAST = False     # if True, always use PAST_KNOWN as prior knowledge (USE_PAST_EQUIL needs to be True)
+REG_FREQ = 5                # Frequency (in months) to apply spatial regularization
 
 L_FAST_MIN = 0.1            # Regularization Term
 L_SLOW_MIN = 0.1            # Regularization Term
 
-PLOT_PRIOR = False          # Plot the piror SOC of that time step when doing reg
+PLOT_PRIOR = False          # Plot the prior SOC of that time step when doing reg
 
 # Spatial Regularization
 USE_SPATIAL_REG = False     # Unequal regularization
@@ -69,8 +66,9 @@ REG_BETA = 5                    # Adjust the impact of V on REG
 
 REG_CONST = 1                   # Not using this if spatial reg is true
 
-# Using 1 known past year for reg
-USE_PAST_EQUIL = True           # if True, past will use PAST soc as prior knowledge if cur year is closer to PAST
+# Using 1 known past year for reg      
+USE_PAST_EQUIL = True           # if True, past will use PAST_KNOWN soc as prior knowledge if cur year is closer to PAST
+ALWAYS_USE_PAST = False         # if True, always use PAST_KNOWN as prior knowledge (USE_PAST_EQUIL needs to be True)
 USE_PAST_EQUIL_AVG = False      # Use the avg of PAST_KNOWN and equil year as prior
 USE_PAST_EQUIL_PREV_AVG = False  # Use the avg of PAST_KNOWN, equil year, and previous month as prior
 USE_DYNAMIC_AVG = True          # Use weighted avg of PAST_KNOWN and EQUIL between PAST_KNOWN and EQUIL

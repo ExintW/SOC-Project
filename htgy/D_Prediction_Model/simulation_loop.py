@@ -171,6 +171,7 @@ def store_plot_output(year, month_idx, past, SOC_loss_g_kg_month, dep_soc_fast, 
 
     print(f"Year {year} Month {month_idx + 1}: Total_SOC_mean: {mean_C_total:.2f}, "
             f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
+    print(f"C_fast_mean: {np.nanmean(MAP_STATS.C_fast_current):.2f}, C_slow_mean: {np.nanmean(MAP_STATS.C_slow_current):.2f}")
     
     plot_SOC_timestep(year, month_idx)
     
