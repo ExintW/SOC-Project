@@ -75,7 +75,7 @@ class MAP_STATS:
     Low_Point_Capacity = None
     Low_Point_DEM_Dif = None
 
-    REG_counter = REG_FREQ
+    REG_counter = 1
     
     C_total_Past_Valid_list = []
 

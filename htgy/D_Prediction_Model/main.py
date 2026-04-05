@@ -37,7 +37,7 @@ def run_model():
             MAP_STATS.dam_cur_stored = df_init['dam_cur_stored'].values.reshape(MAP_STATS.dam_cur_stored.shape)
         else:
             print(f"Warning: future initial file not found at {future_initial_file}, using default INIT_VALUES")
-
+ 
     # rasterize river basin boundaries & main river using precomputed masks
     print("Precomputing river basin masks...")
     precompute_river_basin()

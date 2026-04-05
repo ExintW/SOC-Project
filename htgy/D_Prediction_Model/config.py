@@ -6,12 +6,12 @@ from paths import Paths
 
 ################################ Run Config ################################
 INIT_YEAR = 2007    # Year of initial SOC data (or first year of future for SKIP_TO_FUTURE)
-END_YEAR = 2009     # End year of present simulation
+END_YEAR = 2014     # End year of present simulation
 FUTURE_YEAR = None  # End year of future simulation (Future year starts at END_YEAR + 1)
-PAST_YEAR = 2000    # End year of reverse simulation
+PAST_YEAR = 1950    # End year of reverse simulation
 
 RUN_FROM_EQUIL = True      # If True, past run from equilibrium state instead of INIT_YEAR data, if False and USE_PAST_EQUIL is True, ALWAYS_USE_PAST must be True
-EQUIL_YEAR = 2009           # Year to use as equilibrium state for reverse simulation
+EQUIL_YEAR = 2014           # Year to use as equilibrium state for reverse simulation
 
 CLEAN_OUTDIR = True          # If True, clean output directory before running
 
@@ -24,7 +24,7 @@ SAVE_NC = False              # If True, additionally save output as NetCDF files
 USE_PARQUET = True           # Use parquet to store output, if false, use csv instead
 
 PRINT_MAX = False            # DEBUG: print all max values for each timestep
-PRINT_ALL = False            # DEBUG: Print all values for each timestep
+PRINT_ALL = True            # DEBUG: Print all values for each timestep
 ################################ Simulation/Model Config ##########################
 C_INIT_FACTOR = 1           # Adjust initial value of SOC (Set to 1 to use original)
 C_INIT_CAP = 80             # Cap initial SOC to this value (0 to disable)
@@ -37,7 +37,7 @@ C_SLOW_MAX = 1e9
 USE_GAUSSIAN_BLUR = True    # If True, apply Gaussian blur to past SOC data for smoother prior
 SIGMA = 10                  # Strength of the gaussian blur
 
-USE_PAST_LAI_TREND = True   # If True, use past LAI trend for regularization
+USE_PAST_LAI_TREND = True   # If True, use past LAI trend for regularization when year < PAST_KNOWN
 
 V_FACTOR = 8                # for vegetation scaling (set to 1 to disable)
 V_MIN_CLIP = 0              # clip V (None to disable)
@@ -68,6 +68,7 @@ REG_CONST = 1                   # Not using this if spatial reg is true
 
 # Using 1 known past year for reg      
 USE_PAST_EQUIL = True           # if True, past will use PAST_KNOWN soc as prior knowledge if cur year is closer to PAST
+# Following options should be mutually exclusive
 ALWAYS_USE_PAST = False         # if True, always use PAST_KNOWN as prior knowledge (USE_PAST_EQUIL needs to be True)
 USE_PAST_EQUIL_AVG = False      # Use the avg of PAST_KNOWN and equil year as prior
 USE_PAST_EQUIL_PREV_AVG = False  # Use the avg of PAST_KNOWN, equil year, and previous month as prior
