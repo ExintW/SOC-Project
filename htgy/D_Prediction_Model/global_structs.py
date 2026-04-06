@@ -56,6 +56,9 @@ class MAP_STATS:
 
     C_fast_equil_list = []
     C_slow_equil_list = []
+    C_fast_equil_terminal = None
+    C_slow_equil_terminal = None
+    dam_cur_stored_equil_terminal = None
     
     total_C_matrix = []
     C_fast_matrix = []
@@ -75,7 +78,7 @@ class MAP_STATS:
     Low_Point_Capacity = None
     Low_Point_DEM_Dif = None
 
-    REG_counter = REG_FREQ
+    REG_counter = 1
     
     C_total_Past_Valid_list = []
 

@@ -138,7 +138,7 @@ def precompute_low_point():
     low_mask  = neigh_min > dem
 
     # load 10 m low‐point counts
-    df_cnt     = pd.read_csv(Paths.PROCESSED_DIR / "Low_Point_Summary.csv", encoding="utf-8-sig")
+    df_cnt     = pd.read_csv(LOW_POINT_CSV, encoding="utf-8-sig")
     lon_to_i   = {lon: i for i, lon in enumerate(MAP_STATS.grid_x)}
     lat_to_j   = {lat: j for j, lat in enumerate(MAP_STATS.grid_y)}
 

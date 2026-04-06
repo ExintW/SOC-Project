@@ -76,9 +76,15 @@ def soc_dynamic_model(E_tcell, A, V, month, year, past=False, LAI_avg=None):
         if USE_PAST_EQUIL:
             soc_past_fast = INIT_VALUES.SOC_PAST_FAST
             soc_past_slow = INIT_VALUES.SOC_PAST_SLOW
+        else:
+            soc_past_fast = None
+            soc_past_slow = None
+        soc_equil_fast = None
+        soc_equil_slow = None
         if RUN_FROM_EQUIL:
             soc_equil_fast = MAP_STATS.C_fast_equil_list[month]
             soc_equil_slow = MAP_STATS.C_slow_equil_list[month]
+        has_equil_prior = soc_equil_fast is not None and soc_equil_slow is not None
             
         L_fast = np.zeros(shape, dtype=np.float64)
         L_slow = np.zeros(shape, dtype=np.float64)
@@ -87,8 +93,14 @@ def soc_dynamic_model(E_tcell, A, V, month, year, past=False, LAI_avg=None):
         C_slow_past = np.zeros(shape, np.float64)
         C_fast_past[~MAP_STATS.border_mask] = np.nan
         C_slow_past[~MAP_STATS.border_mask] = np.nan
+        
         C_equil_fast = np.zeros(shape, np.float64)
         C_equil_slow = np.zeros(shape, np.float64)
+        C_equil_fast[~MAP_STATS.border_mask] = np.nan
+        C_equil_slow[~MAP_STATS.border_mask] = np.nan
+        
+        w_equil = 0
+        w_PAST_KNOWN = 0
         
     else:
         del_soc_fast = np.zeros(shape, dtype=np.float64) # Change in SOC
@@ -183,6 +195,7 @@ def soc_dynamic_model(E_tcell, A, V, month, year, past=False, LAI_avg=None):
             C_slow_past[row][col] = max(C_slow_past[row][col], 0)
 
             if USE_TIKHONOV and MAP_STATS.REG_counter == 1:
+                # Set Reg constant: dynamic or constant
                 if USE_SPATIAL_REG:
                     if USE_K_FOR_SPATIAL:
                         reg_const_fast = REG_CONST_BASE * (1 + REG_ALPHA * (K_fast[row][col] / (max_k_fast + 1e-9)))
@@ -196,14 +209,18 @@ def soc_dynamic_model(E_tcell, A, V, month, year, past=False, LAI_avg=None):
                 else:
                     reg_const_fast = REG_CONST
                     reg_const_slow = REG_CONST
+                    
+                # Determine prior for regularization
+                apply_reg = False
                 if USE_PAST_EQUIL:
-                    if USE_PAST_EQUIL_AVG:
+                    apply_reg = True
+                    if has_equil_prior and USE_PAST_EQUIL_AVG:
                         C_equil_fast[row][col] = (soc_past_fast[row][col] + soc_equil_fast[row][col]) / 2
                         C_equil_slow[row][col] = (soc_past_slow[row][col] + soc_equil_slow[row][col]) / 2
-                    elif USE_PAST_EQUIL_PREV_AVG:
+                    elif has_equil_prior and USE_PAST_EQUIL_PREV_AVG and soc_prev_fast is not None and soc_prev_slow is not None:
                         C_equil_fast[row][col] = (soc_past_fast[row][col] + soc_equil_fast[row][col] + soc_prev_fast[row][col]) / 3
                         C_equil_slow[row][col] = (soc_past_slow[row][col] + soc_equil_slow[row][col] + soc_prev_slow[row][col]) / 3
-                    elif USE_DYNAMIC_AVG and not ALWAYS_USE_PAST:
+                    elif has_equil_prior and USE_DYNAMIC_AVG and not ALWAYS_USE_PAST:
                         if year < PAST_KNOWN:
                             # if less than PAST_KNOWN: use PAST_KNOWN with LAI trend as prior
                             if USE_PAST_LAI_TREND:
@@ -218,7 +235,7 @@ def soc_dynamic_model(E_tcell, A, V, month, year, past=False, LAI_avg=None):
                             C_equil_fast[row][col] = w_PAST_KNOWN * soc_past_fast[row][col] + w_equil * soc_equil_fast[row][col]
                             C_equil_slow[row][col] = w_PAST_KNOWN * soc_past_slow[row][col] + w_equil * soc_equil_slow[row][col]
                         
-                    elif abs(year - PAST_KNOWN) < abs(year - EQUIL_YEAR) or ALWAYS_USE_PAST:
+                    elif not has_equil_prior or abs(year - PAST_KNOWN) < abs(year - EQUIL_YEAR) or ALWAYS_USE_PAST:
                         C_equil_fast[row][col] = soc_past_fast[row][col]
                         C_equil_slow[row][col] = soc_past_slow[row][col]
                     else:
@@ -228,17 +245,18 @@ def soc_dynamic_model(E_tcell, A, V, month, year, past=False, LAI_avg=None):
                     if USE_PAST_LAI_TREND and (abs(year - PAST_KNOWN) < abs(year - EQUIL_YEAR) or ALWAYS_USE_PAST) and not USE_DYNAMIC_AVG:
                         C_equil_fast[row][col] = soc_past_fast[row][col] * (LAI_avg / INIT_VALUES.LAI_PAST[month])
                         C_equil_slow[row][col] = soc_past_slow[row][col] * (LAI_avg / INIT_VALUES.LAI_PAST[month])
-                else:
+                elif has_equil_prior:
+                    apply_reg = True
                     C_equil_fast[row][col] = soc_equil_fast[row][col]
                     C_equil_slow[row][col] = soc_equil_slow[row][col]
-                if USE_PRIOR_PREV_AVG:
+                if apply_reg and USE_PRIOR_PREV_AVG and soc_prev_fast is not None and soc_prev_slow is not None:
                     C_equil_fast[row][col] = (C_equil_fast[row][col] + soc_prev_fast[row][col]) / 2
                     C_equil_slow[row][col] = (C_equil_slow[row][col] + soc_prev_slow[row][col]) / 2
-                        
-                C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (reg_const_fast * C_equil_fast[row][col])
-                C_fast_past[row][col] /= (L_fast[row][col] ** 2) + reg_const_fast
-                C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (reg_const_slow * C_equil_slow[row][col])
-                C_slow_past[row][col] /= (L_slow[row][col] ** 2) + reg_const_slow
+                if apply_reg:
+                    C_fast_past[row][col] = ((L_fast[row][col] ** 2) * C_fast_past[row][col]) + (reg_const_fast * C_equil_fast[row][col])
+                    C_fast_past[row][col] /= (L_fast[row][col] ** 2) + reg_const_fast
+                    C_slow_past[row][col] = ((L_slow[row][col] ** 2) * C_slow_past[row][col]) + (reg_const_slow * C_equil_slow[row][col])
+                    C_slow_past[row][col] /= (L_slow[row][col] ** 2) + reg_const_slow
         
         if not past:
             del_soc_fast[row][col] += dep_soc_fast[row][col] - cur_fast_proportion * ero_soc[row][col] - (K_fast[row][col] * C_fast_current[row][col]) + V_FAST_PROP * V[row][col]
@@ -260,7 +278,7 @@ def soc_dynamic_model(E_tcell, A, V, month, year, past=False, LAI_avg=None):
     
     if past and USE_TIKHONOV and MAP_STATS.REG_counter == 1:
         MAP_STATS.REG_counter = REG_FREQ
-        if LAI_avg is not None:
+        if USE_PAST_LAI_TREND and LAI_avg is not None and INIT_VALUES.LAI_PAST:
             print(f"LAI Proportion: {LAI_avg / INIT_VALUES.LAI_PAST[month]}")
             
         if PLOT_PRIOR:
@@ -345,7 +363,22 @@ def soc_dynamic_model(E_tcell, A, V, month, year, past=False, LAI_avg=None):
         print(f'avg dep_soc_fast = {np.nanmean(dep_soc_fast)}, max = {np.nanmax(dep_soc_fast)}, min = {np.nanmin(dep_soc_fast)}')
         print(f'avg dep_soc_slow = {np.nanmean(dep_soc_slow)}, max = {np.nanmax(dep_soc_slow)}, min = {np.nanmin(dep_soc_slow)}')
         if past:
+            print(f'avg C_fast_past = {np.nanmean(C_fast_past)}, max = {np.nanmax(C_fast_past)}, min = {np.nanmin(C_fast_past)}')
+            print(f'avg C_slow_past = {np.nanmean(C_slow_past)}, max = {np.nanmax(C_slow_past)}, min = {np.nanmin(C_slow_past)}')
             print(f'avg ero_soc = {np.nanmean(ero_soc * (C_fast_current + C_slow_current))}, max = {np.nanmax(ero_soc * (C_fast_current + C_slow_current))}, min = {np.nanmin(ero_soc * (C_fast_current + C_slow_current))}')
+            if soc_past_fast is not None and soc_past_slow is not None:
+                print(f'avg soc past fast = {np.nanmean(soc_past_fast)}, max = {np.nanmax(soc_past_fast)}, min = {np.nanmin(soc_past_fast)}')
+                print(f'avg soc past slow = {np.nanmean(soc_past_slow)}, max = {np.nanmax(soc_past_slow)}, min = {np.nanmin(soc_past_slow)}')
+            if USE_TIKHONOV and USE_PAST_EQUIL and has_equil_prior:
+                print(f'avg C_equil_fast = {np.nanmean(C_equil_fast)}, max = {np.nanmax(C_equil_fast)}, min = {np.nanmin(C_equil_fast)}')
+                print(f'avg C_equil_slow = {np.nanmean(C_equil_slow)}, max = {np.nanmax(C_equil_slow)}, min = {np.nanmin(C_equil_slow)}')
+                print(f'avg soc_equil_fast = {np.nanmean(soc_equil_fast)}, max = {np.nanmax(soc_equil_fast)}, min = {np.nanmin(soc_equil_fast)}')
+                print(f'avg soc_equil_slow = {np.nanmean(soc_equil_slow)}, max = {np.nanmax(soc_equil_slow)}, min = {np.nanmin(soc_equil_slow)}')
+                try:
+                    print(f'w_equil = {w_equil}')
+                    print(f'w_PAST_KNOWN = {w_PAST_KNOWN}')
+                except:
+                    print('w_equil and w_PAST_KNOWN not defined for this point')
         else:
             print(f'avg ero_soc = {np.nanmean(ero_soc)}, max = {np.nanmax(ero_soc)}, min = {np.nanmin(ero_soc)}')
         print(f'avg A = {np.nanmean(A)}, max = {np.nanmax(A)}, min = {np.nanmin(A)}')

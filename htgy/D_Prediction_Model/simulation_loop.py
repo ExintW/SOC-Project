@@ -131,8 +131,12 @@ def run_simulation_year(year, past=False, future=False):
             
 def store_plot_output(year, month_idx, past, SOC_loss_g_kg_month, dep_soc_fast, dep_soc_slow, V, E_t_ha_month, C_factor_2D, K_month, R_month, lost_soc):
     if year == EQUIL_YEAR and not past:
-                MAP_STATS.C_fast_equil_list.append(MAP_STATS.C_fast_current)
-                MAP_STATS.C_slow_equil_list.append(MAP_STATS.C_slow_current)
+        MAP_STATS.C_fast_equil_list.append(MAP_STATS.C_fast_current.copy())
+        MAP_STATS.C_slow_equil_list.append(MAP_STATS.C_slow_current.copy())
+        if month_idx == 11:
+            MAP_STATS.C_fast_equil_terminal = MAP_STATS.C_fast_current.copy()
+            MAP_STATS.C_slow_equil_terminal = MAP_STATS.C_slow_current.copy()
+            MAP_STATS.dam_cur_stored_equil_terminal = MAP_STATS.dam_cur_stored.copy()
             
     if VALIDATE_PAST and year == PAST_KNOWN:
         MAP_STATS.C_total_Past_Valid_list.append(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current)
@@ -171,6 +175,7 @@ def store_plot_output(year, month_idx, past, SOC_loss_g_kg_month, dep_soc_fast, 
 
     print(f"Year {year} Month {month_idx + 1}: Total_SOC_mean: {mean_C_total:.2f}, "
             f"max: {max_C_total:.2f}, min: {min_C_total:.2f}")
+    print(f"C_fast_mean: {np.nanmean(MAP_STATS.C_fast_current):.2f}, C_slow_mean: {np.nanmean(MAP_STATS.C_slow_current):.2f}")
     
     plot_SOC_timestep(year, month_idx)
     
