@@ -7,7 +7,7 @@ from globals import *
 
 def generate_mp4(start_year, end_year):
 
-    input_dir = OUTPUT_DIR / 'Figure'
+    input_dir = OUTPUT_DIR / 'Figure' / "SOC_Present_7"
     output_video = OUTPUT_DIR / f"SOC_{start_year}_{end_year}.mp4"
 
     start_time = time.time()
@@ -43,6 +43,6 @@ def generate_mp4(start_year, end_year):
     print(f"Took: {(end_time-start_time):02f}s")
     
 if __name__ == "__main__":
-    start_year = 1980
-    end_year = 2009
+    start_year = 2007
+    end_year = 2024
     generate_mp4(start_year, end_year)

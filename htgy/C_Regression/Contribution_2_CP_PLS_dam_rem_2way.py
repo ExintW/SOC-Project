@@ -4,30 +4,16 @@
 """
 PLS VIP with mechanism-aware transforms and a stronger S3-only STL adjustment.
 
-Output tweak:
-- Pretty feature names (LAI, DAM, TP, STL) with interaction joiner (default '×').
-- CSVs are written with encoding='utf-8-sig' so Excel renders Unicode '×' correctly.
+New additions in this version:
+1) Extract PLS linear equation for each segment:
+   SOC = intercept + sum(beta_i * feature_i)
+2) Save coefficients to CSV:
+   OUTPUT_DIR/Contribution_dam_rem/pls_segment_equations_coefficients.csv
+3) Show a short equation summary in the top-right of the SOC time series plot
 
-Core (baseline kept):
-- Robust CSV extraction (mean over matching rows)
-- DAM and LAI: 3 year moving average plus memory
-- TP: fixed-baseline anomaly (1950 to 1990)
-- STL: 25 year rolling anomaly (fallback fixed baseline)
-- Global scaling on singles
-- Asymmetric residualization (robust ridge)
-- Hierarchical orthogonalized 2-way interactions
-- CPs from SOC
-- VIP percent with CV-selected PLS components
-- S3-only strong STL adjustment (trend 1 to 3, low-frequency 11 and 21 years, AR(1), TP level plus residual)
-
-New tweak:
-- 2-way interaction features are down-weighted by INTERACTION_SCALE before PLS,
-  to discourage over-dominance of higher-order terms.
-- PLS figures are saved for each segment:
-  1) Observed vs Predicted
-  2) Time series (Observed and Predicted)
-  3) Scores plot (T1 vs T2 if n_components >= 2)
-  4) VIP bar plot (Top 15)
+Notes:
+- PLS is fit on centered y inside fit_final_pls_for_segment, so intercept must be computed on original SOC scale.
+- The plotted equation is shortened (top K terms by abs coefficient) to fit nicely.
 """
 
 import sys, os, re
@@ -44,7 +30,7 @@ from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
 # =============================================================================
-# (1) CONFIGURATION & PATHS
+# (1) CONFIGURATION and PATHS
 # =============================================================================
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from globals import PROCESSED_DIR, OUTPUT_DIR  # expected in your project
@@ -69,6 +55,10 @@ INTERACTION_SCALE = 0.7
 # CSV and pretty naming options
 FEATURE_JOIN = "×"          # change to "*" or "x" if you want ASCII-only
 CSV_ENCODING = "utf-8-sig"  # BOM so Excel recognizes UTF-8 and shows "×"
+
+# equation annotation options
+EQUATION_TOPK_TERMS = 8     # how many terms to show on plot
+EQUATION_DECIMALS = 3       # decimals shown in plot equation
 
 # =============================================================================
 # (2) MK break detection
@@ -144,6 +134,94 @@ def pretty_feature(raw: str) -> str:
 
 def _safe_mkdir(p: Path):
     p.mkdir(parents=True, exist_ok=True)
+
+# =============================================================================
+# (3b) Equation extraction helpers (NEW)
+# =============================================================================
+def extract_pls_equation(pls: PLSRegression,
+                         feat_names: list,
+                         y_mean_original: float):
+    """
+    Extract linear equation on ORIGINAL SOC scale.
+
+    You fit PLS on centered y:
+        yc = y - y_mean_original
+
+    So:
+        intercept_original = y_mean_original - (x_mean dot beta)
+
+    Works across sklearn versions where x_mean is stored as:
+      - pls.x_mean_   (newer)
+      - pls._x_mean   (older)
+    """
+    beta = pls.coef_.ravel().astype(float)
+
+    # sklearn version compatibility
+    if hasattr(pls, "x_mean_"):
+        x_mean = np.asarray(pls.x_mean_).ravel().astype(float)
+    elif hasattr(pls, "_x_mean"):
+        x_mean = np.asarray(pls._x_mean).ravel().astype(float)
+    else:
+        raise AttributeError(
+            "PLSRegression does not have x_mean_ or _x_mean. "
+            "Please check your sklearn version or pass X.mean(axis=0) manually."
+        )
+
+    intercept_original = float(y_mean_original) - float(np.dot(x_mean, beta))
+    return intercept_original, beta
+
+
+def format_equation_for_plot(intercept: float,
+                             feat_names: list,
+                             beta: np.ndarray,
+                             topk: int = 6,
+                             decimals: int = 3):
+    """
+    Make a short readable equation summary for plot annotation.
+    Uses top K terms by abs(beta).
+    """
+    if beta is None or len(beta) == 0:
+        return "Equation unavailable"
+
+    order = np.argsort(np.abs(beta))[::-1]
+    order = order[:min(topk, len(order))]
+
+    lines = []
+    lines.append(f"SOC = {intercept:.{decimals}f}")
+
+    for i in order:
+        sign = "+" if beta[i] >= 0 else "-"
+        lines.append(f"  {sign} {abs(beta[i]):.{decimals}f} · {feat_names[i]}")
+
+    return "\n".join(lines)
+
+def equation_to_rows(seg_label: str,
+                     seg_years_str: str,
+                     intercept: float,
+                     feat_names: list,
+                     beta: np.ndarray):
+    """
+    Prepare rows for CSV: segment, years, intercept row, then each coefficient row.
+    """
+    rows = []
+    rows.append({
+        "segment": seg_label,
+        "segment_years": seg_years_str,
+        "term_type": "intercept",
+        "feature": "INTERCEPT",
+        "coefficient": float(intercept),
+        "abs_coefficient": float(abs(intercept)),
+    })
+    for name, b in zip(feat_names, beta):
+        rows.append({
+            "segment": seg_label,
+            "segment_years": seg_years_str,
+            "term_type": "coefficient",
+            "feature": name,
+            "coefficient": float(b),
+            "abs_coefficient": float(abs(b)),
+        })
+    return rows
 
 # =============================================================================
 # (4) Load raw time series (robust)
@@ -437,7 +515,7 @@ def fit_final_pls_for_segment(X: np.ndarray, y: np.ndarray, Amax: int = 3):
     yhat_c = pls.predict(X).ravel()
     yhat = yhat_c + y_mean
 
-    return pls, yhat, best_A, (A_list, mean_r2_list)
+    return pls, yhat, best_A, (A_list, mean_r2_list), y_mean
 
 def plot_pls_figures(seg_label: str,
                      seg_years: np.ndarray,
@@ -446,15 +524,18 @@ def plot_pls_figures(seg_label: str,
                      pls: PLSRegression,
                      feat_names: list,
                      vip: np.ndarray,
-                     out_dir: Path):
+                     out_dir: Path,
+                     equation_text: str = None,
+                     plot_cfg: dict = None):
     """
     Save 4 figures per segment:
     1) observed vs predicted
-    2) time series: observed and predicted
+    2) time series: observed and predicted (equation shown at top-right)
     3) scores plot (if n_components >= 2)
     4) VIP bar plot (Top 15)
     """
     _safe_mkdir(out_dir)
+    cfg = (plot_cfg or {}).get(seg_label, {})
 
     # 1) Observed vs Predicted
     fig1, ax1 = plt.subplots(figsize=(6, 6))
@@ -463,25 +544,55 @@ def plot_pls_figures(seg_label: str,
     mx = float(np.nanmax([np.nanmax(y), np.nanmax(yhat)]))
     ax1.plot([mn, mx], [mn, mx], linewidth=1.0)
     r2 = r2_score(y, yhat)
-    ax1.set_title(f"{seg_label}: Observed vs Predicted (R2={r2:.3f})")
-    ax1.set_xlabel("Observed SOC")
-    ax1.set_ylabel("Predicted SOC")
+    ax1.set_title(f"{seg_label}: SOC model output vs PLS reconstruction (R2={r2:.3f})")
+    ax1.set_xlabel("SOC (dynamic model output)")
+    ax1.set_ylabel("SOC (PLS reconstruction)")
     fig1.tight_layout()
     fig1.savefig(out_dir / f"PLS_{seg_label}_obs_vs_pred.png", dpi=300)
     plt.close(fig1)
 
     # 2) Time series
     fig2, ax2 = plt.subplots(figsize=(10, 4))
-    ax2.plot(seg_years, y, label="Observed", linewidth=1.2)
-    ax2.plot(seg_years, yhat, label="Predicted", linewidth=1.2)
-    ax2.set_title(f"{seg_label}: SOC time series")
+    ax2.plot(seg_years, y, label="SOC Model Output", linewidth=1.2)
+    ax2.plot(seg_years, yhat, label="PLS Reconstruction", linewidth=1.2)
+
+    # Title higher (so it won't collide with equation)
+    ts_title = cfg.get("ts_title", f"{seg_label}: SOC time series")
+    ax2.set_title(ts_title, fontsize=12, pad=20)
+
+    if "ts_ylim" in cfg:
+        ax2.set_ylim(cfg["ts_ylim"])
+
     ax2.set_xlabel("Year")
-    ax2.set_ylabel("SOC")
-    ax2.legend()
+    ax2.set_ylabel("SOC (g/kg)")
     ax2.grid(True, alpha=0.3)
-    fig2.tight_layout()
-    fig2.savefig(out_dir / f"PLS_{seg_label}_timeseries.png", dpi=300)
+
+    # Legend rectangle (push it DOWN a bit)
+    ax2.legend(loc="upper left", bbox_to_anchor=(0.0, 0.99), framealpha=0.9)
+
+    # --- Force equation to ONE line ---
+    equation_text = str(equation_text)
+    equation_text = equation_text.replace("\n", " ").replace("\r", " ")
+    equation_text = "".join(equation_text.split())  # remove extra spaces
+
+    # Equation: ONE LINE under title, ABOVE the legend rectangle
+    if equation_text is not None and len(str(equation_text).strip()) > 0:
+        ax2.text(
+            0.01, 1.01,                 # slightly ABOVE axes
+            equation_text,
+            transform=ax2.transAxes,
+            ha="left",
+            va="bottom",
+            fontsize=9,
+            clip_on=False
+        )
+
+    # Create extra space on top for the equation line
+    fig2.subplots_adjust(top=0.80)
+
+    fig2.savefig(out_dir / f"PLS_{seg_label}_timeseries.png", dpi=300, bbox_inches="tight")
     plt.close(fig2)
+
 
     # 3) Scores plot (T1 vs T2)
     if hasattr(pls, "x_scores_") and pls.x_scores_ is not None and pls.x_scores_.shape[1] >= 2:
@@ -505,8 +616,16 @@ def plot_pls_figures(seg_label: str,
 
         fig4, ax4 = plt.subplots(figsize=(9, 6))
         ax4.barh(top_names, top_vals)
-        ax4.set_title(f"{seg_label}: VIP contribution Top {topk}")
-        ax4.set_xlabel("VIP contribution (percent)")
+
+        # ---- Title and axis label font sizes ----
+        ax4.set_title(f"{seg_label}: VIP contribution", fontsize=14, pad=12)
+        ax4.set_xlabel("VIP contribution (%)", fontsize=12)
+        ax4.set_ylabel("Feature", fontsize=12)
+
+        # ---- Tick label size + tick mark size ----
+        ax4.tick_params(axis="x", labelsize=12, length=6, width=1.2)
+        ax4.tick_params(axis="y", labelsize=12, length=0)  # length=0 hides y tick marks (cleaner)
+
         fig4.tight_layout()
         fig4.savefig(out_dir / f"PLS_{seg_label}_VIP_top{topk}.png", dpi=300)
         plt.close(fig4)
@@ -572,6 +691,8 @@ def main():
     drivers = ["lai_ma3_z", "dam_ma3_z", "tp_anom_z_resid", "stl_anom_z_resid"]
 
     tidy_rows = []
+    equation_rows = []  # NEW: store coefficients for CSV
+
     fig_dir = OUT_SUBDIR / "PLS_Figures"
     _safe_mkdir(fig_dir)
 
@@ -586,19 +707,52 @@ def main():
         # Design matrix
         X_df = features_set1(seg_df, drivers)
         feat_names_raw = list(X_df.columns)
+        feat_names_pretty = [pretty_feature(n) for n in feat_names_raw]
 
         # VIP percent contribution
         contrib = pls_vip_contrib_cv_noscale(X_df.values, seg_df["soc"].values, Amax=3)
 
         # Fit final PLS for figures
-        pls, yhat, best_A, cv_curve = fit_final_pls_for_segment(
+        pls, yhat, best_A, cv_curve, y_mean_original = fit_final_pls_for_segment(
             X=X_df.values,
             y=seg_df["soc"].values,
             Amax=3
         )
 
-        # Make figures
-        feat_names_pretty = [pretty_feature(n) for n in feat_names_raw]
+        # Extract equation (NEW)
+        intercept, beta = extract_pls_equation(
+            pls=pls,
+            feat_names=feat_names_pretty,
+            y_mean_original=y_mean_original
+        )
+
+        # Short equation string for plot annotation (NEW)
+        eq_text = format_equation_for_plot(
+            intercept=intercept,
+            feat_names=feat_names_pretty,
+            beta=beta,
+            topk=EQUATION_TOPK_TERMS,
+            decimals=EQUATION_DECIMALS
+        )
+
+        PLOT_CFG = {
+            "S1": {
+                "ts_title": "S1 (1950–1973): Early regime",
+                "ts_ylim": (8.75, 10.8),
+
+            },
+            "S2": {
+                "ts_title": "S2 (1974-2000): Transition regime",
+                "ts_ylim": (9, 10.3),
+
+            },
+            "S3": {
+                "ts_title": "S3 (2001–2024): Modern regime",
+                "ts_ylim": (8.5, 13),
+            }
+        }
+
+        # Save 4 figures with equation shown in time series plot
         plot_pls_figures(
             seg_label=seg_label,
             seg_years=seg_df.index.values.astype(int),
@@ -607,11 +761,15 @@ def main():
             pls=pls,
             feat_names=feat_names_pretty,
             vip=contrib,
-            out_dir=fig_dir
+            out_dir=fig_dir,
+            equation_text=eq_text,
+            plot_cfg = PLOT_CFG
         )
         print(f"{seg_label}: chosen n_components = {best_A}")
 
         seg_years_str = f"{int(yrs[a])}-{int(yrs[b])}"
+
+        # Store VIP tidy output
         for name, v in zip(feat_names_raw, contrib):
             tidy_rows.append({
                 "segment": seg_label,
@@ -620,18 +778,32 @@ def main():
                 "set1_2way": v
             })
 
-    out_tidy = pd.DataFrame(tidy_rows)
+        # Store equation coefficients (NEW)
+        equation_rows.extend(
+            equation_to_rows(
+                seg_label=seg_label,
+                seg_years_str=seg_years_str,
+                intercept=intercept,
+                feat_names=feat_names_pretty,
+                beta=beta
+            )
+        )
 
-    # Save tidy with pretty names
+    # Save VIP tidy with pretty names
+    out_tidy = pd.DataFrame(tidy_rows)
     tidy_path = OUT_SUBDIR / "pls_interaction_vip_1950_2024_tidy.csv"
     out_tidy.to_csv(tidy_path, index=False, encoding=CSV_ENCODING)
     print(f"Saved -> {tidy_path}")
 
-    # Wide layout (same as tidy here)
-    wide = out_tidy.copy()
     out_path = OUT_SUBDIR / "pls_interaction_vip_1950_2024.csv"
-    wide.to_csv(out_path, index=False, encoding=CSV_ENCODING)
+    out_tidy.to_csv(out_path, index=False, encoding=CSV_ENCODING)
     print(f"Saved -> {out_path}")
+
+    # Save equations CSV (NEW)
+    eq_df = pd.DataFrame(equation_rows)
+    eq_csv = OUT_SUBDIR / "pls_segment_equations_coefficients.csv"
+    eq_df.to_csv(eq_csv, index=False, encoding=CSV_ENCODING)
+    print(f"Saved segment equations -> {eq_csv}")
 
     print(f"Saved PLS figures to: {fig_dir}")
 

@@ -6,9 +6,9 @@ from paths import Paths
 
 ################################ Run Config ################################
 INIT_YEAR = 2012    # Year of initial SOC data (or first year of future for SKIP_TO_FUTURE)
-END_YEAR = None     # End year of present simulation
+END_YEAR = 2012     # End year of present simulation
 FUTURE_YEAR = None  # End year of future simulation (Future year starts at END_YEAR + 1)
-PAST_YEAR = 2012    # End year of reverse simulation
+PAST_YEAR = None    # End year of reverse simulation
 
 RUN_FROM_EQUIL = False      # If True, past run from equilibrium state instead of INIT_YEAR data, if False and USE_PAST_EQUIL is True, ALWAYS_USE_PAST must be True
 EQUIL_YEAR = 2014           # Year to use as equilibrium state for reverse simulation
@@ -77,11 +77,11 @@ USE_DYNAMIC_AVG = True          # Use weighted avg of PAST_KNOWN and EQUIL betwe
 USE_PRIOR_PREV_AVG = False      # Use the avg of prior year (EQUIL or 1980) and previous timestep as prior
 
 ################################ Region Specific Config ################################
-BORDER_SHP = Paths.DATA_DIR / "Global" / "Basin_Boundary" / "Tagus_Douro_river_basin_boundary.shp"                 # Shapefile for the border
-INIT_SOC_CSV = Paths.PROCESSED_DIR / "Global_Basin_10km_Grids" / "Tagus_Douro_river_10km_SOC_DEM_k1k2.csv"   # CSV containing init values for SOC along with DEM, k1, k2, etc.
+BORDER_SHP = Paths.DATA_DIR / "Global" / "Basin_Boundary" / "Shebelle_river_basin_boundary.shp"                 # Shapefile for the border
+INIT_SOC_CSV = Paths.PROCESSED_DIR / "Global_Basin_10km_Grids" / "Shebelle_river_10km_SOC_DEM_k1k2.csv"   # CSV containing init values for SOC along with DEM, k1, k2, etc.
 DAM_CSV = Paths.PROCESSED_DIR / "htgy_Dam_with_matched_points.csv"              # CSV containing dam info with matched Lon/Lat
 FAST_SLOW_RATIO_CSV = Paths.DATA_DIR / "Fast_Slow_SOC_Proportion.csv"           # CSV containing fast/slow SOC proportions for each region
-PAST_SOC_NPZ = Paths.PROCESSED_DIR / "SOC_2001_Basin_NPZ_10km" / "soc_2001_Tagus_Douro_river_10km_matrix.npz"            # Numpy npz file containing SOC grid for 1 past year data
+PAST_SOC_NPZ = Paths.PROCESSED_DIR / "SOC_2001_Basin_NPZ_10km" / "soc_2001_Shebelle_river_10km_matrix.npz"            # Numpy npz file containing SOC grid for 1 past year data
 SMALL_RIVER_BASIN_SHP = None   # Shapefile for small river basins
 LARGE_RIVER_BASIN_SHP = None          # Shapefile for large river basins
 RIVERS_SHP = None
@@ -90,7 +90,7 @@ LS_FILE = Paths.PROCESSED_DIR / "LS_factor.npy"                                 
 DEM_FILE_NAME = "htgyDEM.tif"                                                   # DEM file used for LS factor calculation
 CMIP6_PR_FILE = Paths.PROCESSED_DIR / "CMIP6_Data_Monthly_Resampled" / "resampled_pr_points_2015-2100_585.nc" # NetCDF file containing resampled precipitation data for CMIP6
 ERA5_PR_DIR = Paths.PROCESSED_DIR / "ERA5_Data_Monthly_Resampled"               # Directory containing resampled ERA5 precipitation data for present years
-EC_TIF_PATH = Paths.DATA_DIR / "Global" / "Erosion_Constant" / "Tagus_Douro_river_EC_2012.tif"
+EC_TIF_PATH = Paths.DATA_DIR / "Global" / "Erosion_Constant" / "Shebelle_river_EC_2012.tif"
 
 CMIP_START = 1950                  # Start year for CMIP6 LAI data
 DESIRED_CRS = "EPSG:4326"          # Desired coordinate reference system for all spatial data

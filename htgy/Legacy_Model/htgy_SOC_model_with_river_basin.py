@@ -402,8 +402,8 @@ if __name__ == "__main__":
     c = 5.5
     
     start_year =  2007  # year of init condition, default is 2007, set to 2025 for future
-    end_year = EQUIL_YEAR     # last year of present  (set to None to disable present year)
-    past_year = 1950    # last year of past     (set to None to disable past year)
+    end_year = 2007     # last year of present  (set to None to disable present year)
+    past_year = None    # last year of past     (set to None to disable past year)
     future_year = None  # last year of future   (set to None to disable future year)
     
     log = True                 # save output to a log file

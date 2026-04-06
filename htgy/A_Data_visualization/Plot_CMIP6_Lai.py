@@ -73,15 +73,18 @@ def plot_lai_map(ds, year, title, out_path):
     cax = divider.append_axes("right", size="3.5%", pad=0.2)
     mappable = ax.collections[-1]
     cb = fig.colorbar(mappable, cax=cax)
+    cb.set_label("LAI", fontsize=16)
+    cb.ax.tick_params(labelsize=14)
     cb.set_label("LAI")
 
     ax.set_xlim(minx - pad_x, maxx + pad_x)
     ax.set_ylim(miny - pad_y, maxy + pad_y)
 
     ax.set_aspect("equal", adjustable="box")
-    ax.set_xlabel("Longitude")
-    ax.set_ylabel("Latitude")
-    ax.set_title(title)
+    ax.set_xlabel("Longitude", fontsize=16)
+    ax.set_ylabel("Latitude", fontsize=16)
+    ax.tick_params(axis="both", labelsize=14)
+    ax.set_title(title, fontsize =16)
 
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)

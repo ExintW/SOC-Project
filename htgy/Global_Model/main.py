@@ -92,7 +92,7 @@ def run_model():
             os.remove(file)
             
     # Plot initial SOC
-    print_plot_factor_info(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, name="Initial_SOC", max_val=250)
+    print_plot_factor_info(MAP_STATS.C_fast_current + MAP_STATS.C_slow_current, name="Initial SOC", max_val=150)
     
     # =============================================================================
     # Start Simulation

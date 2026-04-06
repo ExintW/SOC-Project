@@ -149,7 +149,9 @@ def compute_annual_terms_from_monthly_parquet(base_dir: Path, year_start: int, y
     return pd.DataFrame(rows).sort_values("year").reset_index(drop=True)
 
 
-def plot_terms(df_terms: pd.DataFrame, title: str, out_path: Path):
+def plot_terms(df_terms: pd.DataFrame, title: str, out_path: Path,
+               ylim_left=None, ylim_right=None):
+
     """
     Plot annual process terms with two y-axes (different scales):
       - Left axis: large-magnitude terms (Vegetation, Reaction)
@@ -202,6 +204,14 @@ def plot_terms(df_terms: pd.DataFrame, title: str, out_path: Path):
             )
             right_lines.append(line)
             right_labels.append(term)
+    # -------------------------------------------------------------------------
+    # Custom y-limits (if provided)
+    # -------------------------------------------------------------------------
+    if ylim_left is not None:
+        ax1.set_ylim(ylim_left[0], ylim_left[1])
+
+    if ylim_right is not None:
+        ax2.set_ylim(ylim_right[0], ylim_right[1])
 
     # -------------------------------------------------------------------------
     # Labels, title, grid, legend
@@ -233,6 +243,8 @@ def plot_terms(df_terms: pd.DataFrame, title: str, out_path: Path):
         ax1.set_xticks(ticks)
 
     # Tight layout and save
+
+
     fig.tight_layout()
     fig.savefig(out_path, dpi=300)
     plt.close(fig)
@@ -294,25 +306,43 @@ def load_future_terms(scenario: str) -> pd.DataFrame:
 # (6) Main
 # =============================================================================
 def main():
+    YLIM_CFG = {
+        "hist": {"left": (-3.0, 2.0), "right": (-0.02, 0.025)},
+        "126": {"left": (-2.0, 2.0), "right": (-0.02, 0.02)},
+        "245": {"left": (-2.0, 2.0), "right": (-0.02, 0.02)},
+        "370": {"left": (-2.0, 2.0), "right": (-0.02, 0.02)},
+        "585": {"left": (-2.0, 2.0), "right": (-0.02, 0.02)},
+    }
+
     # 6.1 Historical plot
     hist_terms = load_or_compute_hist_terms()
     out_hist = OUT_DIR.joinpath("process_terms_1950_2024.png")
+    cfg = YLIM_CFG["hist"]
     plot_terms(
         hist_terms,
         "Annual process terms 1950 to 2024",
-        out_hist
+        out_hist,
+        ylim_left=cfg["left"],
+        ylim_right=cfg["right"]
     )
+
     print(f"Saved: {out_hist}")
 
     # 6.2 Future plots, one per scenario
     for scen in FUTURE_SCENARIOS:
         df_terms = load_future_terms(scen)
         out_fp = OUT_DIR.joinpath(f"process_terms_ssp{scen}_2025_2100.png")
+
+        cfg = YLIM_CFG.get(scen, {"left": None, "right": None})
+
         plot_terms(
             df_terms,
             f"Annual process terms SSP{scen}, 2025 to 2100",
-            out_fp
+            out_fp,
+            ylim_left=cfg["left"],
+            ylim_right=cfg["right"]
         )
+
         print(f"Saved: {out_fp}")
 
     print(f"All figures saved in: {OUT_DIR}")

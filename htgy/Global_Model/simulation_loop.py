@@ -187,7 +187,8 @@ def store_plot_output(year, month_idx, past, SOC_loss_g_kg_month, dep_soc_fast, 
     full_dams_list = MAP_STATS.full_dams    .ravel('C').tolist()
     dam_rem_cap_list = MAP_STATS.dam_rem_cap.ravel('C').tolist()
     dam_cur_stored_list = MAP_STATS.dam_cur_stored.ravel('C').tolist()
-    
+
+
     df_out = pd.DataFrame({
         'LAT': lat_list,
         'LON': lon_list,

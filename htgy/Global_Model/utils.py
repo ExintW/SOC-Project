@@ -182,7 +182,8 @@ def print_plot_factor_info(factor, name="Factor", max_val=None):
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="4%", pad="4%")
     cbar = fig.colorbar(im, cax=cax)
-    cbar.set_label(f"{name} Value")
+    cbar.set_label("SOC (g/kg)")
+    #cbar.set_label(f"{name} Value")
 
     # 4) Labels and formatting
     ax.set_title(f"{name} Map")
@@ -362,12 +363,13 @@ def plot_SOC_timestep(year, month_idx):
     # Plot SOC
     im = ax.imshow(
         MAP_STATS.C_fast_current + MAP_STATS.C_slow_current,
-        cmap="viridis", vmin=0, vmax=250,
+        cmap="viridis", vmin=0, vmax=150,
         extent=[
             MAP_STATS.grid_x.min(), MAP_STATS.grid_x.max(),
             MAP_STATS.grid_y.min(), MAP_STATS.grid_y.max()
         ],
-        origin="upper"
+        origin="upper",
+    interpolation = "bilinear"
     )
 
     # Overlay the border (no fill, just outline)
