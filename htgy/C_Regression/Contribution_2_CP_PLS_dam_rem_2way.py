@@ -25,7 +25,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
@@ -111,6 +111,9 @@ TOKEN_MAP = {
     "tp_anom": "TP",
     "stl_anom": "STL",
 }
+
+def compute_rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return float(np.sqrt(mean_squared_error(y_true, y_pred)))
 
 def _clean_token(tok: str) -> str:
     if tok in TOKEN_MAP:
@@ -537,14 +540,15 @@ def plot_pls_figures(seg_label: str,
     _safe_mkdir(out_dir)
     cfg = (plot_cfg or {}).get(seg_label, {})
 
+    rmse = compute_rmse(y, yhat)
+
     # 1) Observed vs Predicted
     fig1, ax1 = plt.subplots(figsize=(6, 6))
     ax1.scatter(y, yhat, s=25)
     mn = float(np.nanmin([np.nanmin(y), np.nanmin(yhat)]))
     mx = float(np.nanmax([np.nanmax(y), np.nanmax(yhat)]))
     ax1.plot([mn, mx], [mn, mx], linewidth=1.0)
-    r2 = r2_score(y, yhat)
-    ax1.set_title(f"{seg_label}: SOC model output vs PLS reconstruction (R2={r2:.3f})")
+    ax1.set_title(f"{seg_label}: SOC model output vs PLS reconstruction (RMSE={rmse:.3f} g/kg)")
     ax1.set_xlabel("SOC (dynamic model output)")
     ax1.set_ylabel("SOC (PLS reconstruction)")
     fig1.tight_layout()
@@ -554,9 +558,8 @@ def plot_pls_figures(seg_label: str,
     # 2) Time series
     fig2, ax2 = plt.subplots(figsize=(10, 4))
     ax2.plot(seg_years, y, label="SOC Model Output", linewidth=1.2)
-    ax2.plot(seg_years, yhat, label="PLS Reconstruction", linewidth=1.2)
+    ax2.plot(seg_years, yhat, label=f"PLS Reconstruction (RMSE={rmse:.3f} g/kg)", linewidth=1.2)
 
-    # Title higher (so it won't collide with equation)
     ts_title = cfg.get("ts_title", f"{seg_label}: SOC time series")
     ax2.set_title(ts_title, fontsize=12, pad=20)
 
@@ -567,18 +570,15 @@ def plot_pls_figures(seg_label: str,
     ax2.set_ylabel("SOC (g/kg)")
     ax2.grid(True, alpha=0.3)
 
-    # Legend rectangle (push it DOWN a bit)
     ax2.legend(loc="upper left", bbox_to_anchor=(0.0, 0.99), framealpha=0.9)
 
-    # --- Force equation to ONE line ---
     equation_text = str(equation_text)
     equation_text = equation_text.replace("\n", " ").replace("\r", " ")
-    equation_text = "".join(equation_text.split())  # remove extra spaces
+    equation_text = "".join(equation_text.split())
 
-    # Equation: ONE LINE under title, ABOVE the legend rectangle
     if equation_text is not None and len(str(equation_text).strip()) > 0:
         ax2.text(
-            0.01, 1.01,                 # slightly ABOVE axes
+            0.01, 1.01,
             equation_text,
             transform=ax2.transAxes,
             ha="left",
@@ -587,12 +587,9 @@ def plot_pls_figures(seg_label: str,
             clip_on=False
         )
 
-    # Create extra space on top for the equation line
     fig2.subplots_adjust(top=0.80)
-
     fig2.savefig(out_dir / f"PLS_{seg_label}_timeseries.png", dpi=300, bbox_inches="tight")
     plt.close(fig2)
-
 
     # 3) Scores plot (T1 vs T2)
     if hasattr(pls, "x_scores_") and pls.x_scores_ is not None and pls.x_scores_.shape[1] >= 2:
@@ -617,14 +614,12 @@ def plot_pls_figures(seg_label: str,
         fig4, ax4 = plt.subplots(figsize=(9, 6))
         ax4.barh(top_names, top_vals)
 
-        # ---- Title and axis label font sizes ----
         ax4.set_title(f"{seg_label}: VIP contribution", fontsize=14, pad=12)
         ax4.set_xlabel("VIP contribution (%)", fontsize=12)
         ax4.set_ylabel("Feature", fontsize=12)
 
-        # ---- Tick label size + tick mark size ----
         ax4.tick_params(axis="x", labelsize=12, length=6, width=1.2)
-        ax4.tick_params(axis="y", labelsize=12, length=0)  # length=0 hides y tick marks (cleaner)
+        ax4.tick_params(axis="y", labelsize=12, length=0)
 
         fig4.tight_layout()
         fig4.savefig(out_dir / f"PLS_{seg_label}_VIP_top{topk}.png", dpi=300)
@@ -719,6 +714,9 @@ def main():
             Amax=3
         )
 
+        rmse = compute_rmse(seg_df["soc"].values, yhat)
+        print(f"{seg_label}: chosen n_components = {best_A}, RMSE = {rmse:.3f} g/kg")
+
         # Extract equation (NEW)
         intercept, beta = extract_pls_equation(
             pls=pls,
@@ -765,7 +763,6 @@ def main():
             equation_text=eq_text,
             plot_cfg = PLOT_CFG
         )
-        print(f"{seg_label}: chosen n_components = {best_A}")
 
         seg_years_str = f"{int(yrs[a])}-{int(yrs[b])}"
 

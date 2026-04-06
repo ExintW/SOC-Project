@@ -6,9 +6,9 @@ from paths import Paths
 
 ################################ Run Config ################################
 INIT_YEAR = 2007    # Year of initial SOC data (or first year of future for SKIP_TO_FUTURE)
-END_YEAR = 2014     # End year of present simulation
+END_YEAR = None     # End year of present simulation
 FUTURE_YEAR = None  # End year of future simulation (Future year starts at END_YEAR + 1)
-PAST_YEAR = None    # End year of reverse simulation
+PAST_YEAR = 1950    # End year of reverse simulation
 
 RUN_FROM_EQUIL = True      # If True, past run from equilibrium state instead of INIT_YEAR data, if False and USE_PAST_EQUIL is True, ALWAYS_USE_PAST must be True
 EQUIL_YEAR = 2014           # Year to use as equilibrium state for reverse simulation
