@@ -31,7 +31,7 @@ C_INIT_CAP = 80             # Cap initial SOC to this value (0 to disable)
 P_FAST_DIV_FACTOR = 10      # divide p_fast grid by this, 1 to use original   
 SOC_PAST_FACTOR = 1         # Adjust past year SOC values (Set to 1 to use original)
 C_MIN_CAP = 0.001            # Min of C, to avoid dead areas when past
-C_FAST_MAX = 7 
+C_FAST_MAX = 3 
 C_SLOW_MAX = 1e9 
 
 USE_GAUSSIAN_BLUR = True    # If True, apply Gaussian blur to past SOC data for smoother prior

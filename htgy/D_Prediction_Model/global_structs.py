@@ -56,6 +56,9 @@ class MAP_STATS:
 
     C_fast_equil_list = []
     C_slow_equil_list = []
+    C_fast_equil_terminal = None
+    C_slow_equil_terminal = None
+    dam_cur_stored_equil_terminal = None
     
     total_C_matrix = []
     C_fast_matrix = []

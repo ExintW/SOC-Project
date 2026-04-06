@@ -19,6 +19,17 @@ from simulation_loop import run_simulation_year
 
 from A_Data_visualization.png_to_mp4 import generate_mp4
 
+def reset_runtime_state():
+    MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
+    MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
+    MAP_STATS.C_fast_current[~MAP_STATS.border_mask] = np.nan
+    MAP_STATS.C_slow_current[~MAP_STATS.border_mask] = np.nan
+    MAP_STATS.C_fast_prev = None
+    MAP_STATS.C_slow_prev = None
+    MAP_STATS.dam_cur_stored = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
+    MAP_STATS.full_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
+    MAP_STATS.dam_rem_cap = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
+
 def run_model():
     # INIT GRID AND GLOBAL GRID INFO
     print("Initializing global data structures...")
@@ -69,11 +80,8 @@ def run_model():
     print("Precomputing sorted indices of DEM...")
     precompute_sorted_indices()
     
-    # Initialize current SOC pools
-    MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
-    MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
-    MAP_STATS.C_fast_current[~MAP_STATS.border_mask] = np.nan
-    MAP_STATS.C_slow_current[~MAP_STATS.border_mask] = np.nan
+    # Initialize current SOC pools and runtime-only state
+    reset_runtime_state()
     
     os.makedirs(Paths.OUTPUT_DIR / "Figure", exist_ok=True)
     os.makedirs(Paths.OUTPUT_DIR / "Data", exist_ok=True)
@@ -118,12 +126,6 @@ def run_model():
             print(f"Generating mp4...")
             generate_mp4(start_year=INIT_YEAR, end_year=FUTURE_YEAR)
     
-    # Reset current SOC to initial for past simulation
-    MAP_STATS.C_fast_current = INIT_VALUES.C_fast.copy()
-    MAP_STATS.C_slow_current = INIT_VALUES.C_slow.copy()
-    MAP_STATS.C_fast_current[~MAP_STATS.border_mask] = np.nan
-    MAP_STATS.C_slow_current[~MAP_STATS.border_mask] = np.nan
-    
     if PAST_YEAR != None:
         # Run Past Simulation
         if RUN_FROM_EQUIL:
@@ -131,10 +133,29 @@ def run_model():
             if FUTURE_YEAR != None or END_YEAR != EQUIL_YEAR:
                 # Run present again to get to EQUIL_YEAR state
                 print(f"Running present simulation to reach equilibrium year {EQUIL_YEAR}...")
+                reset_runtime_state()
                 for year in range(INIT_YEAR, EQUIL_YEAR + 1):
                     run_simulation_year(year)
+            else:
+                if (
+                    MAP_STATS.C_fast_equil_terminal is None
+                    or MAP_STATS.C_slow_equil_terminal is None
+                    or MAP_STATS.dam_cur_stored_equil_terminal is None
+                ):
+                    raise RuntimeError(
+                        f"Missing equilibrium terminal state for {EQUIL_YEAR}. "
+                        "Run the present simulation through the equilibrium year before starting the past run."
+                    )
+                MAP_STATS.C_fast_current = MAP_STATS.C_fast_equil_terminal.copy()
+                MAP_STATS.C_slow_current = MAP_STATS.C_slow_equil_terminal.copy()
+                MAP_STATS.C_fast_prev = None
+                MAP_STATS.C_slow_prev = None
+                MAP_STATS.dam_cur_stored = MAP_STATS.dam_cur_stored_equil_terminal.copy()
+                MAP_STATS.full_dams = np.zeros(INIT_VALUES.DEM.shape, dtype=int)
+                MAP_STATS.dam_rem_cap = np.zeros(INIT_VALUES.DEM.shape, dtype=np.float64)
         else:
             start_year = INIT_YEAR
+            reset_runtime_state()
         print("Running past simulation...")
         for year in range(start_year, PAST_YEAR - 1, -1):
             run_simulation_year(year, past=True)
