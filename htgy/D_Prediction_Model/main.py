@@ -160,14 +160,12 @@ def run_model():
         for year in range(start_year, PAST_YEAR - 1, -1):
             run_simulation_year(year, past=True)
             
-        # Drop elements from 2007 to Equil year to aviod double counting
-        if RUN_FROM_EQUIL:
-            N_DROP = (EQUIL_YEAR - INIT_YEAR + 1) * 12 
+        # Drop elements from 2007 to Equil year to avoid double counting
+        # (only the NetCDF snapshot buffers, which are populated when SAVE_NC)
+        if RUN_FROM_EQUIL and SAVE_NC:
+            N_DROP = (EQUIL_YEAR - INIT_YEAR + 1) * 12
             MAP_STATS.total_C_matrix[-N_DROP:] = []
             MAP_STATS.dam_rem_cap_matrix[-N_DROP:] = []
-            MAP_STATS.C_fast_matrix[-N_DROP:] = []
-            MAP_STATS.C_slow_matrix[-N_DROP:] = []
-            MAP_STATS.active_dam_matrix[-N_DROP:] = []
         
         if SAVE_NC:
             save_nc(PAST_YEAR, INIT_YEAR)

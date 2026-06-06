@@ -146,21 +146,19 @@ def store_plot_output(year, month_idx, past, SOC_loss_g_kg_month, dep_soc_fast, 
     max_C_total = np.nanmax(C_total)
     min_C_total = np.nanmin(C_total)
     
-    # stash a copy of this month’s total‐C grid
-    if past:
-        MAP_STATS.total_C_matrix.insert(0, C_total.copy())
-        MAP_STATS.C_fast_matrix.insert(0, MAP_STATS.C_fast_current.copy())
-        MAP_STATS.C_slow_matrix.insert(0, MAP_STATS.C_slow_current.copy())
-        MAP_STATS.active_dam_matrix.insert(0, MAP_STATS.active_dams.copy())
-        MAP_STATS.full_dam_matrix.insert(0, MAP_STATS.full_dams.copy())
-        MAP_STATS.dam_rem_cap_matrix.insert(0, MAP_STATS.dam_rem_cap.copy())
-    else:
-        MAP_STATS.total_C_matrix.append(C_total.copy())
-        MAP_STATS.C_fast_matrix.append(MAP_STATS.C_fast_current.copy())
-        MAP_STATS.C_slow_matrix.append(MAP_STATS.C_slow_current.copy())
-        MAP_STATS.active_dam_matrix.append(MAP_STATS.active_dams.copy())
-        MAP_STATS.full_dam_matrix.append(MAP_STATS.full_dams.copy())
-        MAP_STATS.dam_rem_cap_matrix.append(MAP_STATS.dam_rem_cap.copy())
+    # Stash this month's grids for NetCDF export. Only the two grids that
+    # save_nc consumes are kept, and only when SAVE_NC is enabled — otherwise
+    # the whole run would accumulate in RAM (tens of GB on long past runs).
+    # Stored as float32 (save_nc casts to float32 anyway); astype() copies, so
+    # there is no aliasing with the live MAP_STATS grids.
+    if SAVE_NC:
+        if past:
+            # past runs step backward in time; prepend to keep chronological order
+            MAP_STATS.total_C_matrix.insert(0, C_total.astype(np.float32))
+            MAP_STATS.dam_rem_cap_matrix.insert(0, MAP_STATS.dam_rem_cap.astype(np.float32))
+        else:
+            MAP_STATS.total_C_matrix.append(C_total.astype(np.float32))
+            MAP_STATS.dam_rem_cap_matrix.append(MAP_STATS.dam_rem_cap.astype(np.float32))
         
     # count and report cells where C_total > 40 and it's an active dam
     high_dam_mask = (C_total > 40) & MAP_STATS.active_dams

@@ -60,14 +60,13 @@ class MAP_STATS:
     C_slow_equil_terminal = None
     dam_cur_stored_equil_terminal = None
     
+    # Monthly (time, lat, lon) snapshot buffers for NetCDF export.
+    # Only populated when SAVE_NC is True; otherwise left empty so the full
+    # run is not accumulated in RAM (see store_plot_output / save_nc).
     total_C_matrix = []
-    C_fast_matrix = []
-    C_slow_matrix = []
-    active_dam_matrix = []
-    full_dam_matrix = [] 
-    
-    # Dam related stats
     dam_rem_cap_matrix = []
+
+    # Dam related stats
     active_dams = None
     dam_cur_stored = None
     dam_max_cap = None
